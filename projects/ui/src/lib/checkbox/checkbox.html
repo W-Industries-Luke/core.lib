@@ -1,0 +1,36 @@
+<!--
+  Everything visible here is Material's. The box and its outline, the checkmark
+  and the mixed mark and the animations between them, the ripple, the state
+  layers, the 48px touch target, the focus ring, the `<label for>` tied to the
+  input whose id Material generates, and every colour are `<mat-checkbox>`'s own
+  work — this template only hands it the component's signals.
+
+  The label is projected into Material's own `<label>` rather than rendered
+  beside it, so clicking custom content still toggles the box: `<mat-checkbox>`
+  projects `*` into that label, and `{{ label() }}` is the fallback Angular
+  renders when a consumer projects nothing.
+-->
+<mat-checkbox
+  #checkbox
+  [id]="id() ?? ''"
+  [checked]="checked()"
+  [indeterminate]="indeterminate()"
+  [disabled]="isDisabled()"
+  [required]="required()"
+  [labelPosition]="labelPosition()"
+  [name]="name() ?? null"
+  [value]="matValue()"
+  [disableRipple]="disableRipple()"
+  [disabledInteractive]="disabledInteractive()"
+  [tabIndex]="tabindex()"
+  [aria-label]="ariaLabel() ?? ''"
+  [aria-labelledby]="ariaLabelledby() ?? null"
+  [aria-describedby]="matAriaDescribedby()"
+  [aria-expanded]="ariaExpanded()"
+  [aria-controls]="matAriaControls()"
+  [aria-owns]="matAriaOwns()"
+  (change)="handleChange($event)"
+  (indeterminateChange)="indeterminate.set($event)"
+>
+  <ng-content>{{ label() }}</ng-content>
+</mat-checkbox>
