@@ -1,0 +1,59 @@
+<!--
+  Everything interactive here is Material's. The circles and the dot, the ripples,
+  the state layers, the touch targets, the focus rings, the shared `name` that
+  makes the buttons exclusive, the arrow-key roving focus, the `<label for>` tied
+  to each input whose id Material generates, and every colour are
+  `<mat-radio-group>`'s and `<mat-radio-button>`'s own work — this template only
+  assembles them and hands them the component's signals.
+
+  The buttons are an `options` input rather than projected `<mat-radio-button>`s
+  for the same reason `ui-select`'s options are: `<mat-radio-group>` finds its
+  radios with a content query, so they have to be declared in this template.
+  `uiRadioOption` is how a consumer renders one as something other than text — the
+  `<mat-radio-button>` around it stays Material's.
+-->
+@if (label(); as text) {
+  <!--
+    The legend, and the group's accessible name — `aria-labelledby` below points
+    at this id. Not a `<legend>`: that names a `<fieldset>`, and the element with
+    the `radiogroup` role is the `<mat-radio-group>`, so ARIA's own association
+    for the role is the only one a screen reader would honour here.
+  -->
+  <span class="ui-radio-group__label" [id]="labelId">{{ text }}</span>
+}
+
+<mat-radio-group
+  #group
+  class="ui-radio-group__group"
+  [class.ui-radio-group__group--row]="direction() === 'row'"
+  [value]="value()"
+  [disabled]="isDisabled()"
+  [required]="required()"
+  [labelPosition]="labelPosition()"
+  [name]="resolvedName()"
+  [disabledInteractive]="disabledInteractive()"
+  [attr.aria-label]="ariaLabel() ?? null"
+  [attr.aria-labelledby]="resolvedAriaLabelledby()"
+  (change)="handleChange($event)"
+>
+  <!--
+    Tracked by `value` — it is what identifies an option to the form, so two
+    options sharing one is already a bug this would only hide.
+  -->
+  @for (option of options(); track option.value) {
+    <mat-radio-button
+      [value]="option.value"
+      [disabled]="!!option.disabled"
+      [disableRipple]="disableRipple()"
+    >
+      @if (optionDef(); as def) {
+        <ng-container
+          [ngTemplateOutlet]="def.template"
+          [ngTemplateOutletContext]="optionContext(option)"
+        />
+      } @else {
+        {{ option.label }}
+      }
+    </mat-radio-button>
+  }
+</mat-radio-group>
