@@ -7,7 +7,10 @@
 /bazel-out
 
 # Node
-/node_modules
+# Unanchored: this is a multi-project workspace, so node_modules also appears
+# under projects/*/ (e.g. vitest's .vite cache). A root-anchored /node_modules
+# misses those and they get committed.
+node_modules/
 npm-debug.log
 yarn-error.log
 
