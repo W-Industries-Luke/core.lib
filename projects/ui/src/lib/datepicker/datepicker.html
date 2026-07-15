@@ -1,0 +1,114 @@
+<!--
+  Everything visible here is Material's. The container, the floating label and its
+  `for` association, the outline, the focus ring, the toggle button, the calendar
+  overlay and its keyboard handling, and the subscript that swaps a hint for an
+  error are all Material's own work — this template only assembles them and hands
+  them the component's signals.
+
+  The slots project into elements declared *here*, carrying Material's own
+  `matDatepickerToggleIcon` / `<mat-hint>`, rather than asking a consumer to write
+  those directives themselves: `<mat-form-field>` and `<mat-datepicker-toggle>`
+  find their parts with content queries, and a marker on a consumer's element would
+  be one projection hop further out than those queries look. It is the shape
+  `ui-input` uses, for the same reason.
+-->
+<mat-form-field
+  class="ui-datepicker__field"
+  [appearance]="appearance()"
+  [floatLabel]="floatLabel()"
+  [subscriptSizing]="subscriptSizing()"
+  [hideRequiredMarker]="hideRequiredMarker()"
+>
+  @if (label()) {
+    <mat-label>{{ label() }}</mat-label>
+  }
+
+  <!--
+    `id` and `aria-describedby` are empty strings rather than `undefined` when
+    unset: both of Material's setters read `''` as "nothing given" and fall back to
+    the id it generated and to the messages it renders, while `undefined` would not
+    type-check against them.
+
+    `(dateChange)` rather than `(input)` is what makes the two ways of naming a date
+    one event: Material fires it both when the calendar closes on a selection and
+    when typing parses to a date, already converted from text to a `Date`.
+  -->
+  <input
+    #input
+    matInput
+    [matDatepicker]="picker"
+    [id]="id() ?? ''"
+    [name]="name() ?? ''"
+    [placeholder]="placeholder() ?? ''"
+    [value]="value()"
+    [min]="min()"
+    [max]="max()"
+    [matDatepickerFilter]="dateFilter()"
+    [disabled]="isDisabled()"
+    [required]="required()"
+    [readonly]="readonly()"
+    [errorStateMatcher]="errorStateMatcher"
+    [aria-describedby]="ariaDescribedby() ?? ''"
+    (dateChange)="handleDateChange($event)"
+    (blur)="handleBlur()"
+  />
+
+  @if (toggle()) {
+    <!--
+      `matIconSuffix` puts the button inside the field's box with Material's own
+      spacing, so the label floats over the text rather than over the icon.
+
+      `aria-label` is passed as `''` when unset rather than left off: Material's
+      toggle reads that as "nothing given" and falls back to its own translated
+      `MatDatepickerIntl.openCalendarLabel`, so the button is never unnamed.
+    -->
+    <mat-datepicker-toggle
+      matIconSuffix
+      [for]="picker"
+      [disabled]="isDisabled()"
+      [aria-label]="toggleAriaLabel() ?? ''"
+    >
+      @if (toggleIconSlot()) {
+        <span matDatepickerToggleIcon class="ui-datepicker__toggle-icon">
+          <ng-content select="[uiDatepickerToggleIcon]" />
+        </span>
+      }
+    </mat-datepicker-toggle>
+  }
+
+  <!--
+    `[opened]` with `(opened)`/`(closed)` writing back is what makes the two-way
+    `[(opened)]` honest: Material owns *when* the calendar closes — a click on the
+    backdrop, Escape, or a date being picked — and without the write-back a
+    consumer's own flag would silently drift out of step with what is on screen.
+  -->
+  <mat-datepicker
+    #picker
+    [startAt]="startAt()"
+    [startView]="startView()"
+    [touchUi]="touchUi()"
+    [panelClass]="panelClass()"
+    [xPosition]="xPosition()"
+    [yPosition]="yPosition()"
+    [restoreFocus]="restoreFocus()"
+    [dateClass]="dateClass()"
+    [opened]="opened()"
+    (opened)="opened.set(true)"
+    (closed)="opened.set(false)"
+  />
+
+  <!--
+    Material renders at most one subscript message: it shows the errors when the
+    control is in an error state and the hints otherwise, so both can be here and an
+    error never stacks on top of the hint it replaces.
+  -->
+  @if (hasError()) {
+    <mat-error>{{ error() }}</mat-error>
+  }
+
+  @if (hintSlot()) {
+    <mat-hint><ng-content select="[uiDatepickerHint]" /></mat-hint>
+  } @else if (hint()) {
+    <mat-hint>{{ hint() }}</mat-hint>
+  }
+</mat-form-field>
