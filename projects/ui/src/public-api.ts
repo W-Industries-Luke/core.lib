@@ -12,6 +12,7 @@ export * from './lib/datepicker/datepicker';
 export * from './lib/dialog/confirm-dialog';
 export * from './lib/dialog/dialog';
 export * from './lib/dialog/dialog-layout';
+export * from './lib/empty-state/empty-state';
 export * from './lib/input/input';
 export * from './lib/progress-bar/progress-bar';
 export * from './lib/radio-group/radio-group';
