@@ -1,0 +1,30 @@
+<!--
+  The slots project into Material's own title/content/actions rather than into
+  plain divs, so the sticky heading, the scrolling body, the `align` and the
+  `aria-labelledby` wiring all come from Material.
+
+  The title is the one slot with no element of its own here: `matDialogTitle` is
+  a *directive*, and `DialogTitle` pulls it onto the consumer's own heading as a
+  host directive. So `<h2 uiDialogTitle>` *is* Material's title element — which
+  is what lets `aria-labelledby` point at the real heading rather than at a
+  wrapper this template invented. The `@if` is still needed, because a slot with
+  nothing marked must not render an empty region.
+-->
+@if (titleSlot()) {
+  <ng-content select="[uiDialogTitle]" />
+}
+
+<!--
+  `tabindex` only once the body actually overflows — see `contentScrolls`. A
+  scrollable region has to be reachable from the keyboard, and a region that does
+  not scroll must not be a tab stop.
+-->
+<mat-dialog-content #content [attr.tabindex]="contentScrolls() ? 0 : null">
+  <ng-content />
+</mat-dialog-content>
+
+@if (actionSlots().length) {
+  <mat-dialog-actions [align]="actionsAlign()">
+    <ng-content select="[uiDialogActions]" />
+  </mat-dialog-actions>
+}
