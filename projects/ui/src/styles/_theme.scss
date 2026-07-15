@@ -10,12 +10,15 @@
 // Overriding a token here changes it everywhere, which is the whole point of
 // this library existing.
 
+@use 'sass:map';
 @use '@angular/material' as mat;
 
 // Component colour roles that cannot live in an encapsulated stylesheet because
-// the thing they style is a directive on someone else's element. Consuming this
-// partial is what makes `<button matButton uiButton color="accent">` themed.
+// the thing they style is a directive on someone else's element. Consuming these
+// partials is what makes `<button matButton uiButton color="accent">` and
+// `<span uiBadge="4" variant="success">` themed.
 @use './button';
+@use './badge';
 
 // ---------------------------------------------------------------------------
 // Palette
@@ -27,6 +30,36 @@
 // colour with:  ng generate @angular/material:theme-color
 $primary: mat.$azure-palette;
 $tertiary: mat.$blue-palette;
+
+// ---------------------------------------------------------------------------
+// Status palettes
+// ---------------------------------------------------------------------------
+// M3's colour system stops at primary/secondary/tertiary/error, so there is no
+// `success` or `warning` role to point a status badge at — and `tertiary` is
+// whatever the brand happens to be (blue, above), which is not a colour anyone
+// reads as "succeeded". These two palettes fill that gap.
+//
+// They are Angular Material's own prebuilt M3 palettes rather than hand-picked
+// hexes, so they are tonally consistent with the palettes above and are swapped
+// the same way — change these two lines and every success/warning surface in the
+// fleet follows.
+$success: mat.$green-palette;
+$warning: mat.$orange-palette;
+
+/// Emits a `--ui-sys-<name>` / `--ui-sys-on-<name>` role pair from an M3 palette.
+///
+/// The tones are the ones M3 itself assigns to a bold colour role and its
+/// legible-on partner (see `core/tokens/m3/_md-sys-color.scss`, where light
+/// `error` is tone 40 with `on-error` at 100, and dark is 80 with 20). Deriving
+/// them rather than picking them keeps these roles honest: they behave like
+/// every other M3 role, at any palette, in either mode.
+///
+/// @param {String} $name The role's name, e.g. `success`.
+/// @param {Map} $palette The M3 palette to derive it from.
+@mixin _status-role($name, $palette) {
+  --ui-sys-#{$name}: light-dark(#{map.get($palette, 40)}, #{map.get($palette, 80)});
+  --ui-sys-on-#{$name}: light-dark(#{map.get($palette, 100)}, #{map.get($palette, 20)});
+}
 
 // ---------------------------------------------------------------------------
 // Theme
@@ -48,4 +81,14 @@ html {
   // Respect the user's OS preference by default. An app can force one mode by
   // setting `color-scheme: light` (or dark) on :root.
   color-scheme: light dark;
+
+  // The status roles M3 does not define, emitted alongside Material's own
+  // `--mat-sys-*` roles and named to match. `--ui-sys-success` is to
+  // `$success` exactly what `--mat-sys-error` is to the theme's error palette:
+  // the same tones (40 on light, 80 on dark; 100/20 for the legible-on pair),
+  // resolved with the same `light-dark()` Material uses for a `color-scheme`
+  // theme. So they track the OS preference with no second stylesheet, and a
+  // consumer can reach for them wherever a `--mat-sys-*` role would go.
+  @include _status-role(success, $success);
+  @include _status-role(warning, $warning);
 }

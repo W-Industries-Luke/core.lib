@@ -1,0 +1,117 @@
+// Colour roles and the size scale for `uiBadge`.
+//
+// `uiBadge` is a directive on the element being badged, and a directive cannot
+// carry a `styleUrl` — so unlike a component's encapsulated stylesheet, this
+// lives with the theme and is emitted by `_theme.scss`. That is also where
+// Angular Material documents `mat.badge-overrides()` belonging: it is theming,
+// not structure, and the tokens have to reach a badge element that this library
+// does not own the template of.
+//
+// `variant` is resolved here rather than on `MatBadge`, because MatBadge's own
+// `matBadgeColor` input is an M2-only API that does nothing under an M3 theme
+// (see @angular/material/badge: "This API is supported in M2 themes only").
+//
+// Everything below reads the `--mat-sys-*` and `--ui-sys-*` custom properties
+// that `_theme.scss` emits, so there are no literal colours: swapping a palette
+// there re-colours every badge, in light and dark alike.
+//
+// Every rule is scoped to `.ui-badge`, the marker class the directive puts on
+// its host, so a plain `matBadge` elsewhere in an app keeps stock Material
+// behaviour rather than silently inheriting this library's opinions.
+
+@use '@angular/material' as mat;
+
+/// Re-points a badge's colour tokens at one pair of theme roles.
+///
+/// The disabled pair has to be set alongside the enabled one: Material's default
+/// `badge-disabled-state-background-color` is the *error* colour at 38%, so a
+/// disabled `success` badge would otherwise fade to red. 38% is Material's own
+/// figure, kept so a disabled badge looks disabled the same way everywhere.
+///
+/// @param {String} $background The role carrying the badge, e.g. `--mat-sys-error`.
+/// @param {String} $text The legible-on-$background role, e.g. `--mat-sys-on-error`.
+@mixin _variant($background, $text) {
+  // `--ui-badge-*` are the public hooks (rule 6): the colours are the one thing a
+  // consumer may reasonably want off-palette — a badge on an already-coloured
+  // surface, say. The default is the variant's own role, so a badge that uses no
+  // hook ships no extra colour decision.
+  $background: var(--ui-badge-background-color, var(#{$background}));
+  $text: var(--ui-badge-text-color, var(#{$text}));
+
+  @include mat.badge-overrides(
+    (
+      background-color: $background,
+      text-color: $text,
+      disabled-state-background-color: color-mix(in srgb, #{$background} 38%, transparent),
+      disabled-state-text-color: $text,
+    )
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Variants
+// ---------------------------------------------------------------------------
+// Every variant carries a class, including the default. Unlike `uiButton`, where
+// `primary` is what Material already resolves to and so needs no overrides, M3's
+// badge defaults to the *error* palette — an unmarked badge would be red, which
+// is the one thing `neutral` must not be.
+
+.ui-badge--neutral {
+  // A count with no urgency. `inverse-surface`/`inverse-on-surface` is M3's
+  // neutral high-emphasis pair — the one snackbars use — so it reads as a solid
+  // grey chip that flips correctly in dark mode, rather than a tinted one that
+  // implies a status the consumer did not ask for.
+  @include _variant(--mat-sys-inverse-surface, --mat-sys-inverse-on-surface);
+}
+
+.ui-badge--success {
+  @include _variant(--ui-sys-success, --ui-sys-on-success);
+}
+
+.ui-badge--warning {
+  @include _variant(--ui-sys-warning, --ui-sys-on-warning);
+}
+
+.ui-badge--danger {
+  // Material's own badge default, spelled out rather than left implicit: the
+  // hooks above only exist for variants that set the tokens.
+  @include _variant(--mat-sys-error, --mat-sys-on-error);
+}
+
+// ---------------------------------------------------------------------------
+// Size scale
+// ---------------------------------------------------------------------------
+// Stock M3 does not give `matBadgeSize` a usable scale, so this is where the
+// three steps become real. Out of the box:
+//
+//   - `small` sets `badge-small-size-text-size: 0` — a 6px dot that renders the
+//     count invisibly. A badge whose whole job is showing a count must not
+//     silently drop it at one size, so `small` is a real, text-bearing badge
+//     here. Nothing is lost: an empty badge is `mat-badge-hidden` regardless, so
+//     the stock dot could never have carried content anyway.
+//   - `large` is token-for-token identical to `medium` (both 16px, both
+//     label-small), so the input would be a no-op at one of its three values.
+//
+// `medium` is Material's own 16px/label-small and is therefore left alone. The
+// offsets keep Material's ratio of three quarters of the container size, so a
+// badge stays pinned to its host's corner at every step. Sizes are px because
+// M3 has no type token below `label-small`; none of this is colour.
+
+.ui-badge {
+  @include mat.badge-overrides(
+    (
+      small-size-container-size: 12px,
+      small-size-line-height: 12px,
+      small-size-text-size: 10px,
+      small-size-container-padding: 0 3px,
+      small-size-container-offset: -9px 0,
+      small-size-container-overlap-offset: -9px,
+      large-size-container-size: 24px,
+      large-size-line-height: 24px,
+      large-size-text-size: var(--mat-sys-label-medium-size),
+      large-size-container-padding: 0 6px,
+      large-size-container-offset: -18px 0,
+      large-size-container-overlap-offset: -18px,
+    )
+  );
+}
