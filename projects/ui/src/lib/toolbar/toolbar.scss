@@ -1,0 +1,136 @@
+// The colour roles, the box metrics and the styling hooks for `ui-toolbar`.
+//
+// There is not a literal colour in this file on purpose: `<mat-toolbar>` already
+// resolves its container and its text from the `--mat-sys-*` tokens that
+// `../../styles/_theme.scss` emits, so a palette change there re-colours every
+// toolbar with no help from here. `color` is resolved through Material's own
+// tokens rather than through its `color` input, which is an M2-only API that does
+// nothing under an M3 theme (see `@angular/material/toolbar`) — the same reason
+// `_button.scss` exists, and the same `mat.*-overrides()` pattern.
+
+@use '@angular/material' as mat;
+
+// State layers and ripples are the icon colour at the theme's own interaction
+// opacities — the same construction Material uses internally, and the same one
+// `_button.scss` uses.
+@function _state-layer($color, $opacity) {
+  @return color-mix(in srgb, #{$color} calc(var(#{$opacity}) * 100%), transparent);
+}
+
+:host {
+  // Material's toolbar is `display: block` and fills its container's width, which
+  // is what a bar wants — it spans the thing it heads. The host gets out of the
+  // way rather than imposing a size of its own.
+  display: block;
+
+  // The colour pair resolves here, once, so the container, the title, the text
+  // buttons and the icon buttons below all read the same value.
+  //
+  // The private property is what everything reads and what `color` re-points, so
+  // that the *public* hook still wins inside either colour: `color` picks the
+  // role, `--ui-toolbar-background-color` overrules it. Same construction as
+  // `ui-card`'s padding.
+  --_ui-toolbar-background-color: var(--ui-toolbar-background-color, var(--mat-sys-surface));
+  --_ui-toolbar-text-color: var(--ui-toolbar-text-color, var(--mat-sys-on-surface));
+
+  // Material's own two heights, above and below its 599px breakpoint. Same
+  // construction as the colours above, and for the same reason: `dense` re-points
+  // the private properties to pick a *default*, so a consumer's explicit
+  // `--ui-toolbar-height` still wins on a dense bar rather than being outranked by
+  // it.
+  --_ui-toolbar-height: var(--ui-toolbar-height, 64px);
+  --_ui-toolbar-mobile-height: var(--ui-toolbar-mobile-height, 56px);
+
+  // Every hook goes through `mat.toolbar-overrides()` rather than a rule on
+  // Material's internals: the tokens are Material's own API, so the layout, the
+  // breakpoint and the type scale stay Material's. Custom properties inherit
+  // through the encapsulation boundary, so a hook set on `ui-toolbar` reaches the
+  // elements inside Material's template — and the consumer's projected content —
+  // with no `::ng-deep`.
+  @include mat.toolbar-overrides(
+    (
+      container-background-color: var(--_ui-toolbar-background-color),
+      container-text-color: var(--_ui-toolbar-text-color),
+      standard-height: var(--_ui-toolbar-height),
+      mobile-height: var(--_ui-toolbar-mobile-height)
+    )
+  );
+
+  // Material fixes up text and outlined buttons on a toolbar itself — see its own
+  // `.mat-toolbar .mat-mdc-button-base.mat-unthemed` rule, which points their
+  // labels at `container-text-color` — but it does not do the same for an icon
+  // button, which stays on `on-surface-variant`: barely legible on a `primary`
+  // container, and the exact `::ng-deep` this component exists to prevent.
+  //
+  // Driving it from the toolbar's own text colour rather than from a role of its
+  // own is what keeps that true for a re-pointed bar too: whatever
+  // `--ui-toolbar-text-color` is legible against, the icons are legible against.
+  @include mat.icon-button-overrides(
+    (
+      icon-color: var(--ui-toolbar-icon-color, var(--_ui-toolbar-text-color)),
+      state-layer-color: var(--ui-toolbar-icon-color, var(--_ui-toolbar-text-color)),
+      ripple-color:
+        _state-layer(
+          var(--ui-toolbar-icon-color, var(--_ui-toolbar-text-color)),
+          --mat-sys-pressed-state-layer-opacity
+        )
+    )
+  );
+}
+
+// The bold pair, for a bar that reads as a branded band. `on-primary` carries the
+// title, Material's own rule hands it to any text or outlined button on the bar,
+// and the icon override above follows it — so nothing on a primary toolbar is left
+// on an `on-surface` role it cannot be read against.
+:host(.ui-toolbar--primary) {
+  --_ui-toolbar-background-color: var(--ui-toolbar-background-color, var(--mat-sys-primary));
+  --_ui-toolbar-text-color: var(--ui-toolbar-text-color, var(--mat-sys-on-primary));
+}
+
+// M3's next height down — Material's own density -2 row (see `get-density-tokens`
+// in `@angular/material/toolbar/_m3-toolbar.scss`), not a number picked here.
+//
+// Unlike a tab group's height, this is a per-toolbar decision rather than the
+// fleet's density: a dialog's own bar and the page's top app bar are different
+// bars, not a disagreement between two apps.
+:host(.ui-toolbar--dense) {
+  --_ui-toolbar-height: var(--ui-toolbar-height, 56px);
+  --_ui-toolbar-mobile-height: var(--ui-toolbar-mobile-height, 48px);
+}
+
+// --- The three regions -----------------------------------------------------
+// Material's single-row toolbar is already a `display: flex` row with its own
+// padding and `align-items: center`, so these are its flex children and only need
+// to say how they share the row. The padding is re-declared solely to put a hook
+// on it — the value is Material's own.
+
+mat-toolbar {
+  padding-inline: var(--ui-toolbar-padding, 16px);
+  gap: var(--ui-toolbar-gap, 8px);
+}
+
+.ui-toolbar__start,
+.ui-toolbar__end {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-toolbar-gap, 8px);
+  // Natural width: the actions are the size they are, and the title absorbs the
+  // rest of the row.
+  flex: 0 0 auto;
+}
+
+.ui-toolbar__title {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-toolbar-gap, 8px);
+  // The flexible region — this is what holds the trailing slot against the far
+  // end, and what an untitled bar leaves as empty space rather than as a gap in
+  // the middle of the actions.
+  flex: 1 1 auto;
+  // Material's row is `white-space: nowrap`, so a title longer than the bar would
+  // otherwise push the trailing actions off the end rather than being clipped.
+  // `min-width: 0` lets this region shrink below its content, which a flex item
+  // does not do by default.
+  min-width: 0;
+  overflow: hidden;
+}

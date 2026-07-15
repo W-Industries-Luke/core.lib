@@ -1,0 +1,34 @@
+<!--
+  The slots are elements of this template rather than of the consumer's projected
+  markup, so that `toolbar.scss` can lay them out: an encapsulated stylesheet
+  cannot style projected content, and styling it anyway would be exactly the
+  `::ng-deep` the hooks exist to spare consumers.
+
+  They sit in `<mat-toolbar>`'s default slot, which makes this a single-row
+  toolbar — so the container, its height, its padding and its type scale are
+  Material's own. `<mat-toolbar-row>` is deliberately not used: rows are Material's
+  answer to a *multi*-row bar, and mixing them with default-slot content is an
+  error Material throws on.
+-->
+<mat-toolbar>
+  @if (startSlot()) {
+    <div class="ui-toolbar__start"><ng-content select="[uiToolbarStart]" /></div>
+  }
+
+  <!--
+    Always rendered, even with nothing in it: it is the flexible region, so it is
+    what holds the trailing actions against the far end of an untitled bar.
+
+    The catch-all sits beside the marked slot so that unmarked content — the
+    everyday `<ui-toolbar><h1>Orders</h1></ui-toolbar>` — lands in the title
+    rather than on the floor.
+  -->
+  <div class="ui-toolbar__title">
+    <ng-content select="[uiToolbarTitle]" />
+    <ng-content />
+  </div>
+
+  @if (endSlot()) {
+    <div class="ui-toolbar__end"><ng-content select="[uiToolbarEnd]" /></div>
+  }
+</mat-toolbar>
