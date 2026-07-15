@@ -25,5 +25,6 @@ export * from './lib/tabs/tab';
 export * from './lib/tabs/tabs';
 export * from './lib/textarea/textarea';
 export * from './lib/toggle/toggle';
+export * from './lib/toolbar/toolbar';
 export * from './lib/tooltip/tooltip';
 export * from './lib/ui';
