@@ -1,0 +1,18 @@
+// Global styles for the Storybook preview iframe.
+//
+// This is what makes stories render exactly like a consuming *.web app: the
+// shared M3 theme is the SAME partial the apps consume, so if a token changes
+// there, every story reflects it with no extra wiring here.
+@use '../src/styles/theme';
+
+// The theme partial only emits tokens onto `html`. Apps normally set their own
+// page-level background/foreground from those tokens; Storybook has no app
+// shell, so do it here — otherwise stories render on a transparent canvas and
+// dark mode looks broken.
+html,
+body {
+  margin: 0;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+}

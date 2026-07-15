@@ -1,0 +1,61 @@
+name: storybook
+
+# Publishes the component catalogue to GitHub Pages on every push to main.
+# Storybook is a core deliverable of this library — the *.web apps consume the
+# published site as the reference for what exists and how it is themed — so it
+# ships on the same cadence as main rather than on manual releases.
+on:
+  push:
+    branches: [main]
+  # Lets a maintainer redeploy without an empty commit (e.g. after enabling or
+  # reconfiguring Pages).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write # create a Pages deployment
+  id-token: write # deploy-pages authenticates via OIDC, not a PAT
+
+# Never let two deploys race for the single Pages environment. `cancel-in-progress:
+# false` because a half-applied deploy is worse than a slow one — let the running
+# one land, then supersede it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - uses: actions/configure-pages@v6
+
+      # `ng run ui:build-storybook` -> ./storybook-static.
+      # The builder runs compodoc first, which regenerates the gitignored
+      # projects/ui/documentation.json that .storybook/preview.ts imports.
+      # Storybook emits relative asset URLs, so the output is already correct for
+      # the /core.lib/ project-site subpath — no base-href rewrite needed here.
+      - name: Build Storybook
+        run: npm run build-storybook
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: storybook-static
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
