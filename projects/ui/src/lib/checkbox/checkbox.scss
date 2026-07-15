@@ -1,0 +1,51 @@
+// The box `ui-checkbox` occupies, and the two colour hooks — nothing else.
+//
+// There is not a literal colour in this file on purpose: `<mat-checkbox>`
+// already resolves its box, checkmark, mixed mark, ripple, state layers and
+// label typography from the `--mat-sys-*` tokens that `../../styles/_theme.scss`
+// emits, so a palette change there re-skins every checkbox, in light and dark
+// alike, with no help from here. The overrides below only re-point Material's own
+// tokens at *hooks* whose defaults are the very tokens Material would have
+// used — so the default checkbox ships no colour decision of its own.
+//
+// Note this is `mat.checkbox-overrides()` rather than rules on Material's
+// internals, and rather than `<mat-checkbox color="…">`: `color` is an M2-only
+// API that does nothing under an M3 theme (see @angular/material/checkbox), while
+// the tokens are Material's own supported surface. Custom properties inherit
+// through the encapsulation boundary, so they reach the box with no `::ng-deep`.
+
+@use '@angular/material' as mat;
+
+:host {
+  // Material lays the box, the touch target and the label out itself, in a row
+  // it sizes. The host shrinks to that and stays inline, so a checkbox can sit
+  // in a line of text, in a form column or in a toolbar with no layout hack —
+  // and a consumer who wants it to fill a row writes `display: block` on this
+  // element, which is a rule rather than a workaround.
+  display: inline-block;
+
+  // The public hooks (rule 6). The pair moves together on purpose: the mark has
+  // to stay legible against the fill it is drawn on, which is exactly the
+  // relationship M3's `primary` / `on-primary` roles encode — so point these at
+  // another such pair (`--mat-sys-error` / `--mat-sys-on-error`) rather than at
+  // literals, and they survive a palette change and dark mode.
+  //
+  // Every `selected-*` variant is listed because Material tokenises the box's
+  // fill once per interaction state: naming only `selected-icon-color` would
+  // leave a checked box reverting to the theme's primary the moment it was
+  // hovered or focused.
+  @include mat.checkbox-overrides(
+    (
+      selected-icon-color: var(--ui-checkbox-color, var(--mat-sys-primary)),
+      selected-focus-icon-color: var(--ui-checkbox-color, var(--mat-sys-primary)),
+      selected-hover-icon-color: var(--ui-checkbox-color, var(--mat-sys-primary)),
+      selected-pressed-icon-color: var(--ui-checkbox-color, var(--mat-sys-primary)),
+      selected-focus-state-layer-color: var(--ui-checkbox-color, var(--mat-sys-primary)),
+      selected-hover-state-layer-color: var(--ui-checkbox-color, var(--mat-sys-primary)),
+      // The ripple an *unchecked* box shows as it is pressed is the colour it is
+      // about to become, which is Material's own default for this token.
+      unselected-pressed-state-layer-color: var(--ui-checkbox-color, var(--mat-sys-primary)),
+      selected-checkmark-color: var(--ui-checkbox-checkmark-color, var(--mat-sys-on-primary)),
+    )
+  );
+}
