@@ -1,0 +1,61 @@
+// The box `ui-datepicker` occupies, and the toggle's two colour hooks — nothing
+// else.
+//
+// There is not a literal colour in this file on purpose: `<mat-form-field>`,
+// `<input matInput>`, `<mat-datepicker-toggle>` and the calendar already resolve
+// every colour, radius, outline and font from the `--mat-sys-*` tokens that
+// `../../styles/_theme.scss` emits, so a palette change there re-skins every
+// datepicker, in light and dark alike, with no help from here.
+//
+// Note the hooks below are `mat.datepicker-overrides()` rather than rules on
+// Material's internals, and rather than `<mat-datepicker color="…">`: `color` is
+// an M2-only API that does nothing under an M3 theme (see
+// @angular/material/datepicker), while the tokens are Material's own supported
+// surface — the same pattern `_button.scss` establishes.
+
+@use '@angular/material' as mat;
+
+:host {
+  // A field is a block: it has a label above it and a subscript below it, and it
+  // is what the host has to be for the width below to have anything to fill.
+  display: block;
+
+  // The toggle is the only part of the datepicker inside this component's own DOM,
+  // and therefore the only part these tokens can reach — the calendar renders in an
+  // overlay at the document root, which is not a descendant of this host, so a
+  // custom property set here never inherits down to it. Recolouring the calendar
+  // itself is what `[panelClass]` is passed through for; recolouring it *globally*
+  // is a `mat.datepicker-overrides()` in `_theme.scss`, which is where a decision
+  // that applies to every calendar in the fleet belongs anyway.
+  //
+  // Both defaults are the very tokens Material would have used, so the default
+  // datepicker ships no colour decision of its own. Point them at an M3 role
+  // (`--mat-sys-tertiary`) or one of the theme's own (`--ui-sys-success`) rather
+  // than at a literal, and they survive a palette change and dark mode.
+  @include mat.datepicker-overrides(
+    (
+      // The calendar icon at rest.
+      toggle-icon-color: var(--ui-datepicker-toggle-icon-color, var(--mat-sys-on-surface-variant)),
+      // The same icon while the calendar is open, which is what tells a user at a
+      // glance which of several date fields they are picking into.
+      toggle-active-state-icon-color: var(
+          --ui-datepicker-toggle-active-icon-color,
+          var(--mat-sys-primary)
+        )
+    )
+  );
+}
+
+.ui-datepicker__field {
+  // `.mat-mdc-form-field` is an `inline-flex` sized from the input's own intrinsic
+  // width, so a consumer who writes `ui-datepicker { width: 20rem; }` — the obvious
+  // gesture — would widen this host and watch the field sit at its default width
+  // inside it, with `::ng-deep .mat-mdc-form-field { width: 100% }` as the only way
+  // out. Rule 2 says that means the API is wrong, so the field fills the host by
+  // default and the host is what a consumer sizes.
+  //
+  // `--ui-datepicker-width` is the public hook (rule 6) for the case the default is
+  // wrong: a field that should shrink to its content (`max-content`), or a pair
+  // sharing a row.
+  width: var(--ui-datepicker-width, 100%);
+}
