@@ -1,0 +1,23 @@
+name: ci
+
+# Verifies every PR — including the ones the unattended agent opens.
+# This is the gate that makes autonomous work reviewable rather than trusted.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: Build library
+        run: npx ng build ui
+      - name: Test library
+        run: npx ng test ui --watch=false
