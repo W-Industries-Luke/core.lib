@@ -14,13 +14,15 @@
 @use '@angular/material' as mat;
 
 // Component styles that cannot live in an encapsulated stylesheet, because the
-// element they style is someone else's: a directive's host, or content projected
-// into a component from a consumer's template. Consuming these partials is what
-// makes `<button matButton uiButton color="accent">`, `<span uiBadge="4"
-// variant="success">` and `<h3 uiAlertTitle>` themed.
+// element they style is someone else's: a directive's host, content projected
+// into a component from a consumer's template, or a Material container rendered
+// into the CDK overlay. Consuming these partials is what makes `<button matButton
+// uiButton color="accent">`, `<span uiBadge="4" variant="success">`, `<h3
+// uiAlertTitle>` and `inject(Snackbar).success(…)` themed.
 @use './button';
 @use './badge';
 @use './alert';
+@use './snackbar';
 
 // ---------------------------------------------------------------------------
 // Palette

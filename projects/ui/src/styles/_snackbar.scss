@@ -1,0 +1,99 @@
+// Colour roles for the snackbars `Snackbar` opens.
+//
+// A snackbar renders into the CDK overlay at the end of `<body>`, not into the
+// template of whoever opened it — so there is no component stylesheet that could
+// reach it, and no `styleUrl` on a service to put one on. Like `_button.scss`,
+// this is theming that has to land on an element this library does not own the
+// template of, so it lives with the theme and is emitted by `_theme.scss`.
+//
+// `Snackbar` puts `.ui-snackbar` and `.ui-snackbar--<variant>` on Material's own
+// container (`MatSnackBarConfig.panelClass`), and everything below hangs off
+// those. Nothing here selects a Material internal: the classes carry tokens, and
+// the tokens are Material's own, re-pointed through `mat.snack-bar-overrides()`
+// — which is the same reason `color` is resolved this way for `uiButton`, since
+// Material's `color` input is an M2-only API that does nothing under an M3 theme.
+//
+// Every value reads a `--mat-sys-*` / `--ui-sys-*` role that `_theme.scss`
+// emits, so there is not a literal colour here: swapping a palette there
+// re-colours every snackbar, in light and dark alike.
+
+@use '@angular/material' as mat;
+
+/// Re-points a snackbar's colour tokens at one pair of theme roles.
+///
+/// The *bold* pair, not the `-container` pair `ui-alert` takes. A snackbar is a
+/// small floating chip over unrelated content, so it needs to separate itself
+/// from whatever is behind it — which is exactly why M3's own snackbar is
+/// `inverse-surface`, the boldest surface in the system, rather than a tint. A
+/// banner is the opposite case: it tints a block of text in place, and a bold
+/// role there would shout. Hence the two components differ.
+///
+/// @param {String} $main The palette's base role, e.g. `--ui-sys-success`.
+/// @param {String} $on-main The legible-on-$main role, e.g. `--ui-sys-on-success`.
+@mixin _variant($main, $on-main) {
+  // `--ui-snackbar-*` are the public hooks (rule 6), resolved here so the
+  // overrides below read the private property and a consumer overrides all of
+  // them from a single declaration. The default is the variant's own role, so a
+  // snackbar that uses no hook ships no colour decision of its own.
+  --_ui-snackbar-container-color: var(--ui-snackbar-container-color, var(#{$main}));
+  --_ui-snackbar-text-color: var(--ui-snackbar-text-color, var(#{$on-main}));
+}
+
+.ui-snackbar {
+  // The default, and `info`'s: M3's own snackbar colours. `info` is a neutral
+  // toast, which is what Material's snackbar already is, so it re-points nothing
+  // and adds no colour of its own — the same way `uiButton`'s `primary` ships
+  // zero overrides because it is already what Material's tokens resolve to.
+  @include _variant(--mat-sys-inverse-surface, --mat-sys-inverse-on-surface);
+
+  @include mat.snack-bar-overrides(
+    (
+      container-color: var(--_ui-snackbar-container-color),
+      supporting-text-color: var(--_ui-snackbar-text-color),
+      // Material's default action colour is `inverse-primary` — a role picked to
+      // sit on `inverse-surface`, so on a success or error container it is the
+      // one part that would not follow the variant. `on-<main>` is the role M3
+      // guarantees clears 4.5:1 against the container the button sits on.
+      button-color: var(--ui-snackbar-button-color, var(--_ui-snackbar-text-color)),
+    )
+  );
+
+  // The action is a Material text button, and its state layer and ripple are
+  // *not* covered by the snackbar's own tokens: they default to `on-surface`,
+  // which on a coloured container is invisible at best. These re-point Material's
+  // own button tokens rather than styling its internals, so the button keeps its
+  // state layer, focus ring and ripple — only the colour comes from the snackbar.
+  // The opacities are Material's, untouched.
+  @include mat.button-overrides(
+    (
+      text-state-layer-color: var(--ui-snackbar-button-color, var(--_ui-snackbar-text-color)),
+      text-ripple-color: color-mix(
+          in srgb,
+          var(--ui-snackbar-button-color, var(--_ui-snackbar-text-color))
+            calc(var(--mat-sys-pressed-state-layer-opacity) * 100%),
+          transparent
+        ),
+    )
+  );
+}
+
+// Both classes land on the same element, so these are written at two classes
+// each: that outranks `.ui-snackbar` above on specificity rather than on source
+// order, which is what keeps the variant winning if this file is ever reordered
+// or emitted through another entry point.
+
+.ui-snackbar.ui-snackbar--success {
+  @include _variant(--ui-sys-success, --ui-sys-on-success);
+}
+
+.ui-snackbar.ui-snackbar--error {
+  // M3's own error palette — the one status role the spec already defines.
+  @include _variant(--mat-sys-error, --mat-sys-on-error);
+}
+
+.ui-snackbar.ui-snackbar--info {
+  // Spelled out rather than left to `.ui-snackbar`'s default: `info` is a
+  // decision, and a reader should find it here with the other two rather than
+  // have to infer it from an absence.
+  @include _variant(--mat-sys-inverse-surface, --mat-sys-inverse-on-surface);
+}
