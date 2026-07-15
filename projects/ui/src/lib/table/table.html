@@ -1,0 +1,88 @@
+<!--
+  Material's table is the whole widget: the `<table>` and its `<th>`/`<td>`
+  structure, the row rendering, and the sort control with its arrow, its click,
+  its keyboard and its `aria-sort` are all `<mat-table>`'s and
+  `<mat-sort-header>`'s, drawn from the M3 system tokens the shared theme emits.
+  Nothing here re-implements any of it — this file only builds Material's column
+  defs out of the `columns` config, which is the boilerplate the component exists
+  to delete.
+
+  `matSort` is bound from `sort()` rather than left holding state of its own, so
+  the headers and the rows are two readings of one signal. `(matSortChange)`
+  writes a user's click back through that same `model`, which is the other half of
+  rule 5.
+-->
+<table
+  mat-table
+  matSort
+  [dataSource]="rows()"
+  [trackBy]="trackBy()"
+  [matSortActive]="sort()?.active ?? ''"
+  [matSortDirection]="sort()?.direction ?? ''"
+  (matSortChange)="sort.set($event)"
+  [attr.aria-label]="ariaLabel()"
+  [attr.aria-labelledby]="ariaLabelledby()"
+>
+  @for (column of columns(); track column.key) {
+    <ng-container [matColumnDef]="column.key">
+      <!--
+        `mat-sort-header` goes on every header, disabled where the column is not
+        `sortable`: Material then renders no arrow, takes the header out of the
+        tab order and drops its `role="button"`, leaving a plain heading. One code
+        path rather than two — and, unlike a structural `@if` around the `<th>`,
+        `[disabled]` is a live binding, so a column that gains or loses `sortable`
+        updates in place.
+      -->
+      <th
+        mat-header-cell
+        *matHeaderCellDef
+        mat-sort-header
+        [disabled]="!column.sortable"
+        [style.width]="column.width ?? null"
+      >
+        @if (headerTemplates().get(column.key); as headerTemplate) {
+          <ng-container
+            [ngTemplateOutlet]="headerTemplate"
+            [ngTemplateOutletContext]="{ $implicit: column, column }"
+          />
+        } @else {
+          {{ column.header }}
+        }
+      </th>
+
+      <td mat-cell *matCellDef="let row; let index = index">
+        @if (cellTemplates().get(column.key); as cellTemplate) {
+          <ng-container
+            [ngTemplateOutlet]="cellTemplate"
+            [ngTemplateOutletContext]="{ $implicit: row, row, column, index }"
+          />
+        } @else {
+          {{ cellValue(row, column) }}
+        }
+      </td>
+    </ng-container>
+  }
+
+  <tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns()"></tr>
+
+  <!--
+    Material's own answer to a table with no rows: it renders this in the body
+    when — and only when — nothing else is there, so the headers keep their place
+    and the table does not collapse and re-expand around its own empty state.
+
+    The cell spans every column, so the message sits under the whole table rather
+    than squeezed into the first column's width.
+  -->
+  <tr class="ui-table__message-row" *matNoDataRow>
+    <td class="ui-table__message-cell" [attr.colspan]="columns().length">
+      @if (loading()) {
+        <ui-spinner [label]="loadingLabel()" />
+      } @else if (emptySlot(); as empty) {
+        <ng-container [ngTemplateOutlet]="empty.template" />
+      } @else {
+        <ui-empty-state [title]="emptyMessage()" />
+      }
+    </td>
+  </tr>
+</table>

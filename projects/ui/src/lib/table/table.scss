@@ -1,0 +1,76 @@
+// Box metrics and the styling hooks for `ui-table`.
+//
+// There is not a literal colour in this file on purpose: `<mat-table>` already
+// resolves its surface, its text and its row dividers from the `--mat-sys-*`
+// tokens that `../../styles/_theme.scss` emits, so a palette change there
+// re-colours every table with no help from here. The overrides below only
+// re-point those tokens at *hooks* whose defaults are the very tokens Material
+// would have used, so the default table ships no colour decision of its own.
+
+@use '@angular/material' as mat;
+
+:host {
+  // Material's table is `display: table` and takes the width of its content. A
+  // table almost always wants the width it is given instead — column widths are
+  // shares of it — so the host is a block and the table fills it, below.
+  display: block;
+}
+
+:host {
+  // The public hooks (rule 6), each defaulting to the token Material itself
+  // resolves to under the shared M3 theme — so an untouched `ui-table` is a stock
+  // Material table, and a consumer who sets one is re-pointing a role rather than
+  // picking a colour.
+  //
+  // These go through `mat.table-overrides()` rather than a rule on Material's
+  // internals: the tokens are Material's own API, so the structure, the density
+  // and the type stay Material's. Custom properties inherit through the
+  // encapsulation boundary, so a hook set on `ui-table` reaches the elements
+  // inside Material's template with no `::ng-deep`.
+  @include mat.table-overrides(
+    (
+      background-color: var(--ui-table-background, var(--mat-sys-surface)),
+      header-headline-color: var(--ui-table-header-text-color, var(--mat-sys-on-surface)),
+      row-item-label-text-color: var(--ui-table-text-color, var(--mat-sys-on-surface)),
+      // The rule under each row. Material's own default is the theme's neutral
+      // `outline` role, which is kept.
+      row-item-outline-color: var(--ui-table-divider-color, var(--mat-sys-outline)),
+    )
+  );
+
+  // The sort header's arrow is `mat-sort`'s token rather than `mat-table`'s: the
+  // sort control is a component of its own that Material lets a table borrow.
+  @include mat.sort-overrides(
+    (
+      arrow-color: var(--ui-table-sort-arrow-color, var(--mat-sys-on-surface)),
+    )
+  );
+
+  // Note there is no row-height hook: `--mat-table-row-item-container-height` is
+  // Material's density token, and density is a fleet-wide decision `_theme.scss`
+  // owns. A table whose rows are 52px in one app and 40px in the next is exactly
+  // the drift this library exists to prevent.
+}
+
+table {
+  // Fill the host rather than shrinking to the content, so that a `width` on a
+  // column is a share of the space the table was given — which is what a consumer
+  // writing `width: '20%'` means — instead of of whatever the text happened to
+  // need.
+  width: 100%;
+}
+
+// The row Material renders when there is nothing else in the body: the spinner
+// while loading, the empty state otherwise. It is one cell spanning every column,
+// so what is in it is centred under the whole table.
+.ui-table__message-cell {
+  padding: 0;
+  text-align: center;
+
+  // The spinner is inline-block and has no padding of its own; the empty state
+  // brings its own. This is the gap around the spinner only, which would
+  // otherwise sit flush against the header's rule.
+  ui-spinner {
+    margin-block: var(--ui-table-loading-padding, 2rem);
+  }
+}
