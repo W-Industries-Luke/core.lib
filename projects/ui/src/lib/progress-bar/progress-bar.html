@@ -1,0 +1,17 @@
+<!--
+  Material's progress bar is the whole visual: the track, the active indicator,
+  the buffer dots and every mode's animation are all `<mat-progress-bar>`'s,
+  drawn from the M3 system tokens the shared theme emits. Nothing here
+  re-implements any of it.
+
+  The host is the `role="status"` live region; this element keeps Material's own
+  `role="progressbar"` and its `aria-valuenow`. The name is repeated onto it so
+  that the progressbar is not an anonymous widget nested inside a named region.
+-->
+<mat-progress-bar
+  [mode]="mode()"
+  [value]="value()"
+  [bufferValue]="bufferValue()"
+  [attr.aria-label]="resolvedLabel()"
+  (animationEnd)="animationEnd.emit($event)"
+/>

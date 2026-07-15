@@ -1,0 +1,46 @@
+// Box metrics and the styling hooks for `ui-progress-bar`.
+//
+// There is not a literal colour in this file on purpose: `<mat-progress-bar>`
+// already resolves its indicator and track from the `--mat-sys-*` tokens that
+// `../../styles/_theme.scss` emits, so a palette change there re-colours every
+// progress bar with no help from here. The overrides below only re-point those
+// tokens at *hooks* whose defaults are the very tokens Material would have used,
+// so the default progress bar ships no colour decision of its own.
+
+@use '@angular/material' as mat;
+
+:host {
+  // Material's bar is `display: block` and fills its container's width, which is
+  // what a progress bar wants — it spans the thing it is reporting on. The host
+  // gets out of the way rather than imposing a width of its own.
+  display: block;
+
+  // The public hooks (rule 6). Every one is `mat.progress-bar-overrides()`
+  // rather than a rule on Material's internals: the tokens are Material's own
+  // API, so the geometry, the animations and the buffer dots stay Material's.
+  // Custom properties inherit through the encapsulation boundary, so these reach
+  // the elements inside Material's template with no `::ng-deep`.
+  //
+  // Each default is the token Material itself resolves to, so an untouched
+  // `ui-progress-bar` is a stock Material bar under the shared theme.
+  @include mat.progress-bar-overrides(
+    (
+      // The two colours a consumer might reasonably want off-palette — a bar on
+      // a coloured surface, or a tertiary-accented one. Point them at another
+      // `--mat-sys-*` role rather than a literal, so they survive a palette
+      // change and dark mode.
+      active-indicator-color: var(--ui-progress-bar-color, var(--mat-sys-primary)),
+      track-color: var(--ui-progress-bar-track-color, var(--mat-sys-surface-variant)),
+      // Thickness. Material carries the indicator and the track as two separate
+      // tokens, but a bar whose fill is thinner than its track is a bug rather
+      // than a design — so one hook drives both, and they cannot drift apart.
+      active-indicator-height: var(--ui-progress-bar-height, 4px),
+      track-height: var(--ui-progress-bar-height, 4px),
+      // Shape. M3 ships a square bar (`corner-none`), which is left as the
+      // default: unlike `uiButton`'s capsule, that is not a house-style decision
+      // the fleet needs re-taken. The hook is here so a rounded bar is a
+      // declaration rather than a reach into Material's internals.
+      track-shape: var(--ui-progress-bar-shape, var(--mat-sys-corner-none))
+    )
+  );
+}
