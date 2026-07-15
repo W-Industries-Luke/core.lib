@@ -1,0 +1,71 @@
+<!--
+  Everything visible here is Material's. The container, the floating label and
+  its `for` association, the outline, the focus ring, the subscript that swaps a
+  hint for an error, and the ids that tie the message to the control through
+  `aria-describedby` are all `<mat-form-field>`'s own work — this template only
+  assembles them and hands them the component's signals.
+
+  The slots project into elements declared *here*, carrying Material's own
+  `matIconPrefix` / `matIconSuffix` / `<mat-hint>`, rather than asking a consumer
+  to write those directives themselves: `<mat-form-field>` finds its parts with
+  content queries, and a marker on a consumer's element would be one projection
+  hop further out than those queries look. It is the shape `ui-card` uses, for
+  the same reason.
+-->
+<mat-form-field
+  class="ui-input__field"
+  [appearance]="appearance()"
+  [floatLabel]="floatLabel()"
+  [subscriptSizing]="subscriptSizing()"
+  [hideRequiredMarker]="hideRequiredMarker()"
+>
+  @if (label()) {
+    <mat-label>{{ label() }}</mat-label>
+  }
+
+  @if (prefixSlot()) {
+    <span matIconPrefix class="ui-input__prefix"><ng-content select="[uiInputPrefix]" /></span>
+  }
+
+  <!--
+    `id` and `aria-describedby` are empty strings rather than `undefined` when
+    unset: both of Material's setters read `''` as "nothing given" and fall back
+    to the id it generated and to the messages it renders, while `undefined`
+    would not type-check against them.
+  -->
+  <input
+    #input
+    matInput
+    [id]="id() ?? ''"
+    [name]="name() ?? ''"
+    [type]="type()"
+    [placeholder]="placeholder() ?? ''"
+    [value]="value()"
+    [disabled]="isDisabled()"
+    [required]="required()"
+    [readonly]="readonly()"
+    [errorStateMatcher]="errorStateMatcher"
+    [aria-describedby]="ariaDescribedby() ?? ''"
+    (input)="handleInput($event)"
+    (blur)="handleBlur()"
+  />
+
+  @if (suffixSlot()) {
+    <span matIconSuffix class="ui-input__suffix"><ng-content select="[uiInputSuffix]" /></span>
+  }
+
+  <!--
+    Material renders at most one subscript message: it shows the errors when the
+    control is in an error state and the hints otherwise, so both can be here and
+    an error never stacks on top of the hint it replaces.
+  -->
+  @if (hasError()) {
+    <mat-error>{{ error() }}</mat-error>
+  }
+
+  @if (hintSlot()) {
+    <mat-hint><ng-content select="[uiInputHint]" /></mat-hint>
+  } @else if (hint()) {
+    <mat-hint>{{ hint() }}</mat-hint>
+  }
+</mat-form-field>
