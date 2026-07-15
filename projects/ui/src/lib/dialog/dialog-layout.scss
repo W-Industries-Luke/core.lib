@@ -1,0 +1,31 @@
+// The flex plumbing `ui-dialog` owes Material for sitting inside its surface —
+// and nothing else.
+//
+// There is not a colour, radius, font or padding in this file on purpose. Unlike
+// the card — where Material hard-codes its padding, which is why `ui-card` has to
+// own box metrics at all — the dialog tokenises *everything*:
+// `--mat-dialog-container-color`, `-container-shape`, `-headline-padding`,
+// `-content-padding`, `-actions-padding` and the two type scales all resolve from
+// the `--mat-sys-*` roles that `../../styles/_theme.scss` emits. So the hooks for
+// those live where they can reach the overlay panel (`../../styles/_dialog.scss`)
+// rather than here, and this component adds no metrics of its own.
+//
+// What is left is the one thing this component *does* change about Material's
+// DOM: it puts an element between `.mat-mdc-dialog-surface` and the title /
+// content / actions that Material lays out as the surface's own flex children.
+
+:host {
+  // The surface is `display: flex; flex-direction: column`, and its sections are
+  // sized as its direct children — content `flex-grow: 1`, actions
+  // `flex-shrink: 0`. Those children are now this element's, so it has to be the
+  // column in the surface's place, and grow to fill it.
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+
+  // Without this the body cannot scroll inside a dialog given an explicit
+  // `height`: a flex item's default `min-height: auto` floors this element at its
+  // content's full height, so it would overflow the surface instead of letting
+  // `.mat-mdc-dialog-content` scroll within it.
+  min-height: 0;
+}

@@ -1,0 +1,37 @@
+<ui-dialog>
+  <h2 uiDialogTitle>{{ title }}</h2>
+
+  <!--
+    The id is what the dialog's `aria-describedby` points at (the service sets it
+    on the config at open time), so it has to wrap *both* message forms — a
+    template's content is the description just as much as a string is.
+
+    No `<p>` around the text: this element already inherits
+    `<mat-dialog-content>`'s `supporting-text` colour and font, and a paragraph
+    would add a margin Material's own `> :first-child` reset then has to undo.
+  -->
+  @if (hasMessage) {
+    <div [id]="messageId">
+      @if (messageTemplate) {
+        <ng-container [ngTemplateOutlet]="messageTemplate" />
+      } @else {
+        {{ messageText }}
+      }
+    </div>
+  }
+
+  <!--
+    Cancel first, so Material's `autoFocus: 'first-tabbable'` lands on the safe
+    button rather than the destructive one. `matDialogClose` is Material's own, so
+    the result reaches `afterClosed()` with no wiring here.
+  -->
+  @if (cancelLabel !== null) {
+    <button uiDialogActions matButton uiButton variant="text" [matDialogClose]="false">
+      {{ cancelLabel }}
+    </button>
+  }
+
+  <button uiDialogActions matButton uiButton [color]="confirmColor" [matDialogClose]="true">
+    {{ confirmLabel }}
+  </button>
+</ui-dialog>
