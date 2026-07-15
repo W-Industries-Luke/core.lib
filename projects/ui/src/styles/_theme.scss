@@ -13,12 +13,14 @@
 @use 'sass:map';
 @use '@angular/material' as mat;
 
-// Component colour roles that cannot live in an encapsulated stylesheet because
-// the thing they style is a directive on someone else's element. Consuming these
-// partials is what makes `<button matButton uiButton color="accent">` and
-// `<span uiBadge="4" variant="success">` themed.
+// Component styles that cannot live in an encapsulated stylesheet, because the
+// element they style is someone else's: a directive's host, or content projected
+// into a component from a consumer's template. Consuming these partials is what
+// makes `<button matButton uiButton color="accent">`, `<span uiBadge="4"
+// variant="success">` and `<h3 uiAlertTitle>` themed.
 @use './button';
 @use './badge';
+@use './alert';
 
 // ---------------------------------------------------------------------------
 // Palette
@@ -46,19 +48,52 @@ $tertiary: mat.$blue-palette;
 $success: mat.$green-palette;
 $warning: mat.$orange-palette;
 
-/// Emits a `--ui-sys-<name>` / `--ui-sys-on-<name>` role pair from an M3 palette.
+/// Emits the four `--ui-sys-*` roles M3 gives a colour: the bold pair and the
+/// container pair, each with its legible-on partner.
 ///
-/// The tones are the ones M3 itself assigns to a bold colour role and its
-/// legible-on partner (see `core/tokens/m3/_md-sys-color.scss`, where light
-/// `error` is tone 40 with `on-error` at 100, and dark is 80 with 20). Deriving
-/// them rather than picking them keeps these roles honest: they behave like
-/// every other M3 role, at any palette, in either mode.
+/// The tones are the ones M3 itself assigns (see
+/// `core/tokens/m3/_md-sys-color.scss`, where light `error` is tone 40 with
+/// `on-error` at 100, and `error-container` is tone 90 with `on-error-container`
+/// at 10; dark flips to 80/20 and 30/90). Deriving them rather than picking them
+/// keeps these roles honest: they behave like every other M3 role, at any
+/// palette, in either mode — including M3's guarantee that `on-<name>-container`
+/// clears 4.5:1 against `<name>-container`.
+///
+/// The two pairs are for different jobs. The bold pair is what a solid chip sits
+/// on — `uiBadge`. The container pair is the quiet, tinted surface an inline
+/// banner needs — `ui-alert` — and it is the same distinction M3 draws between
+/// `error` and `error-container`.
+///
+/// ### Why the container pair comes off the `secondary` sub-palette
+///
+/// An M3 palette map carries the bold ramp at its top level and a `secondary`
+/// sub-map holding the same hue at M3's reduced secondary chroma. Angular builds
+/// `--mat-sys-secondary-container` out of exactly that sub-map — azure's
+/// `secondary` tone 90 *is* the `#dae2f9` the theme emits — so a container taken
+/// from there is the one M3 already ships, not a new idea.
+///
+/// The bold ramp cannot do this job, because Angular's prebuilt palettes are
+/// chroma-maxed and sRGB lets green keep its chroma all the way up the ramp:
+/// `$green-palette` tone 90 is `#77ff61`, a highlighter rather than a banner,
+/// while red and orange land on the pale `#ffdad4` / `#ffdcc7` a banner wants.
+/// Picking a gentler tone for green alone would be inventing a colour system —
+/// the sub-map is the palette's own answer to "this hue, quietly". For every hue
+/// whose bold ramp is already gamut-limited the two agree: orange's `secondary`
+/// tone 90 is `#ffdcc7`, identical to its top-level tone 90. So this changes
+/// nothing but the hue that needed changing, and leaves the bold pair — and
+/// therefore every shipped badge — untouched.
 ///
 /// @param {String} $name The role's name, e.g. `success`.
 /// @param {Map} $palette The M3 palette to derive it from.
 @mixin _status-role($name, $palette) {
+  // The same hue at M3's secondary chroma — see above. Every prebuilt palette
+  // carries one, as does a palette from `ng generate @angular/material:theme-color`.
+  $quiet: map.get($palette, secondary);
+
   --ui-sys-#{$name}: light-dark(#{map.get($palette, 40)}, #{map.get($palette, 80)});
   --ui-sys-on-#{$name}: light-dark(#{map.get($palette, 100)}, #{map.get($palette, 20)});
+  --ui-sys-#{$name}-container: light-dark(#{map.get($quiet, 90)}, #{map.get($quiet, 30)});
+  --ui-sys-on-#{$name}-container: light-dark(#{map.get($quiet, 10)}, #{map.get($quiet, 90)});
 }
 
 // ---------------------------------------------------------------------------
@@ -83,12 +118,13 @@ html {
   color-scheme: light dark;
 
   // The status roles M3 does not define, emitted alongside Material's own
-  // `--mat-sys-*` roles and named to match. `--ui-sys-success` is to
-  // `$success` exactly what `--mat-sys-error` is to the theme's error palette:
-  // the same tones (40 on light, 80 on dark; 100/20 for the legible-on pair),
-  // resolved with the same `light-dark()` Material uses for a `color-scheme`
-  // theme. So they track the OS preference with no second stylesheet, and a
-  // consumer can reach for them wherever a `--mat-sys-*` role would go.
+  // `--mat-sys-*` roles and named to match. `--ui-sys-success` is to `$success`
+  // exactly what `--mat-sys-error` is to the theme's error palette, and
+  // `--ui-sys-success-container` is to it what `--mat-sys-secondary-container` is
+  // to the primary palette: the same tones, resolved with the same `light-dark()`
+  // Material uses for a `color-scheme` theme. So they track the OS preference
+  // with no second stylesheet, and a consumer can reach for them wherever the
+  // matching `--mat-sys-*` role would go.
   @include _status-role(success, $success);
   @include _status-role(warning, $warning);
 }

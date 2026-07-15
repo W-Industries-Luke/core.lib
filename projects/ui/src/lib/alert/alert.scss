@@ -1,0 +1,173 @@
+// Colour roles and box metrics for `ui-alert`.
+//
+// Material ships no inline alert, so this is the one component in this library
+// that owns its own container — and the whole job of this file is to make sure
+// that container is not a colour system of its own. There is not a literal colour
+// below: every variant resolves to a *container* role pair emitted by
+// `../../styles/_theme.scss`, so a palette change there re-skins every alert, in
+// light and dark alike.
+//
+// The container pair is the point. M3 gives each colour a bold role (`error`) and
+// a quiet tinted one (`error-container`), and an inline banner is the textbook
+// case for the second: it tints a whole block of text without shouting, and M3
+// guarantees `on-<name>-container` clears 4.5:1 against it — which is what keeps
+// every story below the a11y check.
+//
+// The moving parts are Material's own. `<mat-icon>` and `matIconButton` keep
+// their geometry, their state layers and their ripple; the only thing done to
+// them here is re-pointing their colour tokens at the variant's roles, through
+// Material's own `*-overrides` API rather than a rule on their internals.
+
+@use '@angular/material' as mat;
+
+/// Re-points an alert's colour tokens at one pair of theme container roles.
+///
+/// @param {String} $background The container role, e.g. `--mat-sys-error-container`.
+/// @param {String} $text The legible-on-$background role, e.g. `--mat-sys-on-error-container`.
+@mixin _variant($background, $text) {
+  // `--ui-alert-*` are the public hooks (rule 6), resolved here so that every
+  // rule below reads the private property and a consumer overrides all of them
+  // from a single declaration. The default is the variant's own role, so an
+  // alert that uses no hook ships no colour decision of its own.
+  --_ui-alert-background-color: var(--ui-alert-background-color, var(#{$background}));
+  --_ui-alert-text-color: var(--ui-alert-text-color, var(#{$text}));
+}
+
+:host {
+  display: flex;
+  // Top-aligned, so the icon and the dismiss button stay level with the first
+  // line of a message that wraps to several, rather than drifting to the middle
+  // of a paragraph.
+  align-items: flex-start;
+  gap: 12px;
+  padding: var(--ui-alert-padding, 12px 16px);
+  border-radius: var(--ui-alert-radius, var(--mat-sys-corner-medium));
+  background-color: var(--_ui-alert-background-color);
+  color: var(--_ui-alert-text-color);
+
+  // M3 typography, so an alert matches the body text around it and follows the
+  // theme's `typography: Roboto` rather than pinning a font of its own. The
+  // shorthand carries the line-height the metrics below are measured against.
+  font: var(--mat-sys-body-medium);
+
+  // The default variant. Every other variant is a higher-specificity `:host()`
+  // rule below, so it wins over this without `!important`.
+  @include _variant(--mat-sys-secondary-container, --mat-sys-on-secondary-container);
+}
+
+// ---------------------------------------------------------------------------
+// Variants
+// ---------------------------------------------------------------------------
+// Every variant carries a marker class, including the default: there is no
+// Material component underneath choosing a colour for us, so `info` is a
+// decision this file makes rather than one it inherits.
+//
+// These are `:host()` rules because the marker lands on the host element, which
+// carries the `_nghost` attribute rather than the `_ngcontent` one an unwrapped
+// `.ui-alert--info` would compile against — that selector would match nothing.
+
+:host(.ui-alert--info) {
+  // M3's muted informational container. `secondary` is the brand's own low-chroma
+  // tint, which is what an informational banner wants: `primary` would read as a
+  // call to action, and the three status roles below mean something specific that
+  // "here is some information" must not borrow.
+  @include _variant(--mat-sys-secondary-container, --mat-sys-on-secondary-container);
+}
+
+:host(.ui-alert--success) {
+  @include _variant(--ui-sys-success-container, --ui-sys-on-success-container);
+}
+
+:host(.ui-alert--warning) {
+  @include _variant(--ui-sys-warning-container, --ui-sys-on-warning-container);
+}
+
+:host(.ui-alert--error) {
+  // M3's own error container — the one role in this set the spec already defines.
+  @include _variant(--mat-sys-error-container, --mat-sys-on-error-container);
+}
+
+// A dismissed alert stays in the DOM so it can be re-opened, but `display: none`
+// takes it out of the layout *and* the accessibility tree — a live region that is
+// merely transparent or zero-height still announces itself.
+//
+// This is a `:host()` rule rather than a host `[style.display]` binding so that
+// the two specificities behave: it outranks `:host`'s own `display: flex`, and a
+// consumer's rule on `ui-alert` can still animate the close if they want to.
+:host(.ui-alert--closed) {
+  display: none;
+}
+
+// ---------------------------------------------------------------------------
+// Leading icon
+// ---------------------------------------------------------------------------
+
+.ui-alert__icon {
+  flex: none;
+  // Material's icon is 24px against a 20px line of `body-medium`, so 2px of
+  // optical centring lines the glyph up with the first line of the message
+  // instead of hanging above it.
+  margin-block-start: 2px;
+
+  // The icon's colour is Material's own token, re-pointed at a hook whose default
+  // is the alert's text colour — which is already the role M3 guarantees is
+  // legible on this container. The token inherits, so it reaches a projected
+  // `<mat-icon uiAlertIcon>` through this wrapper with no `::ng-deep`.
+  @include mat.icon-overrides(
+    (
+      color: var(--ui-alert-icon-color, var(--_ui-alert-text-color)),
+    )
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Content
+// ---------------------------------------------------------------------------
+
+.ui-alert__content {
+  // Takes the space the icon and the dismiss button do not, and holds the title
+  // and message in a column. `min-width: 0` lets a long unbroken string (a URL, a
+  // file name) wrap instead of stretching the banner past its container.
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  // Only ever between a title and its message: with no title the column has a
+  // single child and the gap never applies.
+  gap: 2px;
+}
+
+// ---------------------------------------------------------------------------
+// Dismiss button
+// ---------------------------------------------------------------------------
+
+.ui-alert__dismiss {
+  flex: none;
+
+  // Material's icon button is a 40px state layer around a 24px glyph. Pulling the
+  // 8px of padding back on three sides lines its glyph up with the icon and the
+  // first line of text — the alert is then 24px tall inside its padding, like the
+  // row it is — while the button keeps its full 40px hit area and Material's own
+  // 48px touch target underneath it. Trimming the state layer instead would have
+  // shrunk both.
+  margin-block: -8px;
+  margin-inline-end: -8px;
+
+  // Material's default is `on-surface-variant`, which is a *surface* role: on a
+  // tinted container it is the one thing here that would not follow the variant.
+  // These re-point Material's own tokens rather than styling its internals, so
+  // the button keeps its state layer, focus ring and ripple — only the colour
+  // comes from the alert. The opacities are Material's, untouched, so the layers
+  // land where they do on every other button.
+  @include mat.icon-button-overrides(
+    (
+      icon-color: var(--_ui-alert-text-color),
+      state-layer-color: var(--_ui-alert-text-color),
+      ripple-color: color-mix(
+          in srgb,
+          var(--_ui-alert-text-color) calc(var(--mat-sys-pressed-state-layer-opacity) * 100%),
+          transparent
+        ),
+    )
+  );
+}

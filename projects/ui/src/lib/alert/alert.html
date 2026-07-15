@@ -1,0 +1,47 @@
+<!--
+  The host is the banner itself — the flex row, the tinted container and the live
+  region — so nothing here wraps the alert in a second box a consumer would have
+  to style around.
+
+  Material supplies both moving parts: `<mat-icon>` for the leading glyph and
+  `matIconButton` for the dismiss control, each resolving its colours from the
+  tokens `alert.scss` re-points at the variant's theme roles.
+-->
+@if (iconSlot()) {
+  <span class="ui-alert__icon"><ng-content select="[uiAlertIcon]" /></span>
+} @else if (resolvedIcon(); as icon) {
+  <!--
+    Decorative: the icon repeats the meaning the text already carries, so
+    announcing "info" before every message is noise. `aria-hidden` is MatIcon's
+    own default, spelled out because it is load-bearing here.
+  -->
+  <mat-icon class="ui-alert__icon" aria-hidden="true">{{ icon }}</mat-icon>
+}
+
+<!--
+  The title projects straight into the column rather than into a wrapper of its
+  own: the space below it is the column's `gap`, which a title-less alert never
+  pays for, and the typography is the marker's — see `styles/_alert.scss`.
+-->
+<div class="ui-alert__content">
+  <ng-content select="[uiAlertTitle]" />
+
+  <div class="ui-alert__message"><ng-content /></div>
+</div>
+
+@if (dismissible()) {
+  <!--
+    `type="button"` because an alert is very often inside a form, where a bare
+    button submits it — dismissing a validation summary must not re-submit the
+    thing that produced it.
+  -->
+  <button
+    matIconButton
+    class="ui-alert__dismiss"
+    type="button"
+    [attr.aria-label]="resolvedDismissLabel()"
+    (click)="dismiss()"
+  >
+    <mat-icon aria-hidden="true">close</mat-icon>
+  </button>
+}
