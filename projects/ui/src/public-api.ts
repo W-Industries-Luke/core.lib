@@ -16,4 +16,5 @@ export * from './lib/snackbar/snackbar';
 export * from './lib/spinner/spinner';
 export * from './lib/textarea/textarea';
 export * from './lib/toggle/toggle';
+export * from './lib/tooltip/tooltip';
 export * from './lib/ui';

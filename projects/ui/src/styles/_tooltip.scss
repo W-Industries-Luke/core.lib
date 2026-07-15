@@ -1,0 +1,56 @@
+// Colour roles and the styling hooks for `uiTooltip`.
+//
+// A tooltip renders into the CDK overlay at the end of `<body>`, not into the
+// template of whoever triggered it — so no component stylesheet could reach it,
+// and `uiTooltip` is a directive, which cannot carry a `styleUrl` anyway. Like
+// `_button.scss` and `_snackbar.scss`, this is theming that has to land on an
+// element this library does not own the template of, so it lives with the theme
+// and is emitted by `_theme.scss`.
+//
+// `Tooltip` puts `.ui-tooltip` on Material's own tooltip container (through
+// `MatTooltip.tooltipClass`, merged with the consumer's `panelClass`), and
+// everything below hangs off it. Scoping to that class is what keeps a plain
+// `matTooltip` elsewhere in an app on stock Material behaviour rather than
+// silently inheriting this library's opinions.
+//
+// Every value reads a `--mat-sys-*` role that `_theme.scss` emits, so there is
+// not a literal colour here: swapping a palette there re-colours every tooltip,
+// in light and dark alike.
+
+@use '@angular/material' as mat;
+
+.ui-tooltip {
+  // `--ui-tooltip-*` are the public hooks (rule 6). The defaults are M3's own
+  // tooltip roles — `inverse-surface` is the boldest surface in the system, which
+  // is what a small chip floating over unrelated content needs, and the same
+  // reason a snackbar uses it. So an untouched tooltip ships no colour decision
+  // of this library's at all; the hooks exist because a tooltip on an
+  // already-inverse surface, or a warning-coloured one, is a reasonable thing to
+  // want and must not need `::ng-deep` to get.
+  //
+  // These re-point Material's own tokens rather than styling its internals, so
+  // the tooltip keeps its shape, typography and animations — only the colour
+  // comes from here.
+  @include mat.tooltip-overrides(
+    (
+      container-color: var(--ui-tooltip-container-color, var(--mat-sys-inverse-surface)),
+      supporting-text-color: var(--ui-tooltip-text-color, var(--mat-sys-inverse-on-surface)),
+    )
+  );
+
+  // The one hook that cannot go through a token: Material hard-codes the
+  // surface's `max-width: 200px` in its structural styles and defines no token
+  // for it. 200px is around 30 characters, so a message any longer than a few
+  // words wraps to four or five lines — and past the surface's `max-height: 40vh`
+  // it is silently clipped, since the surface is `overflow: hidden`. Widening it
+  // is therefore both the commonest tooltip restyle and one with a correctness
+  // cliff behind it, which makes "reach for `::ng-deep`" the wrong answer (rule
+  // 2). The default is Material's own number, so nothing changes unless asked.
+  //
+  // This is the only rule in this library that selects a Material internal. It is
+  // one class deep, which beats the `.mat-mdc-tooltip-surface` rule it overrides
+  // on specificity rather than on source order.
+  .mat-mdc-tooltip-surface {
+    max-width: var(--ui-tooltip-max-width, 200px);
+  }
+}
