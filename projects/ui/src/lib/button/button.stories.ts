@@ -121,7 +121,9 @@ export const AllVariantsAndColors: Story = {
       <table style="border-collapse: collapse; font: var(--mat-sys-body-medium); color: var(--mat-sys-on-surface);">
         <thead>
           <tr>
-            <th style="text-align: left; padding: 0.75rem;"></th>
+            <!-- The corner cell labels nothing — it is the blank intersection of the
+                 variant and colour axes, so it is a spacer td, not an empty th. -->
+            <td style="padding: 0.75rem;"></td>
             ${COLORS.map(
               (c) =>
                 `<th style="text-align: left; padding: 0.75rem; font: var(--mat-sys-title-small);">${c}</th>`,

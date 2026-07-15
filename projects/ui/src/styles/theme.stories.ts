@@ -33,9 +33,13 @@ import { moduleMetadata } from '@storybook/angular-vite';
         </div>
 
         <div class="row">
-          @for (token of tokens; track token) {
-            <span class="swatch" [style.background]="'var(' + token + ')'">
-              {{ token }}
+          @for (swatch of swatches; track swatch.background) {
+            <span
+              class="swatch"
+              [style.background]="'var(' + swatch.background + ')'"
+              [style.color]="'var(' + swatch.foreground + ')'"
+            >
+              {{ swatch.background }}
             </span>
           }
         </div>
@@ -59,19 +63,22 @@ import { moduleMetadata } from '@storybook/angular-vite';
       padding: 0.75rem;
       border-radius: var(--mat-sys-corner-small);
       border: 1px solid var(--mat-sys-outline-variant);
-      color: var(--mat-sys-on-surface);
       font: var(--mat-sys-label-small);
       font-family: monospace;
     }
   `,
 })
 class ThemeShowcase {
-  protected readonly tokens = [
-    '--mat-sys-primary',
-    '--mat-sys-secondary',
-    '--mat-sys-tertiary',
-    '--mat-sys-error',
-    '--mat-sys-surface-container',
+  // Each swatch pairs an M3 container role with the `on-` role M3 guarantees is
+  // legible against it. Painting every swatch with a single foreground (e.g.
+  // `on-surface`) is what M3 pairing exists to prevent — it drops label contrast
+  // to ~2.7:1 over `primary`/`error`, which the a11y check fails on.
+  protected readonly swatches = [
+    { background: '--mat-sys-primary', foreground: '--mat-sys-on-primary' },
+    { background: '--mat-sys-secondary', foreground: '--mat-sys-on-secondary' },
+    { background: '--mat-sys-tertiary', foreground: '--mat-sys-on-tertiary' },
+    { background: '--mat-sys-error', foreground: '--mat-sys-on-error' },
+    { background: '--mat-sys-surface-container', foreground: '--mat-sys-on-surface' },
   ];
 }
 

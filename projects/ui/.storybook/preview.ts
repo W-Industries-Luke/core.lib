@@ -13,10 +13,19 @@ const preview: Preview = {
     },
 
     a11y: {
-      // 'todo' - show a11y violations in the test UI only
+      // Every story is an axe assertion: `npm run test:a11y` runs each one in a
+      // real browser and fails on any violation. This is the library's a11y
+      // floor, so it is deliberately 'error' rather than 'todo' — a violation
+      // here would ship to every consuming app.
+      //
+      // 'todo'  - show a11y violations in the test UI only
       // 'error' - fail CI on a11y violations
-      // 'off' - skip a11y checks entirely
-      test: 'todo',
+      // 'off'   - skip a11y checks entirely
+      //
+      // Narrowly disable a genuine false positive on the story that hits it
+      // (`parameters.a11y.config.rules`), with a comment saying why — never
+      // globally, and never to go green.
+      test: 'error',
     },
   },
 };
