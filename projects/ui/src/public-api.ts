@@ -13,6 +13,7 @@ export * from './lib/dialog/confirm-dialog';
 export * from './lib/dialog/dialog';
 export * from './lib/dialog/dialog-layout';
 export * from './lib/input/input';
+export * from './lib/progress-bar/progress-bar';
 export * from './lib/radio-group/radio-group';
 export * from './lib/select/select';
 export * from './lib/snackbar/snackbar';
