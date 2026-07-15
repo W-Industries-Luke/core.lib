@@ -1,64 +1,58 @@
-# Ui
+# @w-industries/ui
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.0.
+Shared Angular Material component library and M3 theme for the `*.web` apps.
 
-## Code scaffolding
+Browse the components: <https://w-industries-luke.github.io/core.lib/>
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Install
 
-```bash
-ng generate component component-name
+The package lives in GitHub Packages, so npm has to be told where the scope
+resolves. Add to the app's `.npmrc`:
+
+```ini
+@w-industries:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+`NODE_AUTH_TOKEN` is a PAT with `read:packages` locally, or `GITHUB_TOKEN` in
+CI. Commit the `.npmrc`; never the token.
 
 ```bash
-ng generate --help
+npm i @w-industries/ui
 ```
 
-## Building
+Angular, CDK and Material are peer dependencies — the app supplies them. Keep
+Material and CDK on **v21** to match the fleet.
 
-To build the library, run:
+## Use
 
-```bash
-ng build ui
+Apply the theme once, at the app's style entry point:
+
+```scss
+@use "@w-industries/ui/styles/theme";
 ```
 
-This command will compile your project, and the build artifacts will be placed in the `dist/` directory.
+It is the single source of truth for palette, typography and density, and it
+emits the `--ui-sys-success` / `--ui-sys-warning` roles that M3 itself lacks.
+Apps should not define their own Material theme.
 
-### Publishing the Library
+Then import what you need — everything is standalone:
 
-Once the project is built, you can publish your library by following these steps:
-
-1. Navigate to the `dist` directory:
-
-   ```bash
-   cd dist/ui
-   ```
-
-2. Run the `npm publish` command to publish your library to the npm registry:
-   ```bash
-   npm publish
-   ```
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
+```ts
+import { Button } from "@w-industries/ui";
 ```
 
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
+```html
+<button matButton uiButton variant="filled">Save changes</button>
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+Anything that decorates an existing element is a directive on the native
+element, so `routerLink`, `aria-*`, `form` and friends keep working as they
+normally would.
 
-## Additional Resources
+## Develop
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+This library is developed in the
+[core.lib](https://github.com/w-industries-luke/core.lib) workspace rather than
+standalone. See that repo's README for build, test, Storybook and the release
+process.

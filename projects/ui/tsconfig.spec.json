@@ -4,7 +4,9 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "../../out-tsc/spec",
-    "types": ["vitest/globals"]
+    // 'node' is here for release.spec.ts, which reads the packaging files off
+    // disk rather than importing them.
+    "types": ["vitest/globals", "node"]
   },
   "include": ["src/**/*.d.ts", "src/**/*.spec.ts"]
 }
