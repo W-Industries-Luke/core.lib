@@ -1,0 +1,33 @@
+<!--
+  Everything visible here is Material's. The track and its outline, the handle
+  and the slide between the two ends, the on/off icons, the ripple, the state
+  layers, the 48px touch target, the focus ring, the `<label for>` tied to the
+  `<button role="switch">` whose id Material generates, and every colour are
+  `<mat-slide-toggle>`'s own work — this template only hands it the component's
+  signals.
+
+  The label is projected into Material's own `<label>` rather than rendered
+  beside it, so clicking custom content still flips the switch:
+  `<mat-slide-toggle>` projects `*` into that label, and `{{ label() }}` is the
+  fallback Angular renders when a consumer projects nothing.
+-->
+<mat-slide-toggle
+  #toggle
+  [id]="id() ?? ''"
+  [checked]="checked()"
+  [disabled]="isDisabled()"
+  [required]="required()"
+  [labelPosition]="labelPosition()"
+  [name]="name() ?? null"
+  [hideIcon]="hideIcon()"
+  [disableRipple]="disableRipple()"
+  [disabledInteractive]="disabledInteractive()"
+  [tabIndex]="tabindex()"
+  [aria-label]="ariaLabel() ?? null"
+  [aria-labelledby]="ariaLabelledby() ?? null"
+  [aria-describedby]="matAriaDescribedby()"
+  (change)="handleChange($event)"
+  (toggleChange)="toggled.emit()"
+>
+  <ng-content>{{ label() }}</ng-content>
+</mat-slide-toggle>
