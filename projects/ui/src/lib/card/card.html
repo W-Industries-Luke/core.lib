@@ -1,0 +1,27 @@
+<!--
+  The slots project into Material's own `<mat-card-content>` / `<mat-card-actions>`
+  rather than into plain divs, so their layout and Material's `align` come from
+  Material. They live in this template — not around the consumer's markup — so
+  that `card.scss` can reach them: an encapsulated stylesheet cannot style
+  projected content, and styling it anyway is exactly the `::ng-deep` that the
+  `padded` input exists to avoid.
+
+  The header has no `<mat-card-header>` equivalent: that component projects into
+  its own inner slots, which our `<ng-content>` cannot address from out here, so
+  everything would land in its trailing catch-all slot and lay out in a row
+  beside an empty title container. A plain block is what the common case —
+  `matCardTitle` over `matCardSubtitle`, both `display: block` already — needs.
+-->
+<mat-card [appearance]="appearance()">
+  @if (headerSlot()) {
+    <div class="ui-card__header"><ng-content select="[uiCardHeader]" /></div>
+  }
+
+  <mat-card-content class="ui-card__body"><ng-content /></mat-card-content>
+
+  @if (actionSlots().length) {
+    <mat-card-actions class="ui-card__actions" [align]="actionsAlign()">
+      <ng-content select="[uiCardActions]" />
+    </mat-card-actions>
+  }
+</mat-card>
