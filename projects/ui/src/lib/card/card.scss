@@ -1,0 +1,60 @@
+// Box metrics for `ui-card`'s three slots — and nothing else.
+//
+// There is not a colour, elevation, radius or font in this file on purpose:
+// `<mat-card>`, `<mat-card-content>` and `<mat-card-actions>` already resolve
+// all of that from the `--mat-sys-*` tokens that `../../styles/_theme.scss`
+// emits, so a palette change there re-skins every card with no help from here.
+//
+// What Material does *not* tokenise is its padding: the 16px/8px below are
+// literals in Material's own card stylesheet. Routing them through custom
+// properties is what gives `padded` and `--ui-card-padding` something to move,
+// and it is why the slots are elements of this component's own template rather
+// than the consumer's projected markup — component styles cannot reach projected
+// content, and reaching it anyway would mean the `::ng-deep` this API exists to
+// spare consumers.
+
+:host {
+  display: block;
+
+  // The public hooks resolve here, once, so every slot below reads the same
+  // value and a consumer overrides all of them from a single declaration.
+  // The defaults are Material's own card padding.
+  --_ui-card-padding: var(--ui-card-padding, 16px);
+  --_ui-card-actions-padding: var(--ui-card-actions-padding, 8px);
+}
+
+// `padded="false"` is an explicit instruction, so it wins over a
+// `--ui-card-padding` set on a rule — it re-points the private property that the
+// slots actually read, rather than the public hook a consumer sets.
+:host(.ui-card--flush) {
+  --_ui-card-padding: 0;
+  --_ui-card-actions-padding: 0;
+}
+
+// Material's own `.mat-mdc-card-header`, laid out for the case its inner slots
+// exist to serve: `matCardTitle` and `matCardSubtitle` are already
+// `display: block`, so a block container stacks them with no help.
+.ui-card__header {
+  display: block;
+  padding: var(--_ui-card-padding) var(--_ui-card-padding) 0;
+}
+
+// Mirrors Material's own padding rules for `.mat-mdc-card-content`, including
+// the first/last-child cases that close the box when a slot above or below has
+// collapsed. Each of these outranks Material's equivalent on specificity alone —
+// the emulated-encapsulation attribute is the extra element — so no `!important`.
+.ui-card__body {
+  padding: 0 var(--_ui-card-padding);
+
+  &:first-child {
+    padding-top: var(--_ui-card-padding);
+  }
+
+  &:last-child {
+    padding-bottom: var(--_ui-card-padding);
+  }
+}
+
+.ui-card__actions {
+  padding: var(--_ui-card-actions-padding);
+}
