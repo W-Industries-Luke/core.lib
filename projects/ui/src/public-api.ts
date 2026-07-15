@@ -3,6 +3,7 @@
  */
 
 export * from './lib/alert/alert';
+export * from './lib/autocomplete/autocomplete';
 export * from './lib/badge/badge';
 export * from './lib/button/button';
 export * from './lib/card/card';
