@@ -85,6 +85,15 @@ class ThemeShowcase {
     { background: '--ui-sys-success', foreground: '--ui-sys-on-success' },
     { background: '--ui-sys-warning', foreground: '--ui-sys-on-warning' },
     { background: '--mat-sys-surface-container', foreground: '--mat-sys-on-surface' },
+    // The quiet half of each role: what an inline banner (`ui-alert`) sits on.
+    // M3's own container roles are here beside the two this library derives, so
+    // that a green that does not belong with them is visible rather than argued
+    // about — which is exactly how `$green-palette`'s chroma-maxed tone 90 was
+    // caught. See the `_status-role` mixin in `_theme.scss`.
+    { background: '--mat-sys-secondary-container', foreground: '--mat-sys-on-secondary-container' },
+    { background: '--ui-sys-success-container', foreground: '--ui-sys-on-success-container' },
+    { background: '--ui-sys-warning-container', foreground: '--ui-sys-on-warning-container' },
+    { background: '--mat-sys-error-container', foreground: '--mat-sys-on-error-container' },
   ];
 }
 
