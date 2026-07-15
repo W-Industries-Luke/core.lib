@@ -11,4 +11,5 @@ export * from './lib/input/input';
 export * from './lib/radio-group/radio-group';
 export * from './lib/select/select';
 export * from './lib/spinner/spinner';
+export * from './lib/toggle/toggle';
 export * from './lib/ui';

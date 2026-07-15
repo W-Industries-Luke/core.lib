@@ -1,0 +1,68 @@
+// The box `ui-toggle` occupies, and the four colour hooks — nothing else.
+//
+// There is not a literal colour in this file on purpose: `<mat-slide-toggle>`
+// already resolves its track, handle, icons, ripple, state layers and label
+// typography from the `--mat-sys-*` tokens that `../../styles/_theme.scss`
+// emits, so a palette change there re-skins every toggle, in light and dark
+// alike, with no help from here. The overrides below only re-point Material's own
+// tokens at *hooks* whose defaults are the very tokens Material would have
+// used — so the default toggle ships no colour decision of its own.
+//
+// Note this is `mat.slide-toggle-overrides()` rather than rules on Material's
+// internals, and rather than `<mat-slide-toggle color="…">`: `color` is an
+// M2-only API that does nothing under an M3 theme (see
+// @angular/material/slide-toggle), while the tokens are Material's own supported
+// surface. Custom properties inherit through the encapsulation boundary, so they
+// reach the switch with no `::ng-deep`.
+
+@use '@angular/material' as mat;
+
+:host {
+  // Material lays the track, the touch target and the label out itself, in a row
+  // it sizes. The host shrinks to that and stays inline, so a toggle can sit in a
+  // line of text, in a form column or in a toolbar with no layout hack — and a
+  // consumer who wants it to fill a settings row writes `display: block` on this
+  // element, which is a rule rather than a workaround.
+  display: inline-block;
+
+  // The public hooks (rule 6). The four move together on purpose: they are one
+  // M3 role family, and each is legible against the one before it — which is
+  // exactly the relationship `primary` / `on-primary` / `primary-container` /
+  // `on-primary-container` encode. So point them at another such family
+  // (`--mat-sys-error…`, or the theme's own `--ui-sys-success…`) rather than at
+  // literals, and they survive a palette change and dark mode.
+  //
+  // Only the *on* half is hooked. The off half is the theme's neutral surface,
+  // and a switch whose off state carries a colour of its own is one nobody can
+  // read at a glance — the point of the control is that on and off are telling
+  // apart from across the room.
+  //
+  // Every interaction state is listed because Material tokenises the track and
+  // the handle once per state: naming only `selected-track-color` would leave an
+  // `error` toggle reverting to the theme's primary the moment it was hovered.
+  @include mat.slide-toggle-overrides(
+    (
+      selected-track-color: var(--ui-toggle-color, var(--mat-sys-primary)),
+      selected-hover-track-color: var(--ui-toggle-color, var(--mat-sys-primary)),
+      selected-focus-track-color: var(--ui-toggle-color, var(--mat-sys-primary)),
+      selected-pressed-track-color: var(--ui-toggle-color, var(--mat-sys-primary)),
+      selected-focus-state-layer-color: var(--ui-toggle-color, var(--mat-sys-primary)),
+      selected-hover-state-layer-color: var(--ui-toggle-color, var(--mat-sys-primary)),
+      selected-pressed-state-layer-color: var(--ui-toggle-color, var(--mat-sys-primary)),
+      // The handle at rest is drawn *on* the track, so it is the `on-` half of
+      // the pair; under a finger or the keyboard it lifts to the container tone,
+      // which is Material's own default for these three.
+      selected-handle-color: var(--ui-toggle-handle-color, var(--mat-sys-on-primary)),
+      selected-hover-handle-color:
+        var(--ui-toggle-handle-accent-color, var(--mat-sys-primary-container)),
+      selected-focus-handle-color:
+        var(--ui-toggle-handle-accent-color, var(--mat-sys-primary-container)),
+      selected-pressed-handle-color:
+        var(--ui-toggle-handle-accent-color, var(--mat-sys-primary-container)),
+      // The checkmark on the handle, which has to stay legible against both of
+      // the handle colours above — `on-<name>-container` is the tone M3 picks
+      // for exactly that.
+      selected-icon-color: var(--ui-toggle-icon-color, var(--mat-sys-on-primary-container)),
+    )
+  );
+}
