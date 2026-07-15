@@ -1,0 +1,46 @@
+// The shared Material 3 theme for all *.web apps.
+//
+// This file is THE single source of truth for palette, typography, and density
+// across the fleet. Apps should not define their own Material theme — they
+// consume this one:
+//
+//   // in an app's styles.scss
+//   @use 'ui/styles/theme';
+//
+// Overriding a token here changes it everywhere, which is the whole point of
+// this library existing.
+
+@use '@angular/material' as mat;
+
+// ---------------------------------------------------------------------------
+// Palette
+// ---------------------------------------------------------------------------
+// Swap these for the brand palettes. Angular Material ships prebuilt M3
+// palettes (mat.$azure-palette, $blue-palette, $cyan-palette, $green-palette,
+// $magenta-palette, $orange-palette, $red-palette, $rose-palette, $spring-green-palette,
+// $violet-palette, $yellow-palette), or generate a custom one from a brand
+// colour with:  ng generate @angular/material:theme-color
+$primary: mat.$azure-palette;
+$tertiary: mat.$blue-palette;
+
+// ---------------------------------------------------------------------------
+// Theme
+// ---------------------------------------------------------------------------
+// mat.theme() emits CSS custom properties, so light/dark switching is handled
+// by the color-scheme below rather than by shipping two stylesheets.
+html {
+  @include mat.theme(
+    (
+      color: (
+        primary: $primary,
+        tertiary: $tertiary,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
+
+  // Respect the user's OS preference by default. An app can force one mode by
+  // setting `color-scheme: light` (or dark) on :root.
+  color-scheme: light dark;
+}
