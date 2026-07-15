@@ -1,0 +1,74 @@
+@use '@angular/material' as mat;
+
+// `color` is resolved here rather than on `MatButton`, because MatButton's own
+// `color` input is an M2-only API that does nothing under an M3 theme (see
+// @angular/material/button: "This API is supported in M2 themes only").
+//
+// Everything below reads the `--mat-sys-*` custom properties that `mat.theme()`
+// emits from `src/styles/_theme.scss`, so there are no literal colours: swapping
+// a palette there re-colours every ui-button, in light and dark alike.
+
+// State layers and ripples are the palette colour at the theme's own
+// interaction opacities — the same construction Material uses internally.
+@function _state-layer($color, $opacity) {
+  @return color-mix(in srgb, #{$color} calc(var(#{$opacity}) * 100%), transparent);
+}
+
+/// Re-points every appearance's colour tokens at one M3 palette role.
+/// @param {String} $main The palette's base role, e.g. `tertiary`.
+/// @param {String} $on-main The legible-on-$main role, e.g. `on-tertiary`.
+/// @param {String} $container The palette's container role, used by `tonal`.
+/// @param {String} $on-container The legible-on-$container role.
+@mixin _palette-role($main, $on-main, $container, $on-container) {
+  $main: --mat-sys-#{$main};
+  $on-main: --mat-sys-#{$on-main};
+  $container: --mat-sys-#{$container};
+  $on-container: --mat-sys-#{$on-container};
+  $pressed: --mat-sys-pressed-state-layer-opacity;
+
+  @include mat.button-overrides(
+    (
+      // Filled: the palette colour carries the container.
+      filled-container-color: var($main),
+      filled-label-text-color: var($on-main),
+      filled-state-layer-color: var($on-main),
+      filled-ripple-color: _state-layer(var($on-main), $pressed),
+      // Outlined: the outline stays the theme's neutral `outline` role, per M3 —
+      // only the label and interaction states take the palette colour.
+      outlined-label-text-color: var($main),
+      outlined-state-layer-color: var($main),
+      outlined-ripple-color: _state-layer(var($main), $pressed),
+      // Text.
+      text-label-text-color: var($main),
+      text-state-layer-color: var($main),
+      text-ripple-color: _state-layer(var($main), $pressed),
+      // Elevated — Material names these tokens `protected-*`. The container stays
+      // the theme's `surface` role, per M3; the label takes the palette colour.
+      protected-label-text-color: var($main),
+      protected-state-layer-color: var($main),
+      protected-ripple-color: _state-layer(var($main), $pressed),
+      // Tonal: the low-emphasis container/on-container pair of the same palette.
+      tonal-container-color: var($container),
+      tonal-label-text-color: var($on-container),
+      tonal-state-layer-color: var($on-container),
+      tonal-ripple-color: _state-layer(var($on-container), $pressed)
+    )
+  );
+}
+
+:host {
+  display: inline-block;
+}
+
+// `primary` needs no overrides — it is what Material's M3 button tokens already
+// resolve to, so the default `ui-button` ships zero extra CSS.
+
+:host(.ui-button--accent) {
+  // The theme exposes its accent as M3's `tertiary` palette (see `$tertiary` in
+  // `src/styles/_theme.scss`); `accent` is the M2-era name consumers still use.
+  @include _palette-role(tertiary, on-tertiary, tertiary-container, on-tertiary-container);
+}
+
+:host(.ui-button--warn) {
+  @include _palette-role(error, on-error, error-container, on-error-container);
+}
