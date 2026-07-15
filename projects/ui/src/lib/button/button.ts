@@ -1,11 +1,11 @@
-import { booleanAttribute, ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { Directive, effect, inject, input } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 
 /**
  * Visual style of the button, in Material 3 terms.
  *
- * These map 1:1 onto `MatButton`'s own appearances, so `variant` is passed
- * straight through to `matButton` rather than translated.
+ * These map 1:1 onto `MatButton`'s own appearances, so `variant` is handed
+ * straight to `MatButton.setAppearance()` rather than translated.
  */
 export type UiButtonVariant = 'filled' | 'outlined' | 'text' | 'elevated' | 'tonal';
 
@@ -13,8 +13,9 @@ export type UiButtonVariant = 'filled' | 'outlined' | 'text' | 'elevated' | 'ton
  * Semantic colour role of the button.
  *
  * Material's own `color` input is an M2-only API and does nothing under an M3
- * theme, so these are resolved in `button.scss` via `mat.button-overrides()`
- * against the M3 system tokens emitted by `src/styles/_theme.scss`:
+ * theme, so these are resolved in `src/styles/_button.scss` via
+ * `mat.button-overrides()` against the M3 system tokens emitted by
+ * `src/styles/_theme.scss`:
  *
  *   - `primary` — the theme's primary palette (Material's default; no override)
  *   - `accent`  — the theme's tertiary palette
@@ -22,22 +23,43 @@ export type UiButtonVariant = 'filled' | 'outlined' | 'text' | 'elevated' | 'ton
  */
 export type UiButtonColor = 'primary' | 'accent' | 'warn';
 
-/** Native `type` values a `ui-button` may take. */
-export type UiButtonType = 'button' | 'submit';
+function missingMatButton(): never {
+  throw new Error(
+    '`uiButton` must be applied to an element that is also a Material button. ' +
+      'Add `matButton` alongside it: `<button matButton uiButton variant="filled">`.',
+  );
+}
 
 /**
- * Themed wrapper around Angular Material's button.
+ * Applies the shared M3 theme to a Material button.
  *
- * Renders a `<button matButton>` and projects its content, so consumers get the
- * shared M3 theme's palette, typography, ripples and a11y behaviour without
- * importing `MatButtonModule` or knowing which system tokens back each colour.
+ * This is a directive on the *native* element rather than a wrapper component,
+ * so the element a consumer writes is the element the browser gets:
+ * `aria-label`, `id`, `form`/`name`/`value`, `type`, `disabled`, `data-*`,
+ * `tabindex`, `(click)` and `routerLink` all apply natively and need no
+ * forwarding. Restyling needs no `::ng-deep` either — `button[uiButton]` is a
+ * selector consumers can target directly.
+ *
+ * ```html
+ * <button matButton uiButton variant="filled" color="accent">Save</button>
+ * <a matButton uiButton variant="outlined" routerLink="/settings">Settings</a>
+ * ```
+ *
+ * ### Why `matButton` has to be there too
+ *
+ * `MatButton` is a *component* with an attribute selector, not a directive
+ * (see `@angular/material/button`). Angular rejects a component as a host
+ * directive (NG2015) and refuses two components on one element, so a directive
+ * cannot pull `MatButton` onto the host by itself — its attribute has to be in
+ * the consumer's template for Angular to match it. Rather than fork Material's
+ * button template and MDC styles to work around that, `uiButton` decorates the
+ * real thing: it drives the appearance, maps `color` onto the theme's palettes,
+ * and leaves everything else to Material. `variant` is the single source of
+ * truth for the appearance — write `matButton` bare and let `variant` set it.
  */
-@Component({
-  selector: 'ui-button',
-  imports: [MatButton],
-  templateUrl: './button.html',
-  styleUrl: './button.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
+@Directive({
+  selector: 'button[uiButton], a[uiButton]',
+  exportAs: 'uiButton',
   host: {
     // `primary` is Material's default, so it needs no marker class.
     '[class.ui-button--accent]': 'color() === "accent"',
@@ -45,29 +67,23 @@ export type UiButtonType = 'button' | 'submit';
   },
 })
 export class Button {
+  /**
+   * The `MatButton` on this host, exposed as the escape hatch for anything this
+   * directive does not wrap — `focus()`, `disabledInteractive`, `disableRipple`.
+   */
+  readonly matButton: MatButton =
+    inject(MatButton, { self: true, optional: true }) ?? missingMatButton();
+
   /** Visual style of the button. Defaults to the high-emphasis filled button. */
   readonly variant = input<UiButtonVariant>('filled');
 
   /** Semantic colour role, resolved from the shared theme's palettes. */
   readonly color = input<UiButtonColor>('primary');
 
-  /** Whether the button is disabled. Disabled buttons never emit `clicked`. */
-  readonly disabled = input(false, { transform: booleanAttribute });
-
-  /**
-   * Native button `type`. Defaults to `button` so a `ui-button` inside a form
-   * does not submit it by accident.
-   */
-  readonly type = input<UiButtonType>('button');
-
-  /** Emits the originating `MouseEvent` when an enabled button is clicked. */
-  readonly clicked = output<MouseEvent>();
-
-  protected handleClick(event: MouseEvent): void {
-    if (this.disabled()) {
-      return;
-    }
-
-    this.clicked.emit(event);
+  constructor() {
+    // MatButton's appearance is a plain setter rather than a signal input, so
+    // the signal has to be pushed into it. This runs before paint, so there is
+    // no flash of Material's own default appearance.
+    effect(() => this.matButton.setAppearance(this.variant()));
   }
 }

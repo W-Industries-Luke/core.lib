@@ -12,6 +12,11 @@
 
 @use '@angular/material' as mat;
 
+// Component colour roles that cannot live in an encapsulated stylesheet because
+// the thing they style is a directive on someone else's element. Consuming this
+// partial is what makes `<button matButton uiButton color="accent">` themed.
+@use './button';
+
 // ---------------------------------------------------------------------------
 // Palette
 // ---------------------------------------------------------------------------
