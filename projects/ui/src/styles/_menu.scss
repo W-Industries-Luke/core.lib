@@ -1,0 +1,71 @@
+// The styling hooks for `ui-menu`.
+//
+// A menu panel renders into the CDK overlay at the end of `<body>`, not into the
+// template of whoever declared it — so `ui-menu`'s own encapsulated stylesheet
+// could never reach it. Like `_tooltip.scss`, `_snackbar.scss` and `_dialog.scss`,
+// this is theming that has to land on an element in the overlay, so it lives with
+// the theme and is emitted by `_theme.scss`.
+//
+// `Menu` puts `.ui-menu` on Material's own panel (through `MatMenu.panelClass`,
+// merged with the consumer's `panelClass`), and everything below hangs off it —
+// nested sub-panels included, since `menu.html` passes the same classes down.
+// Scoping to that class is what keeps a plain `mat-menu` elsewhere in an app on
+// stock Material behaviour rather than silently inheriting this library's opinions.
+//
+// Every value reads a `--mat-sys-*` role that `_theme.scss` emits, so there is not
+// a literal colour here: swapping a palette there re-colours every menu, in light
+// and dark alike.
+
+@use '@angular/material' as mat;
+
+.ui-menu {
+  // `--ui-menu-*` are the public hooks (rule 6). The defaults are the tokens
+  // Material's own M3 menu already resolves to — `surface-container` for the panel,
+  // `on-surface` for the label, `on-surface-variant` for the icon — so an untouched
+  // menu ships no colour decision of this library's at all. The hooks exist because
+  // a destructive item, or a menu on an already-tinted surface, is a reasonable
+  // thing to want and must not need `::ng-deep` to get (rule 2).
+  //
+  // This re-points Material's own tokens rather than styling its internals, so the
+  // panel keeps its elevation, typography, spacing and animations — only the values
+  // named here come from these hooks.
+  //
+  // Density and the item height are deliberately not hooks: they are the theme's
+  // decision, and a menu that is 48px tall in one app and 36px in the next is
+  // exactly the drift this library exists to prevent.
+  @include mat.menu-overrides(
+    (
+      container-color: var(--ui-menu-container-color, var(--mat-sys-surface-container)),
+      container-shape: var(--ui-menu-shape, var(--mat-sys-corner-extra-small)),
+      item-label-text-color: var(--ui-menu-item-label-color, var(--mat-sys-on-surface)),
+      item-icon-color: var(--ui-menu-item-icon-color, var(--mat-sys-on-surface-variant)),
+      divider-color: var(--ui-menu-divider-color, var(--mat-sys-surface-variant)),
+    )
+  );
+}
+
+// The two hooks that cannot go through a token: Material hard-codes the panel's
+// `min-width: 112px` / `max-width: 280px` in its structural styles and defines no
+// token for either. 280px is around 40 characters, so a menu of file paths, email
+// addresses or translated labels wraps every item onto two lines — and widening it
+// is both the commonest menu restyle and one Material leaves no supported way to
+// make, which is exactly when "reach for `::ng-deep`" becomes the wrong answer
+// (rule 2). The defaults are Material's own numbers, so nothing changes unless
+// asked.
+//
+// Qualified with Material's own class rather than left on `.ui-menu` alone, and
+// that is the whole point of the rule: unlike the tokens above — which are custom
+// properties Material reads through a `var()` fallback, and so compete with nothing
+// — these are ordinary declarations going head to head with
+// `.mat-mdc-menu-panel { min-width: 112px; max-width: 280px; }` on the *same
+// element*, since `.ui-menu` lands on that very panel. At one class each the winner
+// would be whichever stylesheet happened to load last: Material injects its
+// component styles when the menu is first used, this partial arrives with the app's
+// global stylesheet, and neither order is guaranteed. Two classes wins outright.
+//
+// This and `_tooltip.scss`'s `max-width` are the only rules in this library that
+// name a Material internal class, and for the same reason.
+.mat-mdc-menu-panel.ui-menu {
+  min-width: var(--ui-menu-min-width, 112px);
+  max-width: var(--ui-menu-max-width, 280px);
+}

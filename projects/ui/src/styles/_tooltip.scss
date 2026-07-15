@@ -47,9 +47,11 @@
   // cliff behind it, which makes "reach for `::ng-deep`" the wrong answer (rule
   // 2). The default is Material's own number, so nothing changes unless asked.
   //
-  // This is the only rule in this library that selects a Material internal. It is
-  // one class deep, which beats the `.mat-mdc-tooltip-surface` rule it overrides
-  // on specificity rather than on source order.
+  // This and `_menu.scss`'s panel width are the only rules in this library that
+  // select a Material internal, and they are the same case: a hard-coded width with
+  // no token behind it. It is one class deep, which beats the
+  // `.mat-mdc-tooltip-surface` rule it overrides on specificity rather than on
+  // source order.
   .mat-mdc-tooltip-surface {
     max-width: var(--ui-tooltip-max-width, 200px);
   }
