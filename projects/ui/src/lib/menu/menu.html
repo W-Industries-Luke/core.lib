@@ -1,0 +1,116 @@
+<!--
+  Material's menu is the whole widget: the overlay and its backdrop, the panel's
+  elevation and animation, the repositioning that keeps it on screen, the ripples,
+  the roving focus, the typeahead, the menu/menuitem roles and the Escape/Tab/arrow
+  handling are all `<mat-menu>`'s and `<button mat-menu-item>`'s, drawn from the M3
+  system tokens the shared theme emits. Nothing here re-implements any of it.
+
+  `<ui-menu>` renders nothing where it is written: `<mat-menu>` is `display: none`,
+  and its content lives in a template Material stamps into the overlay when a
+  trigger opens it.
+
+  Every item is written *lexically inside* `<mat-menu>`, and that is load-bearing
+  rather than incidental. Material finds its items with a content query, and each
+  item and sub-menu trigger finds its panel through the node injector — and both of
+  those follow a template's DECLARATION site, not wherever an `ngTemplateOutlet`
+  happens to render it. Items rendered from a template declared outside this element
+  compile and look right, but arrive with `MatMenu._allItems` empty and
+  `MatMenuTrigger._parentMaterialMenu` undefined: no arrow keys, no typeahead, no
+  submenu arrow. Hence the shape below, and hence the recursion being a nested
+  `<ui-menu>` — a real component with a panel of its own — rather than a template
+  that outlets itself.
+-->
+<mat-menu
+  [class]="panelClasses()"
+  [xPosition]="xPosition()"
+  [yPosition]="yPosition()"
+  [overlapTrigger]="overlapTrigger()"
+  [hasBackdrop]="hasBackdrop()"
+  [backdropClass]="backdropClass()"
+  [aria-label]="ariaLabel() ?? ''"
+  [aria-labelledby]="ariaLabelledby() ?? ''"
+  [aria-describedby]="ariaDescribedby() ?? ''"
+  (closed)="closed.emit($event)"
+>
+  @for (item of items(); track item) {
+    @if (item.children?.length) {
+      <!--
+        A branch. The sub-panel is a nested `<ui-menu>`, so its own items are
+        lexically inside its own `<mat-menu>` — see the note above. It renders
+        nothing here; it exists to own a panel for this item's trigger to open, and
+        it re-emits any choice made inside it through this component's own output,
+        so a consumer listens once rather than once per level.
+      -->
+      <ui-menu
+        #child
+        [items]="item.children ?? []"
+        [itemTemplate]="activeItemTemplate()"
+        [panelClass]="panelClass()"
+        [xPosition]="xPosition()"
+        [yPosition]="yPosition()"
+        [aria-label]="item.label"
+        (itemSelected)="itemSelected.emit($event)"
+      />
+
+      @if (activeItemTemplate(); as template) {
+        <button
+          mat-menu-item
+          [matMenuTriggerFor]="child.matMenu() ?? null"
+          [disabled]="!!item.disabled"
+        >
+          <ng-container
+            [ngTemplateOutlet]="template"
+            [ngTemplateOutletContext]="{ $implicit: item }"
+          />
+        </button>
+      } @else if (item.icon) {
+        <button
+          mat-menu-item
+          [matMenuTriggerFor]="child.matMenu() ?? null"
+          [disabled]="!!item.disabled"
+        >
+          <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+          {{ item.label }}
+        </button>
+      } @else {
+        <button
+          mat-menu-item
+          [matMenuTriggerFor]="child.matMenu() ?? null"
+          [disabled]="!!item.disabled"
+        >
+          {{ item.label }}
+        </button>
+      }
+    } @else {
+      <!--
+        A leaf. `(click)` is safe to bind here rather than guarded in the template,
+        because `select()` ignores a disabled item and a branch — see the method.
+      -->
+      @if (activeItemTemplate(); as template) {
+        <button mat-menu-item [disabled]="!!item.disabled" (click)="select(item)">
+          <ng-container
+            [ngTemplateOutlet]="template"
+            [ngTemplateOutletContext]="{ $implicit: item }"
+          />
+        </button>
+      } @else if (item.icon) {
+        <button mat-menu-item [disabled]="!!item.disabled" (click)="select(item)">
+          <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+          {{ item.label }}
+        </button>
+      } @else {
+        <button mat-menu-item [disabled]="!!item.disabled" (click)="select(item)">
+          {{ item.label }}
+        </button>
+      }
+    }
+  }
+
+  <!--
+    Anything a consumer projected — a `<mat-divider>`, a section header, an
+    `<a mat-menu-item routerLink>`. It lands in Material's own panel alongside the
+    items rather than in a box of ours, so it is a real `menuitem` in the same
+    roving focus ring (rule 7).
+  -->
+  <ng-content />
+</mat-menu>
