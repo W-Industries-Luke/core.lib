@@ -1,0 +1,79 @@
+<!--
+  Everything visible here is Material's and the CDK's. The container, the
+  floating label and its `for` association, the outline, the focus ring, the
+  subscript that swaps a hint for an error, and the ids that tie each message to
+  the control through `aria-describedby` are `<mat-form-field>`'s own work; the
+  growing is `cdkTextareaAutosize`'s. This template only assembles them and hands
+  them the component's signals.
+-->
+<mat-form-field
+  class="ui-textarea__field"
+  [appearance]="appearance()"
+  [floatLabel]="floatLabel()"
+  [subscriptSizing]="subscriptSizing()"
+  [hideRequiredMarker]="hideRequiredMarker()"
+>
+  @if (label()) {
+    <mat-label>{{ label() }}</mat-label>
+  }
+
+  <!--
+    `id` and `aria-describedby` are empty strings rather than `undefined` when
+    unset: both of Material's setters read `''` as "nothing given" and fall back
+    to the id it generated and to the messages it renders, while `undefined`
+    would not type-check against them.
+
+    The autosize inputs are always bound and the directive is always here, so
+    `autosize` is a live toggle rather than a shape the template branches on:
+    `enabled` is `CdkTextareaAutosize`'s own input, and it hands back the height
+    it took over when it goes false. `rows` is the CDK's floor while it is on and
+    the plain HTML height while it is off — one input, one meaning. `maxRows`
+    falls back to `0`, which is how the CDK spells "no ceiling".
+  -->
+  <textarea
+    #textarea
+    matInput
+    class="ui-textarea__control"
+    [class.ui-textarea__control--autosize]="autosize()"
+    [cdkTextareaAutosize]="autosize()"
+    [cdkAutosizeMinRows]="rows()"
+    [cdkAutosizeMaxRows]="maxRows() ?? 0"
+    [rows]="rows()"
+    [id]="id() ?? ''"
+    [name]="name() ?? ''"
+    [placeholder]="placeholder() ?? ''"
+    [value]="value()"
+    [attr.maxlength]="maxLength() ?? null"
+    [disabled]="isDisabled()"
+    [required]="required()"
+    [readonly]="readonly()"
+    [errorStateMatcher]="errorStateMatcher"
+    [aria-describedby]="ariaDescribedby() ?? ''"
+    (input)="handleInput($event)"
+    (blur)="handleBlur()"
+  ></textarea>
+
+  <!--
+    Material renders at most one subscript: it shows the errors when the control
+    is in an error state and the hints otherwise, so all three can be here and an
+    error never stacks on top of what it replaces.
+  -->
+  @if (hasError()) {
+    <mat-error>{{ error() }}</mat-error>
+  }
+
+  @if (hintSlot()) {
+    <mat-hint><ng-content select="[uiTextareaHint]" /></mat-hint>
+  } @else if (hint()) {
+    <mat-hint>{{ hint() }}</mat-hint>
+  }
+
+  <!--
+    The counter, as Material's own documentation writes it: an end-aligned hint,
+    which is the slot `<mat-form-field>` renders opposite the hint above. So it
+    costs no layout here, and Material announces it with the control for free.
+  -->
+  @if (hasCounter()) {
+    <mat-hint align="end" class="ui-textarea__counter">{{ length() }} / {{ maxLength() }}</mat-hint>
+  }
+</mat-form-field>
