@@ -15,6 +15,7 @@ npx ng test ui --watch=false       # run unit tests (vitest, headless)
 npm run test:a11y                  # run every story through axe (needs chromium, see below)
 npm run storybook                  # component catalogue on :6006
 npm run build-storybook            # static catalogue -> storybook-static/
+npm run test:storybook-console     # load the built catalogue, fail on console errors (see below)
 npx ng generate component my-thing --project=ui   # scaffold a component
 ```
 
@@ -72,17 +73,39 @@ hoisted `node_modules` has to be allowlisted.
 
 ### The CI step
 
-**Not yet wired into `ci.yml`.** The agent that added this check is not permitted
-to edit `.github/workflows`, so a human needs to append this to the `build-test`
-job — until it lands the check is local-only and a11y regressions can still reach
-`main`:
+Wired into the `build-test` job in `ci.yml` (issue #80), alongside the console
+check below — both reuse the one `npx playwright install --with-deps chromium`
+step.
 
-```yaml
-- name: Install Chromium for a11y checks
-  run: npx playwright install --with-deps chromium
-- name: Accessibility checks
-  run: npm run test:a11y
+## Console errors in the built Storybook
+
+`npm run test:storybook-console` serves `storybook-static/` and loads **every**
+entry in its `index.json` in headless Chromium — each story at `viewMode=story`
+and each autodocs page at `viewMode=docs` — failing on any `console.error` or
+uncaught page error.
+
+```bash
+npm run build-storybook
+npm run test:storybook-console
 ```
+
+This exists because the other gates cannot see what it sees. `ng build`, `ng test`
+and `test:a11y` all render components **inside a test harness**; they ask "does it
+render without throwing" and "does axe pass", never "what does the real iframe
+log". A bare `provideRouter([])` in `button.stories.ts` threw `NG04002` on every
+button story and blanked the Docs previews with all four gates green and 363/363
+a11y tests passing — a human found it on the published site. This check drives the
+same artefact that ships to Pages, so that class of bug fails CI instead.
+
+The runner is `tools/check-storybook-console.mjs`. It reuses the Chromium that
+`test:a11y` installs — deliberately no second browser toolchain.
+
+**Do not make a failure go away by widening the allowlist.** An error here is a
+real error on the published site. `ALLOWED_CONSOLE_ERRORS` in that file is for
+noise genuinely outside our control and is **empty** — the catalogue loads clean
+today, so the bar for adding a narrow, commented regex is "we cannot fix this",
+not "this is failing CI". `REQUIRED_ENTRY_IDS` pins the ids the original
+regression broke, so a rename cannot silently drop that coverage.
 
 ## Releasing
 

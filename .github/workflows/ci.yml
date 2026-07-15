@@ -21,3 +21,21 @@ jobs:
         run: npx ng build ui
       - name: Test library
         run: npx ng test ui --watch=false
+
+      # One Chromium serves both checks below — the a11y run and the console
+      # check share it rather than each installing a browser toolchain.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Accessibility checks
+        run: npm run test:a11y
+
+      # The checks above render components in a test harness, so neither sees
+      # what the real Storybook iframe does — that is how the NG04002 that
+      # blanked every button preview reached the published site with CI green
+      # (issue #80). These two steps drive the built artefact itself.
+      - name: Build Storybook
+        run: npm run build-storybook
+
+      - name: Storybook console errors
+        run: npm run test:storybook-console
