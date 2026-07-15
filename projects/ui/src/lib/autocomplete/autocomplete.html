@@ -1,0 +1,151 @@
+<!--
+  Everything visible here is Material's. The container, the floating label and its
+  `for` association, the outline, the focus ring, the subscript that swaps a hint for
+  an error, and the ids that tie the message to the control through
+  `aria-describedby` are `<mat-form-field>`'s own work. The `combobox` role, the
+  `aria-expanded`/`aria-activedescendant` bookkeeping, the overlay, the arrow keys,
+  Enter and Escape are `MatAutocompleteTrigger`'s and `<mat-autocomplete>`'s. This
+  template only assembles them and hands them the component's signals.
+
+  The slots project into elements declared *here*, carrying Material's own
+  `matIconPrefix` / `matIconSuffix` / `<mat-hint>`, rather than asking a consumer to
+  write those directives themselves: `<mat-form-field>` finds its parts with content
+  queries, and a marker on a consumer's element would be one projection hop further
+  out than those queries look. It is the shape `ui-input` and `ui-select` use, for
+  the same reason.
+
+  The suggestions are the same story, and are why they are an `options` input rather
+  than projected `<mat-option>`s: `<mat-autocomplete>` finds its options with a
+  content query too, so they have to be declared in this template — which is also
+  what lets this component filter them. `uiAutocompleteOption` is how a consumer
+  renders one as something other than text; the `<mat-option>` around it stays
+  Material's.
+-->
+<mat-form-field
+  class="ui-autocomplete__field"
+  [appearance]="appearance()"
+  [floatLabel]="floatLabel()"
+  [subscriptSizing]="subscriptSizing()"
+  [hideRequiredMarker]="hideRequiredMarker()"
+>
+  @if (label()) {
+    <mat-label>{{ label() }}</mat-label>
+  }
+
+  @if (prefixSlot()) {
+    <span matIconPrefix class="ui-autocomplete__prefix">
+      <ng-content select="[uiAutocompletePrefix]" />
+    </span>
+  }
+
+  <!--
+    `id` and `aria-describedby` are empty strings rather than `undefined` when unset:
+    both of Material's setters read `''` as "nothing given" and fall back to the id
+    it generated and to the messages it renders, while `undefined` would not
+    type-check against them.
+
+    The value is bound rather than left to the DOM, so that the box shows what the
+    *value* is — `France` for `'fr'`. `handleInput` puts every keystroke into the
+    same signal, so this binding never writes over what someone is typing.
+  -->
+  <input
+    #input
+    matInput
+    [matAutocomplete]="auto"
+    [matAutocompletePosition]="panelPosition()"
+    [id]="id() ?? ''"
+    [name]="name() ?? ''"
+    [placeholder]="placeholder() ?? ''"
+    [value]="text()"
+    [disabled]="isDisabled()"
+    [required]="required()"
+    [readonly]="readonly()"
+    [errorStateMatcher]="errorStateMatcher"
+    [aria-describedby]="ariaDescribedby() ?? ''"
+    (input)="handleInput($event)"
+    (blur)="handleBlur()"
+  />
+
+  @if (suffixSlot()) {
+    <span matIconSuffix class="ui-autocomplete__suffix">
+      <ng-content select="[uiAutocompleteSuffix]" />
+    </span>
+  }
+
+  <!--
+    Material renders at most one subscript message: it shows the errors when the
+    control is in an error state and the hints otherwise, so both can be here and an
+    error never stacks on top of the hint it replaces.
+  -->
+  @if (hasError()) {
+    <mat-error>{{ error() }}</mat-error>
+  }
+
+  @if (hintSlot()) {
+    <mat-hint><ng-content select="[uiAutocompleteHint]" /></mat-hint>
+  } @else if (hint()) {
+    <mat-hint>{{ hint() }}</mat-hint>
+  }
+</mat-form-field>
+
+<!--
+  `displayWith` is handed the component's own `displayFn`, so that the text Material
+  puts in the box when an option is chosen is the same text the component's `text`
+  signal holds — one function, whichever side calls it. Without it Material would
+  write the raw value (`fr`) over the label the field is meant to show.
+
+  `[class]` is `MatAutocomplete.classList`, which Material aliases to `class`: it
+  puts the classes on the panel *inside the overlay*, which is at the document root
+  and out of this stylesheet's reach. That is what makes `panelClass` the answer to
+  styling the panel rather than a `::ng-deep`.
+-->
+<mat-autocomplete
+  #auto="matAutocomplete"
+  [class]="panelClass()"
+  [displayWith]="displayFn"
+  [panelWidth]="panelWidth()"
+  [autoActiveFirstOption]="autoActiveFirstOption()"
+  [autoSelectActiveOption]="autoSelectActiveOption()"
+  [hideSingleSelectionIndicator]="hideSingleSelectionIndicator()"
+  [aria-label]="panelAriaLabel() ?? ''"
+  (optionSelected)="handleOptionSelected($event)"
+  (opened)="handleOpened()"
+  (closed)="handleClosed()"
+>
+  <!--
+    Tracked by `value` — it is what identifies an option to the form, so two options
+    sharing one is already a bug this would only hide.
+  -->
+  @for (option of filteredOptions(); track option.value) {
+    <mat-option [value]="option.value" [disabled]="!!option.disabled">
+      @if (optionDef(); as def) {
+        <ng-container
+          [ngTemplateOutlet]="def.template"
+          [ngTemplateOutletContext]="{ $implicit: option, text: text() }"
+        />
+      } @else {
+        {{ option.label }}
+      }
+    </mat-option>
+  }
+
+  <!--
+    The empty state is a *disabled* `<mat-option>`, and has to be an option at all:
+    Material hides a panel with no options in it (`MatAutocomplete._setVisibility`
+    counts its `MatOption` children), so a plain element here would render into a
+    panel nobody would ever see. Disabled keeps it unchoosable and out of the
+    keyboard's way, while still being announced with the list.
+  -->
+  @if (hasNoResults() && hasEmptyState()) {
+    <mat-option class="ui-autocomplete__empty" disabled>
+      @if (emptyDef(); as def) {
+        <ng-container
+          [ngTemplateOutlet]="def.template"
+          [ngTemplateOutletContext]="emptyContext()"
+        />
+      } @else {
+        {{ noResultsText() }}
+      }
+    </mat-option>
+  }
+</mat-autocomplete>
