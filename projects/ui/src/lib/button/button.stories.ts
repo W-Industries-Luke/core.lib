@@ -1,5 +1,5 @@
 import { MatButton } from '@angular/material/button';
-import { provideRouter, RouterLink } from '@angular/router';
+import { provideRouter, RouterLink, withDisabledInitialNavigation } from '@angular/router';
 import {
   applicationConfig,
   argsToTemplate,
@@ -22,7 +22,17 @@ const meta: Meta<Button> = {
     // `routerLink` needs a Router to resolve an href against. Providing one for
     // every story is also the point: a consuming app has one, so the stories
     // render what the app renders.
-    applicationConfig({ providers: [provideRouter([])] }),
+    //
+    // `withDisabledInitialNavigation()` is load-bearing, not tidying. A bare
+    // `provideRouter([])` still performs an initial navigation — against the
+    // Storybook iframe's own URL, which no route matches — so every button story
+    // threw `NG04002: 'core.lib/iframe.html'` and the Docs previews came up
+    // blank. `routerLink` only needs the Router to serialise an href, never to
+    // navigate, so disabling that navigation is the fix rather than inventing
+    // routes to satisfy it.
+    applicationConfig({
+      providers: [provideRouter([], withDisabledInitialNavigation())],
+    }),
   ],
   args: {
     variant: 'filled',

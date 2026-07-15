@@ -65,6 +65,43 @@
   );
 }
 
+// ---------------------------------------------------------------------------
+// Shape
+// ---------------------------------------------------------------------------
+// M3 ships buttons fully rounded (`corner-full`, a capsule). That is Material's
+// house style, not ours — the fleet wants a squarer button.
+//
+// This is set once, here, for every appearance rather than per-component: shape
+// is a theme decision, and a button that is 12px in one app and a pill in the
+// next is exactly the drift this library exists to prevent.
+//
+// `--ui-button-shape` is the knob. It defaults to the same `corner-medium` that
+// `ui-alert` uses, so the library agrees with itself, and a consuming app can
+// retune every button in one declaration:
+//
+//   :root { --ui-button-shape: var(--mat-sys-corner-small); }
+//
+// ...rather than reaching past us with `::ng-deep`.
+@mixin _shape() {
+  $shape: var(--ui-button-shape, var(--mat-sys-corner-medium));
+
+  @include mat.button-overrides(
+    (
+      filled-container-shape: $shape,
+      outlined-container-shape: $shape,
+      text-container-shape: $shape,
+      protected-container-shape: $shape,
+      tonal-container-shape: $shape,
+    )
+  );
+}
+
+// Applies to every `matButton`, not only `uiButton`: a Material button that
+// slipped in un-themed should still be the fleet's shape, not a stray pill.
+html {
+  @include _shape();
+}
+
 // `primary` needs no overrides — it is what Material's M3 button tokens already
 // resolve to, so the default `uiButton` ships zero extra CSS.
 
