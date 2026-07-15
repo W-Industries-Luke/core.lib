@@ -1,0 +1,37 @@
+name: Task idea (for the agent)
+description: Rough idea for the unattended worker. Type as little as you like — it gets groomed into a full spec automatically.
+title: "[idea] "
+labels: ["claude-idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Jot the idea down. A grooming agent expands it into a proper spec
+        (acceptance criteria, theming rules, story/test requirements) and hands
+        it to the worker. You do **not** need to write any of that yourself.
+  - type: textarea
+    id: what
+    attributes:
+      label: What do you want?
+      description: One line is fine. "A date range picker." "Table rows should be selectable."
+      placeholder: e.g. Add a date range picker built on Material's datepicker
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything specific? (optional)
+      description: Constraints, gotchas, things it must or must not do. Leave blank if you don't care.
+      placeholder: e.g. must work in reactive forms; needs preset ranges like "last 30 days"
+    validations:
+      required: false
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Priority tasks jump the queue.
+      options:
+        - Normal
+        - Do this first
+    validations:
+      required: false
