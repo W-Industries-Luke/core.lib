@@ -78,6 +78,12 @@ class ThemeShowcase {
     { background: '--mat-sys-secondary', foreground: '--mat-sys-on-secondary' },
     { background: '--mat-sys-tertiary', foreground: '--mat-sys-on-tertiary' },
     { background: '--mat-sys-error', foreground: '--mat-sys-on-error' },
+    // The two roles this library adds, because M3's colour system has no notion
+    // of success or warning and `tertiary` is whatever the brand happens to be.
+    // They are derived from Material's prebuilt palettes with the same tones M3
+    // gives `error`, so they pair and contrast like every role above.
+    { background: '--ui-sys-success', foreground: '--ui-sys-on-success' },
+    { background: '--ui-sys-warning', foreground: '--ui-sys-on-warning' },
     { background: '--mat-sys-surface-container', foreground: '--mat-sys-on-surface' },
   ];
 }
