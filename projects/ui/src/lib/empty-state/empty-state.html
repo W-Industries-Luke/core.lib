@@ -1,0 +1,47 @@
+<!--
+  The host is the centred column itself — the flex container, the padding and the
+  live region — so nothing here wraps the empty state in a second box a consumer
+  would have to style around.
+
+  Every region is conditional: an empty state is as often a title and a button as
+  it is the full set, and a region that rendered regardless would leave the column
+  paying for a gap around nothing.
+-->
+@if (iconSlot()) {
+  <span class="ui-empty-state__icon"><ng-content select="[uiEmptyStateIcon]" /></span>
+} @else if (resolvedIcon(); as icon) {
+  <!--
+    Decorative: the glyph repeats the meaning the title already carries, so
+    announcing "search_off" before it is noise. `aria-hidden` is MatIcon's own
+    default, spelled out because it is load-bearing here.
+  -->
+  <mat-icon class="ui-empty-state__icon" aria-hidden="true">{{ icon }}</mat-icon>
+}
+
+@if (resolvedTitle(); as title) {
+  <!--
+    A real heading, so that heading navigation finds it — but at the consumer's
+    level, because only their page knows the outline this sits in. ARIA's
+    `heading` role with `aria-level` is how that level becomes a runtime value:
+    the alternative is six near-identical `<h1>`…`<h6>` branches of one line of
+    markup.
+  -->
+  <div class="ui-empty-state__title" role="heading" [attr.aria-level]="resolvedHeadingLevel()">
+    {{ title }}
+  </div>
+}
+
+@if (resolvedMessage(); as message) {
+  <p class="ui-empty-state__message">{{ message }}</p>
+}
+
+<!--
+  The default slot, directly below the message: for the message a string input
+  cannot carry — a link to the docs, a list of the filters that are on, anything
+  formatted (rule 7).
+-->
+<ng-content />
+
+@if (actionSlots().length) {
+  <div class="ui-empty-state__actions"><ng-content select="[uiEmptyStateActions]" /></div>
+}
