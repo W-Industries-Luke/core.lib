@@ -30,6 +30,12 @@
             "tsConfig": "projects/ui/tsconfig.spec.json"
           }
         },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": ["projects/ui/**/*.ts", "projects/ui/**/*.html"]
+          }
+        },
         "storybook": {
           "builder": "@storybook/angular-vite:start-storybook",
           "options": {

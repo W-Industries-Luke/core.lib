@@ -7,6 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "lint": "ng lint",
     "storybook": "ng run ui:storybook",
     "build-storybook": "ng run ui:build-storybook"
   },
@@ -35,6 +36,7 @@
     "@angular/compiler-cli": "^21.2.0",
     "@angular/platform-browser-dynamic": "^21.2.0",
     "@compodoc/compodoc": "^2.0.0",
+    "@eslint/js": "^9.39.5",
     "@storybook/addon-a11y": "^10.5.0",
     "@storybook/addon-docs": "^10.5.0",
     "@storybook/addon-vitest": "^10.5.0",
@@ -42,6 +44,8 @@
     "@types/node": "^20",
     "@vitest/browser-playwright": "4.1.10",
     "@vitest/coverage-v8": "4.1.10",
+    "angular-eslint": "^21.4.0",
+    "eslint": "^9.39.5",
     "jsdom": "^28.0.0",
     "ng-packagr": "^21.2.0",
     "playwright": "^1.61.1",
@@ -49,6 +53,7 @@
     "sass": "^1.101.0",
     "storybook": "^10.5.0",
     "typescript": "~5.9.2",
+    "typescript-eslint": "^8.64.0",
     "vite": "^8.1.4",
     "vitest": "^4.0.8"
   }
