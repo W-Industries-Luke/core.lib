@@ -1,0 +1,44 @@
+// The box `ui-textarea` occupies, and who owns its height — nothing else.
+//
+// There is not a colour, radius, outline or font in this file on purpose:
+// `<mat-form-field>` and `<textarea matInput>` already resolve all of it from the
+// `--mat-sys-*` tokens that `../../styles/_theme.scss` emits, so a palette change
+// there re-skins every field, in light and dark alike, with no help from here.
+//
+// What is left is the two things Material leaves open.
+
+:host {
+  // A field is a block: it has a label above it and a subscript below it, and it
+  // is what the host has to be for the width below to have anything to fill.
+  display: block;
+}
+
+// `.mat-mdc-form-field` is an `inline-flex` sized from the control's own
+// intrinsic width, so a consumer who writes `ui-textarea { width: 30rem; }` — the
+// obvious gesture — would widen this host and watch the field sit at its default
+// width inside it, with `::ng-deep .mat-mdc-form-field { width: 100% }` as the
+// only way out. Rule 2 says that means the API is wrong, so the field fills the
+// host by default and the host is what a consumer sizes.
+.ui-textarea__field {
+  // `--ui-textarea-width` is the public hook (rule 6), for the case the default is
+  // wrong: a field that should shrink to its content (`max-content`), or one
+  // sharing a row.
+  width: var(--ui-textarea-width, 100%);
+}
+
+// Material gives a textarea `resize: vertical`, which is right for a fixed field:
+// `rows` is a starting height, and the grabber lets the user disagree with it.
+.ui-textarea__control {
+  resize: var(--ui-textarea-resize, vertical);
+}
+
+// It is not right while autosize is on. The CDK writes an explicit `height` on
+// every keystroke, so a height the user dragged to survives until the next
+// character and then snaps back — a control that visibly ignores the user. The
+// two are alternatives, and this is the one the component's default picks.
+//
+// Both branches read the same hook, so `--ui-textarea-resize: vertical` still
+// wins for a consumer who wants the grabber anyway.
+.ui-textarea__control--autosize {
+  resize: var(--ui-textarea-resize, none);
+}
