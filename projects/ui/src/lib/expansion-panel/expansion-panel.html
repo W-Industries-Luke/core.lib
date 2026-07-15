@@ -1,0 +1,66 @@
+<!--
+  Material's expansion panel is the whole widget: the header and its ripple, the
+  chevron and its rotation, the body's expand and collapse, the elevation, and the
+  `role="button"` / `aria-expanded` / `aria-controls` wiring between the header and
+  the body are all `<mat-expansion-panel>`'s, drawn from the M3 system tokens the
+  shared theme emits. Nothing here re-implements any of it.
+
+  The title and description are strings for the common case and slots for when a
+  string is not enough (rule 7). A slot wins over the matching string: a consumer
+  who projected one is saying the string cannot express what they need, so
+  rendering both would be a duplicated header. The slots project into Material's
+  own `<mat-panel-title>` / `<mat-panel-description>`, so the header's typography
+  and layout stay Material's rather than being rebuilt around them.
+-->
+<!--
+  The class is this component's own handle on Material's panel element, for the
+  corner rules at the bottom of `expansion-panel.scss` — see the note there for why
+  they need it.
+-->
+<mat-expansion-panel
+  class="ui-expansion-panel__panel"
+  [expanded]="expanded()"
+  (expandedChange)="expanded.set($event)"
+  [disabled]="disabled()"
+  [hideToggle]="hideToggle()"
+  [togglePosition]="togglePosition()"
+  (afterExpand)="afterExpand.emit()"
+  (afterCollapse)="afterCollapse.emit()"
+>
+  <mat-expansion-panel-header>
+    <!--
+      Both parts render only when there is something to put in them, so a panel
+      with no description has no empty container taking up room beside its title.
+    -->
+    @if (titleSlot() || title()) {
+      <mat-panel-title>
+        @if (titleSlot()) {
+          <ng-content select="[uiExpansionPanelTitle]" />
+        } @else {
+          {{ title() }}
+        }
+      </mat-panel-title>
+    }
+
+    @if (descriptionSlot() || description()) {
+      <mat-panel-description>
+        @if (descriptionSlot()) {
+          <ng-content select="[uiExpansionPanelDescription]" />
+        } @else {
+          {{ description() }}
+        }
+      </mat-panel-description>
+    }
+  </mat-expansion-panel-header>
+
+  <!--
+    The body, projected into Material's own content region, so that it is the thing
+    the panel expands and the element the header's `aria-controls` points at —
+    rather than a box of ours sitting beside it.
+  -->
+  <ng-content />
+
+  @if (actionSlots().length) {
+    <mat-action-row><ng-content select="[uiExpansionPanelActions]" /></mat-action-row>
+  }
+</mat-expansion-panel>
