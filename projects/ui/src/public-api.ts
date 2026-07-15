@@ -8,6 +8,7 @@ export * from './lib/button/button';
 export * from './lib/card/card';
 export * from './lib/checkbox/checkbox';
 export * from './lib/input/input';
+export * from './lib/radio-group/radio-group';
 export * from './lib/select/select';
 export * from './lib/spinner/spinner';
 export * from './lib/ui';

@@ -1,0 +1,96 @@
+// The layout `ui-radio-group` owns, and the one colour hook — nothing else.
+//
+// There is not a literal colour in this file on purpose: `<mat-radio-group>` and
+// `<mat-radio-button>` already resolve the circles, the dot, the ripples, the
+// state layers, the focus rings and the label typography from the `--mat-sys-*`
+// tokens that `../../styles/_theme.scss` emits, so a palette change there re-skins
+// every radio group, in light and dark alike, with no help from here. The
+// overrides below only re-point Material's own tokens at a *hook* whose default is
+// the very token Material would have used — so the default group ships no colour
+// decision of its own.
+//
+// Note this is `mat.radio-overrides()` rather than rules on Material's internals,
+// and rather than `<mat-radio-group color="…">`: `color` is an M2-only API that
+// does nothing under an M3 theme (see @angular/material/radio), while the tokens
+// are Material's own supported surface. Custom properties inherit through the
+// encapsulation boundary, so they reach the buttons with no `::ng-deep`.
+//
+// The layout *is* this file's job, and Material's: a radio group is a plain
+// container with no display of its own, so stacking the buttons — the thing a
+// consumer means by `direction` — is a flex rule here rather than a token.
+
+@use '@angular/material' as mat;
+
+:host {
+  // The legend sits above the buttons, so the host is a block that stacks the
+  // two. A group is a form row: it takes the width it is given rather than
+  // shrinking to its longest label, which is what keeps a column of them aligned.
+  display: block;
+
+  // The public colour hook (rule 6). Every `selected-*` variant is listed because
+  // Material tokenises the dot once per interaction state: naming only
+  // `selected-icon-color` would leave a chosen button reverting to the theme's
+  // primary the moment it was hovered or focused.
+  //
+  // Point it at another `--mat-sys-*` role rather than a literal, so it survives a
+  // palette change and dark mode: `--ui-radio-group-color: var(--mat-sys-error)`.
+  //
+  // The *unselected* circle is deliberately not on this hook: M3 keeps it the
+  // neutral `on-surface-variant` role, so an empty group does not read as a wall
+  // of brand colour, and only the answer the user gave is coloured.
+  @include mat.radio-overrides(
+    (
+      selected-icon-color: var(--ui-radio-group-color, var(--mat-sys-primary)),
+      selected-focus-icon-color: var(--ui-radio-group-color, var(--mat-sys-primary)),
+      selected-hover-icon-color: var(--ui-radio-group-color, var(--mat-sys-primary)),
+      selected-pressed-icon-color: var(--ui-radio-group-color, var(--mat-sys-primary)),
+      checked-ripple-color: var(--ui-radio-group-color, var(--mat-sys-primary)),
+    )
+  );
+}
+
+.ui-radio-group__label {
+  display: block;
+
+  // The legend is the group's name, and M3's own role for a form label above a
+  // control: the `body-small` type scale in the neutral `on-surface-variant`
+  // role, which is what `<mat-form-field>` gives `ui-input`'s and `ui-select`'s
+  // floating label. Reading it from the theme rather than picking a size keeps the
+  // three controls saying "label" in one voice.
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+
+  // `--ui-radio-group-gap` is the public hook for the rhythm of the whole control
+  // (rule 6) — the space under the legend and between the buttons alike, so the
+  // two cannot drift apart. `0.5rem` is Material's own 8dp step.
+  margin-block-end: var(--ui-radio-group-gap, 0.5rem);
+}
+
+.ui-radio-group__group {
+  display: flex;
+  flex-direction: column;
+
+  // Material gives each button its own 48px touch target and no margin, so the
+  // gap is this component's to set — without it a column of radios is a solid
+  // block, which is the layout every Material radio example quietly fixes itself.
+  gap: var(--ui-radio-group-gap, 0.5rem);
+}
+
+.ui-radio-group__group--row {
+  flex-direction: row;
+
+  // A row that cannot fit wraps rather than overflowing: the labels are the
+  // consumer's, and `direction="row"` is a preference about layout, not a promise
+  // that three long options fit a phone. Wrapping keeps every button reachable at
+  // any width, which `overflow: hidden` on some ancestor would not.
+  flex-wrap: wrap;
+
+  // The cross-axis gap wrapped rows need, on the same hook — so a wrapped row
+  // breathes exactly like a column.
+  row-gap: var(--ui-radio-group-gap, 0.5rem);
+
+  // Enough space between two buttons on one line that the labels read as separate
+  // options rather than a sentence. The column's gap is vertical and needs no such
+  // help, which is why this is a step up from it rather than the same value.
+  column-gap: var(--ui-radio-group-column-gap, 1rem);
+}
