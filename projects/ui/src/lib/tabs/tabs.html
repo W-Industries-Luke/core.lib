@@ -1,0 +1,54 @@
+<!--
+  Material's tab group is the whole widget: the header, the ink bar, the ripples,
+  the sliding body, the pagination arrows, the roving focus and the
+  tablist/tab/tabpanel roles are all `<mat-tab-group>`'s, drawn from the M3 system
+  tokens the shared theme emits. Nothing here re-implements any of it.
+
+  Each `<ui-tab>` a consumer projected becomes one `<mat-tab>`. `<ui-tab>` renders
+  nothing itself — it captures its content in a template, which is rendered below
+  inside Material's own tab body, so the consumer's content ends up in the element
+  carrying `role="tabpanel"` rather than in a box of ours beside it.
+-->
+<mat-tab-group
+  [selectedIndex]="selectedIndex()"
+  (selectedIndexChange)="selectedIndex.set($event)"
+  [mat-stretch-tabs]="stretchTabs()"
+  [mat-align-tabs]="matAlignTabs()"
+  [dynamicHeight]="dynamicHeight()"
+  [preserveContent]="preserveContent()"
+  [disableRipple]="disableRipple()"
+  [aria-label]="ariaLabel() ?? ''"
+  [aria-labelledby]="ariaLabelledby() ?? ''"
+>
+  @for (tab of tabs(); track tab) {
+    <mat-tab
+      [label]="tab.label()"
+      [disabled]="tab.disabled()"
+      [aria-label]="tab.ariaLabel() ?? ''"
+      [labelClass]="tab.labelClass() ?? ''"
+      [bodyClass]="tab.bodyClass() ?? ''"
+    >
+      <!--
+        A projected `uiTabLabel` replaces the `label` string in the header. It is
+        handed to Material's own `matTabLabel`, so it renders inside the
+        `role="tab"` element and leaves the ripple, the ink bar and the keyboard
+        untouched.
+      -->
+      @if (tab.labelDef(); as labelDef) {
+        <ng-template matTabLabel>
+          <ng-container [ngTemplateOutlet]="labelDef.template" />
+        </ng-template>
+      }
+
+      <!--
+        `matTabContent` rather than plain projection: it is the template Material
+        stamps into the tab body when the tab is selected, so the content lands
+        inside the `role="tabpanel"` and is torn down with it, exactly as a
+        `<mat-tab>`'s own content is.
+      -->
+      <ng-template matTabContent>
+        <ng-container [ngTemplateOutlet]="tab.content()" />
+      </ng-template>
+    </mat-tab>
+  }
+</mat-tab-group>

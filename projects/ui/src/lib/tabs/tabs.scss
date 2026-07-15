@@ -1,0 +1,64 @@
+// Box metrics and the styling hooks for `ui-tabs`.
+//
+// There is not a literal colour in this file on purpose: `<mat-tab-group>`
+// already resolves its ink bar, its labels and its divider from the `--mat-sys-*`
+// tokens that `../../styles/_theme.scss` emits, so a palette change there
+// re-colours every tab group with no help from here. The overrides below only
+// re-point those tokens at *hooks* whose defaults are the very tokens Material
+// would have used, so the default tab group ships no colour decision of its own.
+
+@use '@angular/material' as mat;
+
+// The public hooks (rule 6), each defaulting to the token Material itself resolves
+// to under the shared M3 theme — so an untouched `ui-tabs` is a stock Material tab
+// group, and a consumer who sets one is re-pointing a role rather than picking a
+// colour. Named here because each is spent on several of Material's tokens: an ink
+// bar whose hover state is a different colour from its resting state would be a
+// bug rather than a design, so the states cannot be separately settable.
+$ink: var(--ui-tabs-color, var(--mat-sys-primary));
+$active-label: var(--ui-tabs-active-label-color, var(--mat-sys-on-surface));
+$inactive-label: var(--ui-tabs-inactive-label-color, var(--mat-sys-on-surface));
+
+:host {
+  // Material's group is `display: block` and fills its container's width, which is
+  // what a tab group wants — the header spans the content it switches. The host
+  // gets out of the way rather than imposing a size of its own.
+  display: block;
+
+  // Every hook goes through `mat.tabs-overrides()` rather than a rule on
+  // Material's internals: the tokens are Material's own API, so the geometry, the
+  // animations and the pagination stay Material's. Custom properties inherit
+  // through the encapsulation boundary, so a hook set on `ui-tabs` reaches the
+  // elements inside Material's template with no `::ng-deep`.
+  @include mat.tabs-overrides(
+    (
+      // The ink bar under the selected tab — the one colour a consumer is likely
+      // to want off-palette, e.g. a tertiary-accented section.
+      active-indicator-color: $ink,
+      active-focus-indicator-color: $ink,
+      active-hover-indicator-color: $ink,
+      // Label text. M3 puts the selected and unselected labels on the same
+      // `on-surface` role — the ink bar carries the emphasis — so both hooks
+      // default there.
+      active-label-text-color: $active-label,
+      active-focus-label-text-color: $active-label,
+      active-hover-label-text-color: $active-label,
+      inactive-label-text-color: $inactive-label,
+      inactive-focus-label-text-color: $inactive-label,
+      inactive-hover-label-text-color: $inactive-label,
+      // The rule under the header, which separates it from the tab's content.
+      divider-color: var(--ui-tabs-divider-color, var(--mat-sys-surface-variant)),
+      // The ink bar's own geometry. M3's 2px square underline stays the default:
+      // unlike `uiButton`'s capsule, that is not a house-style decision the fleet
+      // needs re-taken. The hooks are here so a heavier or rounded bar is a
+      // declaration rather than a reach into Material's internals.
+      active-indicator-height: var(--ui-tabs-indicator-height, 2px),
+      active-indicator-shape: var(--ui-tabs-indicator-shape, 0)
+    )
+  );
+
+  // Note there is no height hook: `--mat-tab-container-height` is Material's
+  // density token, and density is a fleet-wide decision `_theme.scss` owns. A tab
+  // group that is 48px in one app and 36px in the next is exactly the drift this
+  // library exists to prevent.
+}
