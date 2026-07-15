@@ -1,0 +1,33 @@
+// The box `ui-select` occupies — and nothing else.
+//
+// There is not a colour, radius, outline or font in this file on purpose:
+// `<mat-form-field>` and `<mat-select>` already resolve all of it — including the
+// panel, its elevation and the options inside it — from the `--mat-sys-*` tokens
+// that `../../styles/_theme.scss` emits, so a palette change there re-skins every
+// select, in light and dark alike, with no help from here.
+//
+// What is left is the same layout problem Material leaves open for `ui-input`.
+// `.mat-mdc-form-field` is an `inline-flex` sized from its control's intrinsic
+// width, so a consumer who writes `ui-select { width: 20rem; }` — the obvious
+// gesture — would widen this host and watch the field sit at its default width
+// inside it, with `::ng-deep .mat-mdc-form-field { width: 100% }` as the only way
+// out. Rule 2 says that means the API is wrong, so the field fills the host and
+// the host is what a consumer sizes.
+//
+// The panel is not styled here and could not be: it renders in an overlay at the
+// document root, outside this stylesheet's encapsulation. `panelClass` is
+// Material's own answer, and it is forwarded — so that is not a `::ng-deep`
+// either.
+
+:host {
+  // A field is a block: it has a label above it and a subscript below it, and it
+  // is what the host has to be for the width below to have anything to fill.
+  display: block;
+}
+
+.ui-select__field {
+  // `--ui-select-width` is the public hook (rule 6), for the case the default is
+  // wrong: a select that should shrink to its content (`max-content`), or a pair
+  // sharing a row.
+  width: var(--ui-select-width, 100%);
+}
