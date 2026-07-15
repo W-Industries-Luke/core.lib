@@ -1,0 +1,16 @@
+<!--
+  Material's spinner is the whole visual: the SVG, the indeterminate animation
+  and the determinate arc are all `<mat-progress-spinner>`'s, drawn from the M3
+  system tokens the shared theme emits. Nothing here re-implements any of it.
+
+  The host is the `role="status"` live region; this element keeps Material's own
+  `role="progressbar"` and its `aria-valuenow`. The name is repeated onto it so
+  that the progressbar is not an anonymous widget nested inside a named region.
+-->
+<mat-progress-spinner
+  [mode]="mode()"
+  [value]="value()"
+  [diameter]="diameter()"
+  [strokeWidth]="resolvedStrokeWidth()"
+  [attr.aria-label]="resolvedLabel()"
+/>

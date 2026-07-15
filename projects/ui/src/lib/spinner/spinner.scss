@@ -1,0 +1,33 @@
+// Box metrics and the one colour hook for `ui-spinner`.
+//
+// There is not a literal colour in this file on purpose: `<mat-progress-spinner>`
+// already resolves its arc from the `--mat-sys-*` tokens that
+// `../../styles/_theme.scss` emits, so a palette change there re-colours every
+// spinner with no help from here. The override below only re-points the arc
+// token at a *hook* whose default is the very token Material would have used, so
+// the default spinner ships no colour decision of its own.
+
+@use '@angular/material' as mat;
+
+:host {
+  // Material sizes the spinner itself, in px, from `diameter`. The host shrinks
+  // to it and stays inline, so a spinner can sit in a line of text or inside a
+  // button without a layout hack.
+  display: inline-block;
+  line-height: 0;
+
+  // `--ui-spinner-color` is the public hook (rule 6): the arc is the one thing a
+  // consumer might reasonably want off-palette — a spinner on a coloured
+  // surface, or a tertiary-accented one. Point it at another `--mat-sys-*` role
+  // rather than a literal, so it survives a palette change and dark mode.
+  //
+  // This is `progress-spinner-overrides` rather than a rule on Material's
+  // internals: the token is Material's own API, so the arc, its animation and
+  // its geometry stay Material's. Custom properties inherit through the
+  // encapsulation boundary, so it reaches the inner element with no `::ng-deep`.
+  @include mat.progress-spinner-overrides(
+    (
+      active-indicator-color: var(--ui-spinner-color, var(--mat-sys-primary)),
+    )
+  );
+}
