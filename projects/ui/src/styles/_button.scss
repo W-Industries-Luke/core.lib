@@ -1,12 +1,21 @@
-@use '@angular/material' as mat;
-
+// Colour roles for `uiButton`.
+//
+// `uiButton` is a directive on the native `<button matButton>`, and a directive
+// cannot carry a `styleUrl` — so unlike a component's encapsulated stylesheet,
+// this lives with the theme and is emitted by `_theme.scss`. That is also where
+// Angular Material documents `mat.button-overrides()` belonging: it is theming,
+// not structure, and the tokens have to reach a Material button that this
+// library does not own the template of.
+//
 // `color` is resolved here rather than on `MatButton`, because MatButton's own
 // `color` input is an M2-only API that does nothing under an M3 theme (see
 // @angular/material/button: "This API is supported in M2 themes only").
 //
 // Everything below reads the `--mat-sys-*` custom properties that `mat.theme()`
-// emits from `src/styles/_theme.scss`, so there are no literal colours: swapping
-// a palette there re-colours every ui-button, in light and dark alike.
+// emits from `_theme.scss`, so there are no literal colours: swapping a palette
+// there re-colours every button, in light and dark alike.
+
+@use '@angular/material' as mat;
 
 // State layers and ripples are the palette colour at the theme's own
 // interaction opacities — the same construction Material uses internally.
@@ -56,19 +65,15 @@
   );
 }
 
-:host {
-  display: inline-block;
-}
-
 // `primary` needs no overrides — it is what Material's M3 button tokens already
-// resolve to, so the default `ui-button` ships zero extra CSS.
+// resolve to, so the default `uiButton` ships zero extra CSS.
 
-:host(.ui-button--accent) {
+.ui-button--accent {
   // The theme exposes its accent as M3's `tertiary` palette (see `$tertiary` in
-  // `src/styles/_theme.scss`); `accent` is the M2-era name consumers still use.
+  // `_theme.scss`); `accent` is the M2-era name consumers still use.
   @include _palette-role(tertiary, on-tertiary, tertiary-container, on-tertiary-container);
 }
 
-:host(.ui-button--warn) {
+.ui-button--warn {
   @include _palette-role(error, on-error, error-container, on-error-container);
 }
