@@ -1,0 +1,115 @@
+<!--
+  Everything visible here is Material's. The container, the floating label and
+  the `aria-labelledby` that names the combobox with it, the outline, the arrow,
+  the overlay panel, the options and their ripples and checkboxes, the focus
+  ring, the subscript that swaps a hint for an error, and the ids that tie the
+  message to the control through `aria-describedby` are all `<mat-form-field>`'s
+  and `<mat-select>`'s own work — this template only assembles them and hands
+  them the component's signals.
+
+  The slots project into elements declared *here*, carrying Material's own
+  `matIconPrefix` / `matIconSuffix` / `<mat-hint>`, rather than asking a consumer
+  to write those directives themselves: `<mat-form-field>` finds its parts with
+  content queries, and a marker on a consumer's element would be one projection
+  hop further out than those queries look. It is the shape `ui-card` and
+  `ui-input` use, for the same reason.
+
+  The options are the same story, and are why they are an `options` input rather
+  than projected `<mat-option>`s: `<mat-select>` finds its options with a content
+  query too, so they have to be declared in this template. `uiSelectOption` is
+  how a consumer renders one as something other than text — the `<mat-option>`
+  around it stays Material's.
+-->
+<mat-form-field
+  class="ui-select__field"
+  [appearance]="appearance()"
+  [floatLabel]="floatLabel()"
+  [subscriptSizing]="subscriptSizing()"
+  [hideRequiredMarker]="hideRequiredMarker()"
+>
+  @if (label()) {
+    <mat-label>{{ label() }}</mat-label>
+  }
+
+  @if (prefixSlot()) {
+    <span matIconPrefix class="ui-select__prefix"><ng-content select="[uiSelectPrefix]" /></span>
+  }
+
+  <!--
+    `id` and the `aria-*` inputs are empty strings rather than `undefined` when
+    unset: Material's setters read `''` as "nothing given" and fall back to the
+    id it generated and to the label it found, while `undefined` would not
+    type-check against them.
+  -->
+  <mat-select
+    #select
+    [id]="id() ?? ''"
+    [placeholder]="placeholder() ?? ''"
+    [value]="value()"
+    [multiple]="multiple()"
+    [disabled]="isDisabled()"
+    [required]="required()"
+    [compareWith]="compareWith()"
+    [panelClass]="panelClass()"
+    [panelWidth]="panelWidth()"
+    [disableOptionCentering]="disableOptionCentering()"
+    [hideSingleSelectionIndicator]="hideSingleSelectionIndicator()"
+    [errorStateMatcher]="errorStateMatcher"
+    [tabIndex]="tabindex()"
+    [aria-label]="ariaLabel() ?? ''"
+    [aria-labelledby]="ariaLabelledby() ?? ''"
+    [aria-describedby]="ariaDescribedby() ?? ''"
+    (selectionChange)="handleSelectionChange($event)"
+    (openedChange)="handleOpenedChange($event)"
+    (blur)="handleBlur()"
+  >
+    <!--
+      Material renders `<mat-select-trigger>` only once there is a value, so an
+      empty field still shows its own placeholder.
+    -->
+    @if (triggerDef(); as trigger) {
+      <mat-select-trigger>
+        <ng-container
+          [ngTemplateOutlet]="trigger.template"
+          [ngTemplateOutletContext]="triggerContext()"
+        />
+      </mat-select-trigger>
+    }
+
+    <!--
+      Tracked by `value` — it is what identifies an option to the form, so two
+      options sharing one is already a bug this would only hide.
+    -->
+    @for (option of options(); track option.value) {
+      <mat-option [value]="option.value" [disabled]="!!option.disabled">
+        @if (optionDef(); as def) {
+          <ng-container
+            [ngTemplateOutlet]="def.template"
+            [ngTemplateOutletContext]="{ $implicit: option }"
+          />
+        } @else {
+          {{ option.label }}
+        }
+      </mat-option>
+    }
+  </mat-select>
+
+  @if (suffixSlot()) {
+    <span matIconSuffix class="ui-select__suffix"><ng-content select="[uiSelectSuffix]" /></span>
+  }
+
+  <!--
+    Material renders at most one subscript message: it shows the errors when the
+    control is in an error state and the hints otherwise, so both can be here and
+    an error never stacks on top of the hint it replaces.
+  -->
+  @if (hasError()) {
+    <mat-error>{{ error() }}</mat-error>
+  }
+
+  @if (hintSlot()) {
+    <mat-hint><ng-content select="[uiSelectHint]" /></mat-hint>
+  } @else if (hint()) {
+    <mat-hint>{{ hint() }}</mat-hint>
+  }
+</mat-form-field>
