@@ -42,7 +42,7 @@ describe('Button', () => {
     // names Material itself understands, so a typo is a silently unstyled button
     // rather than a compile error. The class assertion pins that Material really
     // restyles for each one, rather than just accepting the value.
-    const variants: Array<[UiButtonVariant, string]> = [
+    const variants: [UiButtonVariant, string][] = [
       ['filled', 'mat-mdc-unelevated-button'],
       ['outlined', 'mat-mdc-outlined-button'],
       ['text', 'mat-mdc-button'],
@@ -66,7 +66,7 @@ describe('Button', () => {
       expect(fixture.nativeElement.className).not.toContain('ui-button--');
     });
 
-    const colorClasses: Array<[UiButtonColor, string | null]> = [
+    const colorClasses: [UiButtonColor, string | null][] = [
       ['primary', null],
       ['accent', 'ui-button--accent'],
       ['warn', 'ui-button--warn'],
