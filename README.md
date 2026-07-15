@@ -3,7 +3,8 @@
 Shared Angular UI component library for the `*.web` apps
 (`workspace.web`, `wms.web`, `core.web`, `ads.web`).
 
-Angular 21 workspace, single library at `projects/ui`, published as `ui`.
+Angular 21 workspace, single library at `projects/ui`, published to GitHub
+Packages as **`@w-industries/ui`** — see [Releasing](#releasing).
 
 ## Develop
 
@@ -83,6 +84,68 @@ job — until it lands the check is local-only and a11y regressions can still re
   run: npm run test:a11y
 ```
 
+## Releasing
+
+The library publishes to **GitHub Packages** (`https://npm.pkg.github.com`) as
+`@w-industries/ui`. That registry is the default here because the consuming apps
+are all in this same org: access is the repo's existing permissions rather than a
+second identity system, and CI authenticates with the `GITHUB_TOKEN` it already
+has, so **there is no publish token to store or rotate**. npmjs.com would mean
+either a public package or a paid private org plus a long-lived automation token
+in secrets; neither buys anything for an internal fleet.
+
+### Cutting a release
+
+The **release tag is the version**. `projects/ui/package.json` carries a
+placeholder that local builds use; the workflow overwrites it in `dist/ui` from
+the tag, so there is no version-bump commit to forget.
+
+1. Publish a GitHub Release tagged `vX.Y.Z` (semver, `v` prefix — the workflow
+   rejects anything else).
+2. `release.yml` builds and tests the library, stamps `X.Y.Z` into
+   `dist/ui/package.json`, and runs `npm publish` from `dist/ui`.
+3. The package appears under the repo's Packages tab.
+
+Publishing is deliberately gated on a **published release**, not a bare pushed
+tag: a release is a reviewable, human action with notes attached, and it can't
+happen by accident from a mistyped `git tag`.
+
+### Before the first release — three things a human must do
+
+The workflow is inert until all three are true:
+
+1. **Move the workflow into place.** It sits at
+   `.github/pending-workflows/release.yml`; GitHub only runs workflows under
+   `.github/workflows/`. The agent that wrote it may not edit that directory
+   (same constraint as the a11y step above), so a human needs to
+   `git mv .github/pending-workflows/release.yml .github/workflows/release.yml`.
+   It is otherwise complete — review it, don't rewrite it.
+2. **Reconcile the scope with the repo owner.** GitHub Packages requires an npm
+   package's scope to match the account that owns the repo. This repo is owned by
+   `w-industries-luke`, so `@w-industries/ui` will be **rejected with a 403**
+   until either the repo moves to a `w-industries` org (the intent implied by the
+   name, and the better end state), or the package is renamed
+   `@w-industries-luke/ui` in `projects/ui/package.json`, the `scope:` in
+   `release.yml`, and the `paths` entry in `tsconfig.json`. Nothing else in the
+   repo depends on the name.
+3. **Allow the workflow to publish.** No new secret is needed — `GITHUB_TOKEN` is
+   built in and the workflow requests `packages: write` itself. But if the org
+   sets default workflow permissions to read-only (Settings → Actions → General),
+   that `permissions:` block is capped and publish fails with a 403.
+
+### Consuming it from an app
+
+Each consuming app needs an `.npmrc` telling npm where the scope lives:
+
+```ini
+@w-industries:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+```
+
+`NODE_AUTH_TOKEN` is a PAT with `read:packages` locally, or `GITHUB_TOKEN` in
+that app's CI. The `${...}` form is expanded by npm at read time — **commit the
+`.npmrc`, never the token itself**. Then `npm i @w-industries/ui`.
+
 ## Layout
 
 ```
@@ -95,9 +158,13 @@ job — until it lands the check is local-only and a11y regressions can still re
 │   ├── .storybook/           # storybook config, preview theme + fonts
 │   └── ng-package.json
 ├── angular.json
-└── .github/workflows/
-    ├── ci.yml                # builds + tests every PR
-    └── storybook.yml         # publishes the catalogue to Pages on push to main
+└── .github/
+    ├── workflows/
+    │   ├── ci.yml            # builds + tests every PR
+    │   └── storybook.yml     # publishes the catalogue to Pages on push to main
+    └── pending-workflows/
+        └── release.yml       # publishes @w-industries/ui on release — INERT
+                              # until moved into workflows/, see Releasing
 ```
 
 ## Contributing

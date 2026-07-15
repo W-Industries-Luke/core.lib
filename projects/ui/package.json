@@ -1,6 +1,17 @@
 {
-  "name": "ui",
+  "name": "@w-industries/ui",
   "version": "0.0.1",
+  "description": "Shared Angular Material component library and M3 theme for the *.web apps",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/w-industries-luke/core.lib.git",
+    "directory": "projects/ui"
+  },
+  "homepage": "https://w-industries-luke.github.io/core.lib/",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "peerDependencies": {
     "@angular/common": "^21.2.0",
     "@angular/core": "^21.2.0",

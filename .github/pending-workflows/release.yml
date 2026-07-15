@@ -1,0 +1,52 @@
+# Publishes dist/ui to GitHub Packages as @w-industries/ui when a release is
+# published. NOT ACTIVE until a human moves this file to .github/workflows/ —
+# the agent that wrote it is not permitted to edit .github/workflows.
+# See "Releasing" in the root README.md for the prerequisites.
+name: release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          # Writes an .npmrc pointing @w-industries at GitHub Packages and
+          # wiring it to NODE_AUTH_TOKEN, so no token is ever committed.
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@w-industries"
+      - run: npm ci
+
+      # The same gate as ci.yml: never publish an artefact that would fail a PR.
+      - name: Build library
+        run: npx ng build ui
+      - name: Test library
+        run: npx ng test ui --watch=false
+
+      # The release tag is the source of truth for the version; the version in
+      # projects/ui/package.json is only a placeholder for local builds.
+      - name: Stamp version from the release tag
+        working-directory: dist/ui
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          case "$VERSION" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::tag '$GITHUB_REF_NAME' is not vX.Y.Z"; exit 1 ;;
+          esac
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Publish to GitHub Packages
+        working-directory: dist/ui
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
