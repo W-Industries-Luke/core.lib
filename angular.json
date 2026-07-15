@@ -29,6 +29,22 @@
           "options": {
             "tsConfig": "projects/ui/tsconfig.spec.json"
           }
+        },
+        "storybook": {
+          "builder": "@storybook/angular-vite:start-storybook",
+          "options": {
+            "configDir": "projects/ui/.storybook",
+            "styles": ["./.storybook/preview.scss"],
+            "port": 6006
+          }
+        },
+        "build-storybook": {
+          "builder": "@storybook/angular-vite:build-storybook",
+          "options": {
+            "configDir": "projects/ui/.storybook",
+            "styles": ["./.storybook/preview.scss"],
+            "outputDir": "storybook-static"
+          }
         }
       }
     }

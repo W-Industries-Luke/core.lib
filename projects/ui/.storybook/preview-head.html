@@ -1,0 +1,16 @@
+<!--
+  Injected into the <head> of the Storybook preview iframe.
+
+  Angular Material's typography config asks for Roboto and its components render
+  ligature icons via Material Symbols. An Angular app gets these from its
+  index.html; Storybook has no index.html of its own, so they are declared here.
+  Without them, `typography: Roboto` in the theme silently falls back to a system
+  font and icon ligatures render as raw text (e.g. the word "menu").
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+  rel="stylesheet"
+/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet" />
