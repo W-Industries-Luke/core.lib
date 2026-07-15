@@ -68,5 +68,18 @@ Every component should:
 ## Automation
 
 This repo is the pilot for unattended agent work. Issues labelled `claude-task`
-are picked up by a scheduled agent, which opens a **draft PR** for review — it
-never merges and never pushes to `main`. See the `claude-sdk-workflows` repo.
+are picked up by a scheduled worker (twice daily, a batch at a time) which:
+
+1. Branches off `main`, implements the issue, and runs build + tests.
+2. Opens a PR that `Closes #<issue>`.
+3. **Squash-merges it — but only once CI on the PR is green.** The merge gate is
+   GitHub's own CI result, never the agent's claim that its work is fine.
+
+If the build or tests fail, it instead leaves a **draft** PR titled `[FAILING]`
+and labels the issue `claude-blocked` for a human. It never pushes to `main`
+directly: the worker owns git, and the agent's git/gh tooling is removed
+entirely so it *cannot*.
+
+CI (`ci.yml`) is therefore load-bearing, not decorative — it is the only thing
+standing between an unattended agent and `main`. See the `claude-sdk-workflows`
+repo for the worker.
