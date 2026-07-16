@@ -1,0 +1,17 @@
+// Box metrics for `ui-grid-list`.
+//
+// There is not a literal colour in this file, because there is no colour decision
+// to make: `<mat-grid-list>` is a layout container, and `<mat-grid-tile>` draws
+// nothing of its own — a tile's fill and text come from the content projected into
+// it, so a grid inherits the fleet's palette by having no palette. Material's only
+// grid-list tokens are the header/footer type sizes, which already resolve from the
+// `--mat-sys-*` roles `../../styles/_theme.scss` emits (see grid-list's
+// `_m3-grid-list.scss`), so a type change there follows here with no help.
+//
+// That leaves this stylesheet the one thing the encapsulation boundary needs said:
+// the host is a block that takes the width it is given, so a consumer sizes the
+// grid (`ui-grid-list { max-width: 60rem; }`) rather than have it impose a size.
+
+:host {
+  display: block;
+}

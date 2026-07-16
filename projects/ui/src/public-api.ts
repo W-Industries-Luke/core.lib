@@ -17,6 +17,7 @@ export * from './lib/dialog/dialog';
 export * from './lib/dialog/dialog-layout';
 export * from './lib/divider/divider';
 export * from './lib/empty-state/empty-state';
+export * from './lib/grid-list/grid-list';
 export * from './lib/icon/icon';
 export * from './lib/input/input';
 export * from './lib/list/list';
