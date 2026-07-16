@@ -1,0 +1,55 @@
+<!--
+  There is no US-shaped markup here. The country picker renders first, and then
+  the fields are generated from whichever `schema()` the selected country
+  resolves to — labels, order, which control each field uses and its validation
+  all come from that data, so this template serves every country the same way.
+
+  Each field is a `ui-input` or a `ui-select` from this library, so the box, the
+  floating label, the outline, the error treatment and every `--mat-sys-*` colour
+  are the primitives' own — the composite adds layout and wiring, not a second
+  copy of a field. `role="group"` and `aria-label` name the whole set for a
+  screen reader, the way a `<fieldset>`/`<legend>` would.
+-->
+<div class="ui-address-form" role="group" [attr.aria-label]="ariaLabel()">
+  <ui-select
+    class="ui-address-form__field ui-address-form__field--full"
+    label="Country"
+    [options]="countries()"
+    [value]="activeCountry()"
+    [disabled]="isDisabled()"
+    [required]="true"
+    (valueChange)="patch('country', $event)"
+  />
+
+  @for (field of schema().fields; track field.key) {
+    @if (field.control === 'select') {
+      <ui-select
+        class="ui-address-form__field"
+        [class.ui-address-form__field--half]="field.span === 'half'"
+        [class.ui-address-form__field--full]="field.span !== 'half'"
+        [label]="field.label"
+        [options]="field.options ?? []"
+        [value]="value()[field.key]"
+        [required]="isRequired(field)"
+        [disabled]="isDisabled()"
+        [error]="errorFor(field)"
+        (valueChange)="patch(field.key, $event)"
+        (focusout)="markTouched(field.key)"
+      />
+    } @else {
+      <ui-input
+        class="ui-address-form__field"
+        [class.ui-address-form__field--half]="field.span === 'half'"
+        [class.ui-address-form__field--full]="field.span !== 'half'"
+        [label]="field.label"
+        [value]="value()[field.key]"
+        [required]="isRequired(field)"
+        [disabled]="isDisabled()"
+        [error]="errorFor(field)"
+        [attr.autocomplete]="field.autocomplete"
+        (valueChange)="patch(field.key, $event)"
+        (focusout)="markTouched(field.key)"
+      />
+    }
+  }
+</div>
