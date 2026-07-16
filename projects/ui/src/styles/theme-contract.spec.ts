@@ -16,6 +16,9 @@ import { join, relative } from 'node:path';
  * never enter. Hence a source-level assertion, in the spirit of `release.spec.ts`:
  * some contracts are cheaper to hold than to observe.
  */
+/** A `--ui-sys-spacing-*` declaration — the one `--ui-sys-*` role that is not a colour. */
+const SPACING_ROLE = /^\s*--ui-sys-spacing-[\w#{}$.-]*:/;
+
 describe('theme contract', () => {
   const src = join(process.cwd(), 'projects', 'ui', 'src');
 
@@ -56,7 +59,7 @@ describe('theme contract', () => {
       expect(theme).toMatch(/color-scheme:\s*light dark/);
     });
 
-    it('gives its own roles the same light/dark pairing Material’s roles have', () => {
+    it('gives its own colour roles the same light/dark pairing Material’s roles have', () => {
       // `--ui-sys-success` / `--ui-sys-warning` are this library's additions to
       // M3, so nothing upstream flips them — they only track the scheme because
       // they are emitted as `light-dark()` like every `--mat-sys-*` role. A tone
@@ -67,12 +70,31 @@ describe('theme contract', () => {
       const roles = theme
         .split('\n')
         .filter((line) => /^\s*--ui-sys-[\w#{}$.-]+:/.test(line))
+        // `--ui-sys-spacing-*` is the exception, and the only kind of exception
+        // there is: it carries a length rather than a colour, and a gap is a gap
+        // in the dark. Pairing it through `light-dark()` would be noise, not
+        // rigour — see the assertion below, which holds it to its own contract.
+        .filter((line) => !SPACING_ROLE.test(line))
         .map((line) => line.trim());
 
       expect(roles.length).toBeGreaterThanOrEqual(4);
       for (const role of roles) {
         expect(role).toContain('light-dark(');
       }
+    });
+
+    it('emits a spacing scale for the fleet to lay out against', () => {
+      // M3's 4dp grid is not a token Material emits, so this is the fleet's only
+      // shared answer to "how far apart" — a component reaching for a literal
+      // instead is how the apps drift. It is asserted here rather than in
+      // `ui-divider`'s own spec because the scale is the theme's, and the next
+      // component to need a gap has to find these three already defined.
+      const scale = theme.split('\n').filter((line) => SPACING_ROLE.test(line));
+
+      expect(scale.length).toBeGreaterThanOrEqual(1);
+      // Steps on M3's own 4dp unit, not hand-picked numbers.
+      expect(theme).toMatch(/\$spacing-unit:\s*4px/);
+      expect(theme).toMatch(/sm:\s*2,[\s\S]*?md:\s*4,[\s\S]*?lg:\s*6,/);
     });
   });
 });

@@ -103,6 +103,31 @@ $warning: mat.$orange-palette;
 }
 
 // ---------------------------------------------------------------------------
+// Spacing
+// ---------------------------------------------------------------------------
+// M3 lays its components out on a 4dp grid, but that grid is not a token
+// anywhere: `mat.theme()` emits roles for colour, type, shape and elevation and
+// stops there, so "how far apart" is the one design decision the fleet has no
+// shared answer to — and every component that has needed a gap so far has
+// answered it with a literal of its own.
+//
+// These three are that answer, emitted alongside Material's own roles and named
+// to match, so a consumer reaches for `--ui-sys-spacing-md` exactly where they
+// reach for `--mat-sys-corner-medium`. They are steps on M3's own grid (2×, 4×
+// and 6× its 4dp unit), which is why they land on the numbers Material's own
+// stylesheets already use — 8px between related things, 16px between blocks,
+// 24px between sections.
+//
+// Unlike the colour roles below, they do not vary by scheme: a gap is a gap in
+// the dark.
+$spacing-unit: 4px;
+$spacing: (
+  sm: 2,
+  md: 4,
+  lg: 6,
+);
+
+// ---------------------------------------------------------------------------
 // Theme
 // ---------------------------------------------------------------------------
 // mat.theme() emits CSS custom properties, so light/dark switching is handled
@@ -133,4 +158,10 @@ html {
   // matching `--mat-sys-*` role would go.
   @include _status-role(success, $success);
   @include _status-role(warning, $warning);
+
+  // The spacing scale — see above. Emitted here rather than per component so
+  // that `ui-divider`'s `md` and the next component's `md` cannot drift apart.
+  @each $name, $steps in $spacing {
+    --ui-sys-spacing-#{$name}: #{$steps * $spacing-unit};
+  }
 }

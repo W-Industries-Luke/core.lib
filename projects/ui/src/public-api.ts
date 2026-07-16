@@ -14,6 +14,7 @@ export * from './lib/datepicker/datepicker';
 export * from './lib/dialog/confirm-dialog';
 export * from './lib/dialog/dialog';
 export * from './lib/dialog/dialog-layout';
+export * from './lib/divider/divider';
 export * from './lib/empty-state/empty-state';
 export * from './lib/icon/icon';
 export * from './lib/input/input';
