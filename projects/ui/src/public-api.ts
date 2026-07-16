@@ -2,6 +2,8 @@
  * Public API Surface of ui
  */
 
+export * from './lib/address-form/address-form';
+export * from './lib/address-form/address-schema';
 export * from './lib/alert/alert';
 export * from './lib/autocomplete/autocomplete';
 export * from './lib/badge/badge';
