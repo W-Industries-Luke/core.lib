@@ -19,5 +19,8 @@ jobs:
       - run: npm ci
       - name: Build library
         run: npx ng build ui
-      - name: Test library
+      # Coverage + thresholds live in angular.json's `test` options, so this
+      # single command runs the suite AND fails the job when coverage drops
+      # below the threshold. The text-summary reporter prints the numbers here.
+      - name: Test library (with coverage threshold)
         run: npx ng test ui --watch=false

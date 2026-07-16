@@ -27,7 +27,23 @@
         "test": {
           "builder": "@angular/build:unit-test",
           "options": {
-            "tsConfig": "projects/ui/tsconfig.spec.json"
+            "tsConfig": "projects/ui/tsconfig.spec.json",
+            "coverage": true,
+            "coverageInclude": ["projects/ui/src/**/*.ts"],
+            "coverageExclude": [
+              "projects/ui/src/**/*.spec.ts",
+              "projects/ui/src/**/*.stories.ts",
+              "projects/ui/src/**/index.ts",
+              "projects/ui/src/public-api.ts",
+              "projects/ui/src/styles/token-swatches.ts"
+            ],
+            "coverageReporters": ["text-summary", "text", "html", "json-summary"],
+            "coverageThresholds": {
+              "statements": 90,
+              "branches": 92,
+              "functions": 80,
+              "lines": 94
+            }
           }
         },
         "lint": {
