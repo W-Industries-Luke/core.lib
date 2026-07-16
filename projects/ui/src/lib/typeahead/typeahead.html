@@ -1,0 +1,157 @@
+<!--
+  Everything visible here is Material's, exactly as in `ui-autocomplete`: the container,
+  the floating label, the outline, the subscript, and — in the panel — the `combobox`
+  role, the overlay, the arrow keys, Enter and Escape. This template assembles them and
+  hands them the component's signals; what it adds over `ui-autocomplete` is the four
+  async states in the panel below.
+
+  The slots project into elements declared *here* so they carry Material's own
+  `matIconPrefix` / `matIconSuffix` / `<mat-hint>`, for the same reason `ui-autocomplete`
+  does it: `<mat-form-field>` finds its parts with content queries a consumer's element
+  would sit one hop outside of.
+-->
+<mat-form-field
+  class="ui-typeahead__field"
+  [appearance]="appearance()"
+  [floatLabel]="floatLabel()"
+  [subscriptSizing]="subscriptSizing()"
+  [hideRequiredMarker]="hideRequiredMarker()"
+>
+  @if (label()) {
+    <mat-label>{{ label() }}</mat-label>
+  }
+
+  @if (prefixSlot()) {
+    <span matIconPrefix class="ui-typeahead__prefix">
+      <ng-content select="[uiTypeaheadPrefix]" />
+    </span>
+  }
+
+  <!--
+    `id` and `aria-describedby` are empty strings rather than `undefined` when unset:
+    Material's setters read `''` as "nothing given" and fall back to what they
+    generated. The value is bound so the box shows what the *value* is; `handleInput`
+    writes every keystroke into the same signal, so this never overwrites typing.
+  -->
+  <input
+    #input
+    matInput
+    [matAutocomplete]="auto"
+    [matAutocompletePosition]="panelPosition()"
+    [id]="id() ?? ''"
+    [name]="name() ?? ''"
+    [placeholder]="placeholder() ?? ''"
+    [value]="text()"
+    [disabled]="isDisabled()"
+    [required]="required()"
+    [readonly]="readonly()"
+    [errorStateMatcher]="errorStateMatcher"
+    [aria-describedby]="ariaDescribedby() ?? ''"
+    (input)="handleInput($event)"
+    (blur)="handleBlur()"
+  />
+
+  @if (suffixSlot()) {
+    <span matIconSuffix class="ui-typeahead__suffix">
+      <ng-content select="[uiTypeaheadSuffix]" />
+    </span>
+  }
+
+  <!-- Material renders one subscript message: the error replaces the hint. -->
+  @if (hasError()) {
+    <mat-error>{{ error() }}</mat-error>
+  }
+
+  @if (hintSlot()) {
+    <mat-hint><ng-content select="[uiTypeaheadHint]" /></mat-hint>
+  } @else if (hint()) {
+    <mat-hint>{{ hint() }}</mat-hint>
+  }
+</mat-form-field>
+
+<!--
+  `displayWith` is handed the component's own `displayFn`, so the text Material puts in
+  the box when a result is chosen is the same text the component's own value renders as —
+  one function, whichever side calls it.
+-->
+<mat-autocomplete
+  #auto="matAutocomplete"
+  [class]="panelClass()"
+  [displayWith]="displayFn"
+  [panelWidth]="panelWidth()"
+  [autoActiveFirstOption]="autoActiveFirstOption()"
+  [aria-label]="panelAriaLabel() ?? ''"
+  (optionSelected)="handleOptionSelected($event)"
+  (opened)="handleOpened()"
+  (closed)="handleClosed()"
+>
+  <!--
+    Every async state is a `<mat-option>`, and the loading/empty/error ones are
+    *disabled*: Material hides a panel with no `MatOption` children in it
+    (`MatAutocomplete._setVisibility`), so a bare `<div>` here would render into a panel
+    nobody ever sees. Disabled keeps a status option unchoosable and out of the
+    keyboard's way while still holding the panel open to show it. The `idle` state — a
+    query below `minChars`, or the field untouched — renders nothing, so the panel stays
+    closed until there is something worth showing.
+  -->
+  @switch (status()) {
+    @case ('loading') {
+      <mat-option class="ui-typeahead__status ui-typeahead__loading" disabled>
+        @if (loadingDef(); as def) {
+          <ng-container [ngTemplateOutlet]="def.template" />
+        } @else {
+          <ui-spinner class="ui-typeahead__spinner" [diameter]="20" [label]="loadingText()" />
+        }
+      </mat-option>
+    }
+
+    @case ('error') {
+      <mat-option class="ui-typeahead__status ui-typeahead__error" disabled>
+        @if (errorDef(); as def) {
+          <ng-container
+            [ngTemplateOutlet]="def.template"
+            [ngTemplateOutletContext]="errorContext()"
+          />
+        } @else {
+          <ui-empty-state
+            class="ui-typeahead__empty-state"
+            icon="error_outline"
+            [message]="errorText()"
+          />
+        }
+      </mat-option>
+    }
+
+    @case ('results') {
+      @for (result of results(); track result.value) {
+        <mat-option [value]="result.value" [disabled]="!!result.disabled">
+          @if (optionDef(); as def) {
+            <ng-container
+              [ngTemplateOutlet]="def.template"
+              [ngTemplateOutletContext]="{ $implicit: result, query: query() }"
+            />
+          } @else {
+            {{ result.label }}
+          }
+        </mat-option>
+      }
+
+      @if (hasNoResults()) {
+        <mat-option class="ui-typeahead__status ui-typeahead__empty" disabled>
+          @if (emptyDef(); as def) {
+            <ng-container
+              [ngTemplateOutlet]="def.template"
+              [ngTemplateOutletContext]="emptyContext()"
+            />
+          } @else {
+            <ui-empty-state
+              class="ui-typeahead__empty-state"
+              icon="search_off"
+              [message]="noResultsText()"
+            />
+          }
+        </mat-option>
+      }
+    }
+  }
+</mat-autocomplete>

@@ -41,4 +41,5 @@ export * from './lib/textarea/textarea';
 export * from './lib/toggle/toggle';
 export * from './lib/toolbar/toolbar';
 export * from './lib/tooltip/tooltip';
+export * from './lib/typeahead/typeahead';
 export * from './lib/ui';
