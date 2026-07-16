@@ -317,6 +317,12 @@ that app's CI. The `${...}` form is expanded by npm at read time — **commit th
 
 ## Contributing
 
+**[`CONTRIBUTING.md`](./CONTRIBUTING.md) is the full guide** — the component
+checklist, the extensibility contract (directive-first, the `::ng-deep` test),
+the theming rules, the harness testing pattern, and how CI gates a merge, each
+derived from what `button/` and the theme actually do. The summary below is the
+short version; read `CONTRIBUTING.md` before building a component.
+
 Every component should:
 
 1. Live in `projects/ui/src/lib/<name>/`.
