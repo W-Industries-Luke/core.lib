@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HarnessLoader } from '@angular/cdk/testing';
@@ -320,6 +323,24 @@ describe('Card', () => {
       expect(card.getAttribute('role')).toBe('region');
       expect(card.getAttribute('aria-label')).toBe('Shipping address');
       expect(card.dataset['testid']).toBe('addr');
+    });
+  });
+
+  // Material's card padding (16/8) is the same distance as the fleet's `md`/`sm`
+  // spacing steps, so the defaults resolve from the shared scale rather than
+  // pinning literals a retuned scale could drift from. jsdom does not resolve
+  // `var()`, so this is a source-level assertion, in the spirit of `ui-toolbar`'s.
+  describe('padding defaults come from the spacing scale, not literals', () => {
+    const styles = readFileSync(join(process.cwd(), 'projects', 'ui', 'src', 'lib', 'card', 'card.scss'), 'utf8');
+
+    it('resolves the default padding from the theme’s `md`/`sm` steps', () => {
+      expect(styles).toContain('var(--ui-card-padding, var(--ui-sys-spacing-md))');
+      expect(styles).toContain('var(--ui-card-actions-padding, var(--ui-sys-spacing-sm))');
+    });
+
+    it('leaves no hardcoded 16px/8px padding default behind', () => {
+      expect(styles).not.toMatch(/--ui-card-padding,\s*16px/);
+      expect(styles).not.toMatch(/--ui-card-actions-padding,\s*8px/);
     });
   });
 });
