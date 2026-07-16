@@ -13,4 +13,18 @@
   href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
   rel="stylesheet"
 />
-<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet" />
+<!--
+  The axis ranges ask for the *variable* Material Symbols font, and they are
+  load-bearing rather than decoration: `ui-icon`'s `filled` input moves the
+  `FILL` axis, and its `--ui-icon-weight` / `--ui-icon-grade` /
+  `--ui-icon-optical-size` hooks move `wght` / `GRAD` / `opsz`. The axis-less
+  `…/icon?family=Material+Symbols+Outlined` form loads a static font where all
+  four silently do nothing, so the stories would show `filled` as a no-op.
+
+  This is the same declaration a consuming app needs in its index.html — see the
+  Icons section of the library README. Storybook's head is not shipped to anyone.
+-->
+<link
+  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+  rel="stylesheet"
+/>

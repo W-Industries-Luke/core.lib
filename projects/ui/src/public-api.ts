@@ -14,6 +14,7 @@ export * from './lib/dialog/confirm-dialog';
 export * from './lib/dialog/dialog';
 export * from './lib/dialog/dialog-layout';
 export * from './lib/empty-state/empty-state';
+export * from './lib/icon/icon';
 export * from './lib/input/input';
 export * from './lib/menu/menu';
 export * from './lib/menu/menu-trigger';
