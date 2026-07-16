@@ -196,18 +196,50 @@ class BottomSheetTemplateDemo {
   }
 }
 
-/** A sheet with more content than fits, to show the `maxHeight` default doing its job. */
+/**
+ * A sheet with more content than fits, to show the `maxHeight` default doing its
+ * job — and, with `sticky` in its data, to keep the header pinned while the body
+ * scrolls under it.
+ *
+ * The scroll container is the panel body (`.mat-bottom-sheet-container`) this
+ * content renders into, so a `position: sticky; top: 0` header pins to that same
+ * region. The header stays the sheet's visible title while the terms scroll.
+ */
 @Component({
   selector: 'ui-terms-sheet',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: `
+    h2 {
+      font: var(--mat-sys-title-medium);
+      margin: 0.5rem 0;
+    }
+
+    /* Pin the header to the top of the panel body while the paragraphs scroll
+       under it. The negative margins pull the band out over the container's own
+       8px 16px inset (the --ui-bottom-sheet-padding default) so scrolling content
+       cannot peek above or beside it, and the fill follows the exact token the
+       sheet's container resolves — so it stays opaque and tracks the palette in
+       light and dark alike, with no colour literal (house rule). */
+    h2.sticky {
+      position: sticky;
+      top: 0;
+      margin: -8px -16px 0.5rem;
+      padding: 8px 16px;
+      background: var(--ui-bottom-sheet-container-color, var(--mat-sys-surface-container-low));
+    }
+  `,
   template: `
-    <h2 style="font: var(--mat-sys-title-medium); margin: 0.5rem 0;">Terms of service</h2>
+    <h2 [class.sticky]="sticky">Terms of service</h2>
     @for (paragraph of paragraphs; track $index) {
       <p>{{ paragraph }}</p>
     }
   `,
 })
 class TermsSheet {
+  /** Pin the header while the body scrolls, from `config.data.sticky`. */
+  protected readonly sticky =
+    inject<{ sticky?: boolean } | null>(MAT_BOTTOM_SHEET_DATA)?.sticky ?? false;
+
   protected readonly paragraphs = Array.from(
     { length: 12 },
     (_, i) =>
@@ -223,15 +255,24 @@ class TermsSheet {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
-      <button matButton uiButton variant="filled" (click)="show()">Read the terms</button>
+      <button matButton uiButton variant="filled" (click)="show()">{{ trigger() }}</button>
     </div>
   `,
 })
 class BottomSheetScrollDemo {
   private readonly bottomSheet = inject(BottomSheet);
 
+  /** The label of the button that opens the sheet. */
+  readonly trigger = input('Read the terms');
+
+  /** Whether the opened sheet pins its header — passed on to `TermsSheet` as data. */
+  readonly sticky = input(false);
+
   protected show(): void {
-    this.bottomSheet.open(TermsSheet, { ariaLabel: 'Terms of service' });
+    this.bottomSheet.open(TermsSheet, {
+      ariaLabel: 'Terms of service',
+      data: { sticky: this.sticky() },
+    });
   }
 }
 
@@ -458,6 +499,34 @@ export const FromATemplate: Story = {
 export const ScrollingContent: Story = {
   parameters: { controls: { disable: true } },
   render: () => ({ template: `<ui-bottom-sheet-scroll-demo />` }),
+};
+
+/**
+ * The same scrolling sheet, but with its header **pinned** — the common pattern
+ * for a long terms/consent sheet, where the title has to stay visible however far
+ * the body scrolls.
+ *
+ * The scroll container is the panel body itself, so the header is `position:
+ * sticky; top: 0` *inside* that region:
+ *
+ * ```scss
+ * h2 {
+ *   position: sticky;
+ *   top: 0;
+ *   // The sheet's own container role, so the header stays opaque over the
+ *   // content scrolling under it and follows the palette in light and dark.
+ *   background: var(--mat-sys-surface-container-low);
+ * }
+ * ```
+ *
+ * No `::ng-deep`, no `!important` and no colour literal — the fill is a theme
+ * surface token, and the header stays the sheet's visible title throughout.
+ */
+export const ScrollingContentWithStickyHeader: Story = {
+  parameters: { controls: { disable: true } },
+  render: () => ({
+    template: `<ui-bottom-sheet-scroll-demo trigger="Read the terms (sticky header)" [sticky]="true" />`,
+  }),
 };
 
 /**
