@@ -1,0 +1,27 @@
+<!--
+  Material's paginator is the whole widget: the page size `<mat-select>`, the
+  `Items per page` and `1 – 10 of 42` labels, the four navigation buttons with
+  their icons, tooltips and disabled states, the `role="group"` and the polite live
+  region that announces a new range are all `<mat-paginator>`'s own, drawn from the
+  M3 system tokens the shared theme emits. Nothing here re-implements any of it.
+
+  Every stateful input is bound from a signal rather than left holding state of its
+  own, and `(page)` writes a user's click or page-size pick back through the same
+  `model`s — so the buttons, the select and the signals are readings of one value
+  (rule 5). `pageSize` is bound from `resolvedPageSize()` rather than from
+  `pageSize()`, so the paginator and the binding agree on the size even before the
+  constructor's effect has settled an unset one.
+-->
+<mat-paginator
+  [length]="length()"
+  [pageIndex]="pageIndex()"
+  [pageSize]="resolvedPageSize()"
+  [pageSizeOptions]="pageSizeOptions()"
+  [hidePageSize]="hidePageSize()"
+  [showFirstLastButtons]="showFirstLastButtons()"
+  [disabled]="disabled()"
+  [selectConfig]="selectConfig()"
+  (page)="onPage($event)"
+  [attr.aria-label]="ariaLabel()"
+  [attr.aria-labelledby]="ariaLabelledby()"
+/>
