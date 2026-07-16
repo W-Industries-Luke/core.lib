@@ -16,6 +16,7 @@ export * from './lib/dialog/dialog-layout';
 export * from './lib/empty-state/empty-state';
 export * from './lib/icon/icon';
 export * from './lib/input/input';
+export * from './lib/list/list';
 export * from './lib/menu/menu';
 export * from './lib/menu/menu-trigger';
 export * from './lib/paginator/paginator';

@@ -1,0 +1,73 @@
+// Box metrics and the styling hooks for `ui-list`.
+//
+// There is not a literal colour in this file on purpose: `<mat-list>`,
+// `<mat-selection-list>`, `<mat-list-item>` and `<mat-list-option>` already resolve
+// their rows' fill, their two lines, their leading icon and avatar and their state
+// layers from the `--mat-sys-*` tokens that `../../styles/_theme.scss` emits, so a
+// palette change there re-colours every list with no help from here. The overrides
+// below only re-point those tokens at *hooks* whose defaults are the very tokens
+// Material would have used, so the default `ui-list` ships no colour decision of its
+// own.
+//
+// The checkbox and radio a `selectable` list renders are deliberately absent: they are
+// Material's pseudo-checkbox, themed from the same M3 tokens, and a list that re-took
+// that decision would be a list whose indicators disagree with every checkbox and radio
+// in the fleet.
+
+@use '@angular/material' as mat;
+
+:host {
+  // Material's list is a block that takes the width it is given. Saying so here is what
+  // lets a consumer size it (`ui-list { max-width: 30rem; }`) rather than have it
+  // impose a size of its own.
+  display: block;
+
+  // The public hooks (rule 6), each defaulting to the token Material itself resolves to
+  // under the shared M3 theme — so an untouched `ui-list` is a stock Material list, and
+  // a consumer who sets one is re-pointing a role rather than picking a colour.
+  //
+  // These go through `mat.list-overrides()` rather than a rule on Material's
+  // internals: the tokens are Material's own API, so the structure, the density and the
+  // type stay Material's. Custom properties inherit through the encapsulation boundary,
+  // so a hook set on `ui-list` reaches the elements inside Material's template with no
+  // `::ng-deep`.
+  @include mat.list-overrides(
+    (
+      // A row's fill. Material's own M3 default is `transparent` rather than `surface`,
+      // deliberately — it is what lets a list sit on a card or a bottom sheet and take
+      // that container's colour instead of punching a hole in it. Kept.
+      list-item-container-color: var(--ui-list-item-container-color, transparent),
+      // A chosen row's fill. Material leaves this unset, so a selected row is marked by
+      // its indicator alone; `secondary-container` is the role M3 gives a selected row
+      // in a list, and the same one Material's own `active-indicator-color` uses — so
+      // this is the hook to reach for with `hideSingleSelectionIndicator`, where the
+      // fill is the only thing left to say which row is chosen.
+      list-item-selected-container-color: var(--ui-list-selected-container-color, transparent),
+      // M3 ships list rows square (`corner-none`), which is right for a full-bleed list
+      // and wrong for the inset, rounded row a selectable list often wants — hence the
+      // hook, pointed at a role rather than a number.
+      list-item-container-shape: var(--ui-list-item-shape, var(--mat-sys-corner-none)),
+      // The two lines. M3 puts the first on `on-surface` and the second on the quieter
+      // `on-surface-variant`: the sublabel is context for the label, not a second label.
+      list-item-label-text-color: var(--ui-list-label-text-color, var(--mat-sys-on-surface)),
+      list-item-supporting-text-color: var(
+          --ui-list-supporting-text-color,
+          var(--mat-sys-on-surface-variant)
+        ),
+      // The leading slot. An icon sits on the same quiet role as the supporting text;
+      // an avatar is a container in its own right, so it takes a container role.
+      list-item-leading-icon-color: var(
+          --ui-list-leading-icon-color,
+          var(--mat-sys-on-surface-variant)
+        ),
+      list-item-leading-avatar-color: var(
+          --ui-list-leading-avatar-color,
+          var(--mat-sys-primary-container)
+        )
+    )
+  );
+
+  // Note there is no height hook: the row heights are Material's density tokens, and
+  // density is a fleet-wide decision `_theme.scss` owns. A row that is 48px in one app
+  // and 56px in the next is exactly the drift this library exists to prevent.
+}
