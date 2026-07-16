@@ -10,7 +10,8 @@
     "lint": "ng lint",
     "storybook": "ng run ui:storybook",
     "build-storybook": "ng run ui:build-storybook",
-    "test:a11y": "vitest run --project=storybook --root projects/ui"
+    "test:a11y": "vitest run --project=storybook --root projects/ui",
+    "test:a11y:dark": "STORYBOOK_SCHEME=dark npm run test:a11y"
   },
   "private": true,
   "packageManager": "npm@11.12.1",
