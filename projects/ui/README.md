@@ -111,6 +111,21 @@ library cannot put a `<link>` in your `index.html`. Two are needed:
 Without Roboto, `typography: Roboto` in the theme falls back to a system font.
 Without Material Symbols, every icon renders as an empty box.
 
+The stylesheet loads the font; `provideUiIcons()` picks it. Angular Material's
+own default font set for a bare `<mat-icon>NAME</mat-icon>` is the older
+*Material Icons* font (`material-icons`), which this library does not load — so
+without the provider a bare `<mat-icon>` inherits the body font and paints the
+ligature's literal name (the word "info") instead of the glyph. Add it once to
+your bootstrap so every `<mat-icon>` agrees with `ui-icon` on Material Symbols:
+
+```ts
+import { provideUiIcons } from '@w-industries/ui';
+
+bootstrapApplication(App, {
+  providers: [provideUiIcons()],
+});
+```
+
 The axis ranges on the Symbols URL are load-bearing: they ask for the
 **variable** font. `<ui-icon filled>` moves that font's `FILL` axis, and the
 `--ui-icon-weight` / `--ui-icon-grade` / `--ui-icon-optical-size` hooks move

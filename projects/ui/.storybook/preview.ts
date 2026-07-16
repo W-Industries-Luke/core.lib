@@ -1,8 +1,20 @@
-import type { Decorator, Preview } from '@storybook/angular-vite';
+import { applicationConfig, type Decorator, type Preview } from '@storybook/angular-vite';
 import { setCompodocJson } from '@storybook/addon-docs/angular';
 import docJson from '../documentation.json';
+import { provideUiIcons } from '../src/public-api';
 import { applyScheme, DEFAULT_SCHEME, isScheme } from './color-scheme';
 setCompodocJson(docJson);
+
+// Make Material Symbols the default font set for every bare `<mat-icon>`, the
+// same font `ui-icon` pins and the only one `preview-head.html` loads. Without
+// it, Angular Material asks for its default *Material Icons* font — which is
+// never loaded — so a plain `<mat-icon>info</mat-icon>` inherits the body font
+// and paints the ligature's literal name ("info") instead of the glyph. This is
+// the same provider the library exports for consumers (`provideUiIcons`), so
+// the stories render exactly what an app that adopts it does.
+const withUiIcons: Decorator = applicationConfig({
+  providers: [provideUiIcons()],
+});
 
 // Every story renders in the scheme the toolbar selects. This is a decorator
 // rather than per-story wiring precisely because "does dark mode work?" is a
@@ -55,7 +67,7 @@ const preview: Preview = {
     scheme: isScheme(envScheme) ? envScheme : DEFAULT_SCHEME,
   },
 
-  decorators: [withColorScheme],
+  decorators: [withColorScheme, withUiIcons],
 
   parameters: {
     controls: {
