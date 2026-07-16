@@ -1,0 +1,71 @@
+<!--
+  Everything interactive here is Material's. The buttons and their shared outline,
+  the ripples, the state layers, the focus rings, the selection checkmark, the
+  exclusivity, the roving arrow-key focus, the roles each mode takes and every
+  colour are `<mat-button-toggle-group>`'s and `<mat-button-toggle>`'s own work —
+  this template only assembles them and hands them the component's signals.
+
+  The toggles are an `options` input rather than projected `<mat-button-toggle>`s
+  for the same reason `ui-radio-group`'s buttons are: the group finds its toggles
+  with a content query, so they have to be declared in this template.
+  `uiButtonToggleOption` is how a consumer renders one as something other than an
+  icon and a label — the `<mat-button-toggle>` around it stays Material's.
+-->
+@if (label(); as text) {
+  <!--
+    The label, and the group's accessible name — `aria-labelledby` below points at
+    this id. Not a `<label for>`: the element with the role is the group, which is
+    not a labelable control, so ARIA's own association is the only one a screen
+    reader would honour here.
+  -->
+  <span class="ui-button-toggle__label" [id]="labelId">{{ text }}</span>
+}
+
+<mat-button-toggle-group
+  #group
+  class="ui-button-toggle__group"
+  [value]="groupValue()"
+  [multiple]="multiple()"
+  [appearance]="appearance()"
+  [disabled]="isDisabled()"
+  [vertical]="vertical()"
+  [name]="resolvedName()"
+  [disabledInteractive]="disabledInteractive()"
+  [hideSingleSelectionIndicator]="hideSelectionIndicator()"
+  [hideMultipleSelectionIndicator]="hideSelectionIndicator()"
+  [attr.aria-label]="ariaLabel() ?? null"
+  [attr.aria-labelledby]="resolvedAriaLabelledby()"
+  (change)="handleChange($event)"
+>
+  <!--
+    Tracked by `value` — it is what identifies an option to the form, so two options
+    sharing one is already a bug this would only hide.
+  -->
+  @for (option of options(); track option.value) {
+    <mat-button-toggle
+      [value]="option.value"
+      [disabled]="!!option.disabled"
+      [disableRipple]="disableRipple()"
+      [aria-label]="toggleAriaLabel(option)"
+    >
+      @if (optionDef(); as def) {
+        <ng-container
+          [ngTemplateOutlet]="def.template"
+          [ngTemplateOutletContext]="optionContext(option)"
+        />
+      } @else {
+        @if (option.icon; as icon) {
+          <!--
+            Decorative on purpose: the toggle is named by its text, or — when
+            `iconOnly` leaves no text — by the `aria-label` above. A named icon
+            inside a named button is the same word announced twice.
+          -->
+          <ui-icon class="ui-button-toggle__icon" [name]="icon" size="sm" />
+        }
+        @if (showsLabel(option)) {
+          <span class="ui-button-toggle__text">{{ option.label }}</span>
+        }
+      }
+    </mat-button-toggle>
+  }
+</mat-button-toggle-group>
