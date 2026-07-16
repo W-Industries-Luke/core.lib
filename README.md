@@ -48,6 +48,56 @@ default, which is the `color-scheme: light dark` the theme ships). It is a
 decorator, so no story can opt out and a component that breaks in dark shows up
 on the story it already has.
 
+## Typography
+
+The theme ships the Material 3 type scale, set by the `typography` entry in
+`src/styles/_theme.scss` (`typography: Roboto` today). `Foundations/Typography`
+in Storybook renders every role — display / headline / title / body / label, each
+in its three sizes — with its `--mat-sys-*` token and the size the browser
+computes from it, so it is a live reference rather than a table to keep in sync.
+
+Use a role by pointing `font` at its token, never by hardcoding a size:
+
+```scss
+h1 {
+  font: var(--mat-sys-headline-large);
+}
+.caption {
+  font: var(--mat-sys-body-small);
+}
+```
+
+### Overriding the scale
+
+The scale is the theme's to own, so change it in one place — the `typography`
+value passed to `mat.theme()` in `_theme.scss` — and every app follows, exactly
+as the palette does. `Roboto` is the shorthand for "use this family everywhere";
+for finer control pass the M3 typography config map instead:
+
+```scss
+@include mat.theme((
+  color: ( /* … */ ),
+  // A brand display face for the big roles, a separate face for body text, and
+  // the weights the scale reaches for. Every key is optional — omit one and M3
+  // keeps its default.
+  typography: (
+    brand-family: 'Poppins, sans-serif',   // display / headline / title
+    plain-family: 'Inter, sans-serif',     // body / label
+    bold-weight: 700,
+    medium-weight: 500,
+    regular-weight: 400,
+  ),
+  density: 0,
+));
+```
+
+That regenerates every `--mat-sys-<role>-*` token from the config, so the whole
+scale — and the `Foundations/Typography` story — moves together. An app that
+needs to nudge a single role rather than the whole scale can override that role's
+token at `:root` (`:root { --mat-sys-headline-large-size: 2.5rem; }`), but reach
+for that sparingly: a per-role override lives outside the theme and so is invisible
+to the fleet's single source of truth.
+
 ## Accessibility
 
 This library is the a11y floor for every consuming app, so a11y is asserted
