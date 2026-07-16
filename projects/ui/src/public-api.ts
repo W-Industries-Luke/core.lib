@@ -23,6 +23,7 @@ export * from './lib/grid-list/grid-list';
 export * from './lib/icon/icon';
 export * from './lib/input/input';
 export * from './lib/list/list';
+export * from './lib/mask/mask';
 export * from './lib/menu/menu';
 export * from './lib/menu/menu-trigger';
 export * from './lib/paginator/paginator';
