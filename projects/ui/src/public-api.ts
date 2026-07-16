@@ -22,6 +22,7 @@ export * from './lib/paginator/paginator';
 export * from './lib/progress-bar/progress-bar';
 export * from './lib/radio-group/radio-group';
 export * from './lib/select/select';
+export * from './lib/sidenav/sidenav';
 export * from './lib/snackbar/snackbar';
 export * from './lib/spinner/spinner';
 export * from './lib/table/table';
