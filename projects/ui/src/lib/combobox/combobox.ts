@@ -7,7 +7,6 @@ import {
   contentChild,
   DestroyRef,
   Directive,
-  effect,
   ElementRef,
   forwardRef,
   inject,
@@ -18,6 +17,7 @@ import {
   TemplateRef,
   viewChild,
   type AfterViewInit,
+  type DoCheck,
   type Signal,
 } from '@angular/core';
 import { NG_VALUE_ACCESSOR, type ControlValueAccessor } from '@angular/forms';
@@ -416,7 +416,7 @@ export class ComboboxOptionDef<T = unknown> {
   providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => Combobox), multi: true }],
 })
 export class Combobox<T = unknown>
-  implements ControlValueAccessor, ErrorStateMatcher, AfterViewInit
+  implements ControlValueAccessor, ErrorStateMatcher, AfterViewInit, DoCheck
 {
   /**
    * The field's label — the name of the thing being chosen, e.g. `Country`.
@@ -676,17 +676,36 @@ export class Combobox<T = unknown>
     // Replaced by `registerOnTouched`, for the same reason as `onChange`.
   };
 
-  constructor() {
-    // `MatSelect` re-checks its error state in `ngDoCheck`, but only for a select that
-    // has an `NgControl` of its own. Here the `NgControl` is on `<ui-combobox>`, so the
-    // re-check has to be driven from this side, as `ui-select` does.
-    effect(() => {
-      this.error();
+  /** Whether the view — and therefore {@link matSelect} — has been created. */
+  private viewReady = false;
+
+  /**
+   * Re-checks Material's error state on every change detection pass, as `ui-select`
+   * does.
+   *
+   * `MatSelect` does this itself in its own `ngDoCheck`, but only for a select that
+   * has an `NgControl` of its own. Here the `NgControl` is on `<ui-combobox>`, so
+   * `MatSelect` never sees one and the re-check has to be driven from this side.
+   *
+   * It runs here rather than in an `effect()` so that it is *synchronous with*
+   * change detection: `error()` is read in the template, so a change to it already
+   * schedules the pass this hook runs in, and Material's `errorState` — the field's
+   * red outline, `aria-invalid`, and whether `<mat-form-field>` shows the error
+   * subscript at all — is updated in that same pass. An effect's flush is not tied
+   * to the render, so under a host that drives change detection manually and never
+   * flushes effects (Storybook's own renderer among them) the message would render
+   * but the field would stay valid — issue #122.
+   */
+  ngDoCheck(): void {
+    // `matSelect` is a `viewChild.required`, so it must not be read before the view
+    // that holds it exists — the first `ngDoCheck` runs before `ngAfterViewInit`.
+    if (this.viewReady) {
       this.matSelect().updateErrorState();
-    });
+    }
   }
 
   ngAfterViewInit(): void {
+    this.viewReady = true;
     this.forwardAttributes();
 
     if (typeof MutationObserver === 'undefined') {

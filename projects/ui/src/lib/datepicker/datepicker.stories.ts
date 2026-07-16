@@ -3,6 +3,7 @@ import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, waitFor } from 'storybook/test';
 
 import { Button } from '../button/button';
 import {
@@ -306,6 +307,19 @@ export const WithError: Story = {
     value: at(-30),
     min: today,
     error: 'Pick a date from today onwards.',
+  },
+  // Guards the regression from issue #122: the `error` arg must reach the `[error]`
+  // input, so `<mat-error>` renders and the field enters Material's own invalid
+  // state. A smoke-render alone passes even when the message is missing.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await waitFor(() => {
+      const error = canvasElement.querySelector('mat-error');
+      expect(error).not.toBeNull();
+      expect(error!.textContent!.trim()).toBe('Pick a date from today onwards.');
+    });
+
+    expect(canvasElement.querySelector('.mat-form-field-invalid')).not.toBeNull();
+    expect(canvasElement.querySelector('[aria-invalid="true"]')).not.toBeNull();
   },
 };
 

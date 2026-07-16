@@ -1,6 +1,7 @@
 import { FormControl, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, waitFor } from 'storybook/test';
 
 import {
   Combobox,
@@ -265,6 +266,20 @@ export const WithError: Story = {
     label: 'Country',
     hint: 'Where your card was issued.',
     error: 'Choose the country your card was issued in.',
+  },
+  // Guards the regression from issue #122: the `error` arg must reach the `[error]`
+  // input, so `<mat-error>` renders and the field enters Material's own invalid
+  // state. A smoke-render alone passes even when the message is missing.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await waitFor(() => {
+      const error = canvasElement.querySelector('mat-error');
+      expect(error).not.toBeNull();
+      expect(error!.textContent!.trim()).toBe('Choose the country your card was issued in.');
+    });
+
+    expect(canvasElement.querySelector('.mat-form-field-invalid')).not.toBeNull();
+    expect(canvasElement.querySelector('[aria-invalid="true"]')).not.toBeNull();
+    expect(canvasElement.querySelector('mat-hint')).toBeNull();
   },
 };
 
