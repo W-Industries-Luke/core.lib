@@ -82,6 +82,45 @@ $z-layers: (
 );
 
 // ---------------------------------------------------------------------------
+// Motion
+// ---------------------------------------------------------------------------
+// M3 tokenises motion — a duration scale and a set of easing curves — but
+// Angular's `mat.theme()` does not emit those roles (it stops at colour,
+// typography, shape and elevation), so "how long, on what curve" is the same
+// unanswered layout question as "how far apart": left to each component, a
+// 200ms ease here and a 400ms linear there is exactly the drift this library
+// prevents. A collapsing panel and a sliding drawer should feel like one system.
+//
+// These are M3's own motion values (see Angular Material's
+// `core/tokens/m3/_md-sys-motion.scss`), re-exposed under `--ui-sys-motion-*` so
+// they sit in the same `ui` family as spacing and radii and can be read from
+// SCSS, a style binding, or `getComputedStyle`. A component animating a size
+// change (`ui-collapse`) reaches for `--ui-sys-motion-duration-medium2` on
+// `--ui-sys-motion-easing-emphasized` and every such surface in the fleet moves
+// alike. Like spacing, motion does not vary by colour scheme.
+$motion: (
+  duration-short1: 50ms,
+  duration-short2: 100ms,
+  duration-short3: 150ms,
+  duration-short4: 200ms,
+  duration-medium1: 250ms,
+  duration-medium2: 300ms,
+  duration-medium3: 350ms,
+  duration-medium4: 400ms,
+  duration-long1: 450ms,
+  duration-long2: 500ms,
+  duration-long3: 550ms,
+  duration-long4: 600ms,
+  easing-emphasized: cubic-bezier(0.2, 0, 0, 1),
+  easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15),
+  easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1),
+  easing-standard: cubic-bezier(0.2, 0, 0, 1),
+  easing-standard-accelerate: cubic-bezier(0.3, 0, 1, 1),
+  easing-standard-decelerate: cubic-bezier(0, 0, 0, 1),
+  easing-linear: cubic-bezier(0, 0, 1, 1),
+);
+
+// ---------------------------------------------------------------------------
 // Breakpoints
 // ---------------------------------------------------------------------------
 // Viewport widths for responsive layout. These are M3's window-size-class
@@ -143,5 +182,8 @@ $breakpoints: (
   }
   @each $name, $width in $breakpoints {
     --ui-sys-breakpoint-#{$name}: #{$width};
+  }
+  @each $name, $value in $motion {
+    --ui-sys-motion-#{$name}: #{$value};
   }
 }
