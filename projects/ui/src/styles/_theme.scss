@@ -18,8 +18,8 @@
 // into a component from a consumer's template, or a Material container rendered
 // into the CDK overlay. Consuming these partials is what makes `<button matButton
 // uiButton color="accent">`, `<span uiBadge="4" variant="success">`, `<h3
-// uiAlertTitle>`, `<button uiTooltip="…">`, `<ui-menu [items]="…">`, `inject(Snackbar).success(…)` and
-// `inject(Dialog).confirm(…)` themed.
+// uiAlertTitle>`, `<button uiTooltip="…">`, `<ui-menu [items]="…">`, `inject(Snackbar).success(…)`,
+// `inject(Dialog).confirm(…)` and `inject(BottomSheet).open(…)` themed.
 @use './button';
 @use './badge';
 @use './alert';
@@ -27,6 +27,7 @@
 @use './tooltip';
 @use './dialog';
 @use './menu';
+@use './bottom-sheet';
 
 // ---------------------------------------------------------------------------
 // Palette

@@ -5,6 +5,7 @@
 export * from './lib/alert/alert';
 export * from './lib/autocomplete/autocomplete';
 export * from './lib/badge/badge';
+export * from './lib/bottom-sheet/bottom-sheet';
 export * from './lib/button/button';
 export * from './lib/button-toggle/button-toggle';
 export * from './lib/card/card';
