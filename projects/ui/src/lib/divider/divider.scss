@@ -1,0 +1,95 @@
+// The space around `ui-divider`, and its styling hooks.
+//
+// There is not a literal colour in this file on purpose: `<mat-divider>` already
+// resolves its rule from the `--mat-sys-*` tokens that `../../styles/_theme.scss`
+// emits — `outline-variant`, M3's role for exactly this line — so a palette
+// change there re-colours every divider with no help from here. The overrides
+// below only re-point Material's own tokens at *hooks* whose defaults are the
+// very tokens Material would have used, so the default divider ships no colour
+// decision of its own.
+//
+// Nor is there a magic pixel value for the spacing. The steps below are the
+// theme's `--ui-sys-spacing-*` scale, so `spacing="md"` here and `spacing="md"`
+// in the next app are the same distance, and retuning the fleet's rhythm is one
+// edit in `_theme.scss` rather than a sweep through every component.
+
+@use '@angular/material' as mat;
+
+:host {
+  // Material's divider is `display: block` and spans its container, which is
+  // what a horizontal rule wants. The host gets out of the way rather than
+  // imposing a width of its own.
+  display: block;
+
+  // The spacing step resolves here, once, so the margins below read a single
+  // property and each step is one declaration. `--ui-divider-spacing` is the
+  // public hook (rule 6); its default is the `md` step, matching the input's.
+  --_ui-divider-spacing: var(--ui-divider-spacing, var(--ui-sys-spacing-md));
+
+  // The public hooks for the line itself, as `mat.divider-overrides()` rather
+  // than a rule on Material's internals: the tokens are Material's own API, so
+  // the rule stays Material's. Custom properties inherit through the
+  // encapsulation boundary, so these reach `<mat-divider>` with no `::ng-deep`.
+  @include mat.divider-overrides(
+    (
+      color: var(--ui-divider-color, var(--mat-sys-outline-variant)),
+      width: var(--ui-divider-width, 1px),
+    )
+  );
+
+  // The space is on the divider's own axis: a horizontal rule holds the content
+  // above and below it apart, and nothing to its left or right.
+  margin-block: var(--_ui-divider-spacing);
+  margin-inline: 0;
+}
+
+// ---------------------------------------------------------------------------
+// Spacing
+// ---------------------------------------------------------------------------
+// Each step re-points the private property rather than the margins, so the axis
+// stays the single decision made above. `--ui-divider-spacing` still wins inside
+// each step — a consumer retuning the space should not have to know which step a
+// given divider asked for.
+
+:host(.ui-divider--spacing-sm) {
+  --_ui-divider-spacing: var(--ui-divider-spacing, var(--ui-sys-spacing-sm));
+}
+
+:host(.ui-divider--spacing-md) {
+  --_ui-divider-spacing: var(--ui-divider-spacing, var(--ui-sys-spacing-md));
+}
+
+:host(.ui-divider--spacing-lg) {
+  --_ui-divider-spacing: var(--ui-divider-spacing, var(--ui-sys-spacing-lg));
+}
+
+// `spacing="none"` is an explicit instruction, so it wins over a
+// `--ui-divider-spacing` set on a rule — the same precedence `ui-card` gives
+// `padded="false"` over `--ui-card-padding`. It is what a divider between rows
+// that already own the space around them needs, and a hook inherited from an
+// ancestor must not be able to re-open that gap.
+:host(.ui-divider--spacing-none) {
+  --_ui-divider-spacing: 0;
+}
+
+// ---------------------------------------------------------------------------
+// Vertical
+// ---------------------------------------------------------------------------
+
+:host(.ui-divider--vertical) {
+  // A vertical divider is a rule *in* a row, so it sits inline and takes its
+  // length from that row: `align-self` overrides an `align-items` on the parent
+  // that would otherwise collapse it, and the flex host hands its full height to
+  // the `<mat-divider>` inside it.
+  display: inline-flex;
+  align-self: stretch;
+
+  // Outside a flex row there is no height to stretch to, and a zero-length rule
+  // is invisible. `--ui-divider-length` is the hook for that case rather than a
+  // wrapper a consumer has to invent; `auto` keeps the stretch as the default.
+  min-height: var(--ui-divider-length, auto);
+
+  // The same space, on the other axis.
+  margin-block: 0;
+  margin-inline: var(--_ui-divider-spacing);
+}
