@@ -1,0 +1,82 @@
+// Box metrics, the colour roles and the variable font axes for `ui-icon`.
+//
+// There is not a literal colour in this file on purpose: every role below is a
+// `--mat-sys-*` token emitted by `../../styles/_theme.scss`, so a palette change
+// there re-colours every icon, in light and dark alike.
+//
+// `color` is resolved here rather than on `MatIcon`, because MatIcon's own
+// `color` input is an M2-only API that does nothing under an M3 theme (see
+// `@angular/material/icon`: "This API is supported in M2 themes only").
+
+@use '@angular/material' as mat;
+
+:host {
+  // Centres the glyph in its box and keeps the icon on the text baseline, so one
+  // can sit in a line of prose or beside a label with no layout hack.
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+
+  // The colour, resolved once, in precedence order:
+  //
+  //   1. `--ui-icon-color` — the public hook (rule 6), so a role this component
+  //      puts no input on (`tertiary`, `--ui-sys-success`, or
+  //      `on-primary-container` for an icon on a coloured surface) is an
+  //      ordinary CSS declaration rather than a fork of the `color` union. It is
+  //      read first so it wins over the marker classes below without
+  //      `!important`: those set a *different* property, so the hook never loses
+  //      a specificity contest to `:host(.ui-icon--primary)`.
+  //   2. the `color` input's role, via the marker class.
+  //   3. `inherit` — an icon beside text is part of that text. This is both this
+  //      component's default and Material's own, so a plain `<ui-icon>` ships no
+  //      colour decision of its own.
+  //
+  // `mat.icon-overrides()` rather than a rule on Material's internals: the token
+  // is Material's own API, and custom properties inherit through the
+  // encapsulation boundary, so it reaches `<mat-icon>` with no `::ng-deep`.
+  @include mat.icon-overrides(
+    (
+      color: var(--ui-icon-color, var(--_ui-icon-role-color, inherit)),
+    )
+  );
+}
+
+:host(.ui-icon--primary) {
+  --_ui-icon-role-color: var(--mat-sys-primary);
+}
+
+:host(.ui-icon--error) {
+  --_ui-icon-role-color: var(--mat-sys-error);
+}
+
+// The `FILL` axis of the Material Symbols variable font. `filled` is a state
+// (favourited, selected), and M3 draws that as the filled cut of the same glyph
+// — one font, one axis, no second download and no swap to a differently-named
+// icon.
+:host(.ui-icon--filled) {
+  --_ui-icon-fill: 1;
+}
+
+mat-icon {
+  // Material sizes `.mat-icon` at a flat 24px; the template drives width, height
+  // and font-size from `size` instead. `line-height: 1` keeps the glyph the same
+  // height as its box at every one of those sizes, rather than inheriting a
+  // body-text line height and sitting off-centre.
+  line-height: 1;
+
+  // The variable font's axes. Google's own `.material-symbols-outlined` class
+  // sets all four, and `font-variation-settings` is not additive — declaring it
+  // replaces that declaration wholesale — so all four are restated here rather
+  // than silently reset to the font's defaults.
+  //
+  // `FILL` is driven by the `filled` input above. The other three are hooks
+  // (rule 6) defaulting to Google's own values: they are real axes of this font
+  // that a consumer may reasonably reach for, and without them a heavier icon
+  // would mean overriding this very declaration and losing `FILL` with it.
+  font-variation-settings:
+    'FILL' var(--_ui-icon-fill, 0),
+    'wght' var(--ui-icon-weight, 400),
+    'GRAD' var(--ui-icon-grade, 0),
+    'opsz' var(--ui-icon-optical-size, 24);
+}

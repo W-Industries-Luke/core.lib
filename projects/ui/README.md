@@ -29,7 +29,7 @@ Material and CDK on **v21** to match the fleet.
 Apply the theme once, at the app's style entry point:
 
 ```scss
-@use "@w-industries/ui/styles/theme";
+@use '@w-industries/ui/styles/theme';
 ```
 
 It is the single source of truth for palette, typography and density, and it
@@ -39,7 +39,7 @@ Apps should not define their own Material theme.
 Then import what you need — everything is standalone:
 
 ```ts
-import { Button } from "@w-industries/ui";
+import { Button } from '@w-industries/ui';
 ```
 
 ```html
@@ -49,6 +49,49 @@ import { Button } from "@w-industries/ui";
 Anything that decorates an existing element is a directive on the native
 element, so `routerLink`, `aria-*`, `form` and friends keep working as they
 normally would.
+
+## Fonts
+
+Fonts are webfonts the **app** loads, not something this package bundles — a
+library cannot put a `<link>` in your `index.html`. Two are needed:
+
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+<!-- The theme's typography. -->
+<link
+  href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+  rel="stylesheet"
+/>
+
+<!-- Material Symbols, for `ui-icon` and every Material component that shows an
+     icon (the datepicker toggle, the paginator arrows, `ui-alert`, …). -->
+<link
+  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+  rel="stylesheet"
+/>
+```
+
+Without Roboto, `typography: Roboto` in the theme falls back to a system font.
+Without Material Symbols, every icon renders as an empty box.
+
+The axis ranges on the Symbols URL are load-bearing: they ask for the
+**variable** font. `<ui-icon filled>` moves that font's `FILL` axis, and the
+`--ui-icon-weight` / `--ui-icon-grade` / `--ui-icon-optical-size` hooks move
+`wght` / `GRAD` / `opsz`. The shorter, axis-less
+`https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined` form loads
+a static font under which all four silently do nothing.
+
+```html
+<ui-icon name="home" />
+<ui-icon name="favorite" filled color="error" size="lg" label="Favourited" />
+```
+
+Icon names come from <https://fonts.google.com/icons> (with **Material Symbols**
+selected). To self-host instead — an offline or locked-down app — serve the same
+variable font under the `material-symbols-outlined` class and nothing else
+changes.
 
 ## Develop
 
