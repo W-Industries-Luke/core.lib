@@ -13,6 +13,7 @@ export * from './lib/card/card';
 export * from './lib/checkbox/checkbox';
 export * from './lib/chips/chips';
 export * from './lib/collapse/collapse';
+export * from './lib/combobox/combobox';
 export * from './lib/datepicker/datepicker';
 export * from './lib/dialog/confirm-dialog';
 export * from './lib/dialog/dialog';

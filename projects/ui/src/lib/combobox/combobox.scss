@@ -1,0 +1,72 @@
+// `ui-combobox` is `ui-select` with a search field in the panel — and, like
+// `select.scss`, there is not a colour, radius, outline or font here that is a
+// literal. `<mat-form-field>` and `<mat-select>` resolve the box, the panel, its
+// elevation and the options from the `--mat-sys-*` tokens `../../styles/_theme.scss`
+// emits, and the few elements this component adds of its own — the search field, the
+// empty state, the chips — read the same tokens, so a palette change there re-skins
+// every combobox, in light and dark alike, with no help from here.
+//
+// The search field, the empty state and the chips render inside `<mat-select>`'s
+// overlay panel, at the document root — but they are declared in `combobox.html`, so
+// they carry this component's emulated-encapsulation attribute wherever the overlay
+// puts them, and these rules reach them without a `::ng-deep`.
+
+:host {
+  // A field is a block: it has a label above it and a subscript below it, and it is
+  // what the host has to be for the width below to have anything to fill.
+  display: block;
+}
+
+.ui-combobox__field {
+  // `--ui-combobox-width` is the public hook (rule 6), for the field that should shrink
+  // to its content or share a row rather than fill the host.
+  width: var(--ui-combobox-width, 100%);
+}
+
+// The selected options, shown as chips in the closed field of a `multiple` combobox.
+// They are allowed to wrap so a wide selection stacks rather than clipping.
+.ui-combobox__chips {
+  display: block;
+}
+
+// The search field, pinned to the top of the scrolling panel so it stays in reach as
+// the list moves under it. Its surface is the panel's own container colour, so options
+// scrolling beneath do not show through the gap.
+.ui-combobox__search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--mat-sys-surface-container);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.ui-combobox__search-icon {
+  flex: none;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.ui-combobox__search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-large);
+
+  &::placeholder {
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+// The empty state, when the search matches no option.
+.ui-combobox__no-results {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
