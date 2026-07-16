@@ -301,9 +301,18 @@ class BottomSheetScrollDemo {
     }
 
     /* The everyday reason to reach for the padding hook: content that runs edge
-       to edge, where the rows bring their own padding. */
+       to edge, where the rows bring their own padding.
+
+       The horizontal and bottom inset is 0 — that is the whole point, so a row's
+       hover and focus state can span the full width and the rows own their
+       padding. The top keeps a corner's worth of clearance, because the panel's
+       rounded top corners clip anything flush to its top edge and would shave the
+       title's first glyphs. It tracks the sheet's own radius hook (the same value
+       `_bottom-sheet.scss` rounds the corners by), so it follows any restyle and
+       carries no colour or size literal, and the header clears the curve while
+       the content below still runs full bleed. */
     .demo-full-bleed {
-      --ui-bottom-sheet-padding: 0;
+      --ui-bottom-sheet-padding: var(--ui-bottom-sheet-radius, var(--mat-sys-corner-extra-large)) 0 0;
     }
   `,
   template: `
@@ -574,8 +583,14 @@ export const Restyled: Story = {
  * prevent.
  *
  * The rows here keep their own padding, so the sheet is still legible — it is the
- * *container’s* inset that is gone, which is what lets a row's hover and focus
- * state span the full width.
+ * container’s *horizontal* inset that is gone, which is what lets a row’s hover
+ * and focus state span the full width.
+ *
+ * The top keeps a corner’s worth of clearance, tracked to the sheet’s own radius
+ * hook: the panel’s rounded top corners clip anything flush to its top edge, so
+ * without it the title’s first glyphs would be shaved. Reserving that space — and
+ * nothing horizontal — is what lets the header clear the curve while the content
+ * below still runs edge to edge.
  */
 export const FullBleed: Story = {
   parameters: { controls: { disable: true } },
