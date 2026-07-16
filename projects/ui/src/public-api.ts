@@ -8,6 +8,7 @@ export * from './lib/badge/badge';
 export * from './lib/button/button';
 export * from './lib/card/card';
 export * from './lib/checkbox/checkbox';
+export * from './lib/chips/chips';
 export * from './lib/datepicker/datepicker';
 export * from './lib/dialog/confirm-dialog';
 export * from './lib/dialog/dialog';
