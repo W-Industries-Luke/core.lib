@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
@@ -418,6 +421,32 @@ describe('EmptyState', () => {
       expect(declaration(iconElement()!, '--mat-icon-color')).toContain(
         'var(--ui-empty-state-icon-color',
       );
+    });
+  });
+
+  /**
+   * The column gap, the actions gap and the step above the actions are on the
+   * theme's `sm` step, so an empty state keeps the fleet's rhythm rather than
+   * pinning `8px` of its own — the drift `--ui-sys-spacing-*` exists to prevent.
+   * The 48px/24px block padding is deliberately bespoke and stays a literal.
+   * jsdom does not resolve `var()`, so this is a source-level assertion, in the
+   * spirit of `ui-divider`'s.
+   */
+  describe('spacing comes from the theme, not from literals', () => {
+    const styles = readFileSync(
+      join(process.cwd(), 'projects', 'ui', 'src', 'lib', 'empty-state', 'empty-state.scss'),
+      'utf8',
+    );
+
+    it('resolves every gap from the theme’s `sm` step', () => {
+      expect(styles).toContain('var(--ui-empty-state-gap, var(--ui-sys-spacing-sm))');
+      expect(styles).toContain('var(--ui-empty-state-actions-gap, var(--ui-sys-spacing-sm))');
+      expect(styles).toContain('margin-block-start: var(--ui-sys-spacing-sm)');
+    });
+
+    it('spends no bare on-grid literal on those gaps', () => {
+      expect(styles).not.toMatch(/gap:\s*(?:var\([^,]+,\s*)?8px/);
+      expect(styles).not.toMatch(/margin-block-start:\s*8px/);
     });
   });
 });

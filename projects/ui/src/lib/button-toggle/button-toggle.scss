@@ -135,10 +135,11 @@ $shape: var(--ui-button-toggle-shape, var(--ui-button-shape, var(--mat-sys-corne
   color: var(--mat-sys-on-surface-variant);
 
   // `--ui-button-toggle-gap` is the public hook for the space under the label
-  // (rule 6). `0.5rem` is Material's own 8dp step, and the same default
-  // `--ui-radio-group-gap` carries — a label sits the same distance above every
-  // control in the fleet.
-  margin-block-end: var(--ui-button-toggle-gap, 0.5rem);
+  // (rule 6). Its default is the theme's `sm` spacing step (M3's own 8dp), and the
+  // same default `--ui-radio-group-gap` carries — a label sits the same distance
+  // above every control in the fleet, off one shared token rather than a literal
+  // that each control could drift from. See `--ui-sys-spacing-*` in `_theme.scss`.
+  margin-block-end: var(--ui-button-toggle-gap, var(--ui-sys-spacing-sm));
 }
 
 .ui-button-toggle__icon {
@@ -148,7 +149,8 @@ $shape: var(--ui-button-toggle-shape, var(--ui-button-shape, var(--mat-sys-corne
 }
 
 // An icon with a label beside it needs the gap Material does not give it: the toggle's
-// content is inline, so the two would otherwise touch.
+// content is inline, so the two would otherwise touch. The theme's `sm` step (8dp),
+// the same rhythm the rest of the fleet's "related things" sit at — not a literal.
 .ui-button-toggle__icon + .ui-button-toggle__text {
-  margin-inline-start: 0.5rem;
+  margin-inline-start: var(--ui-sys-spacing-sm);
 }

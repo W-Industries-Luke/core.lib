@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
@@ -656,6 +659,31 @@ describe('RadioGroup', () => {
       await fixture.whenStable();
 
       expect(document.activeElement).toBe(inputs()[1]);
+    });
+  });
+
+  /**
+   * The gaps are only shared with the rest of the fleet if they come from the
+   * theme's spacing scale. A `0.5rem` here builds, renders and passes every
+   * assertion above — and is a control that agrees with the fleet's rhythm only
+   * until the theme's changes, which is the exact drift `--ui-sys-spacing-*`
+   * exists to prevent. jsdom does not resolve `var()`, so this is a source-level
+   * assertion, in the spirit of `ui-divider`'s and `theme-contract.spec.ts`.
+   */
+  describe('spacing comes from the theme, not from literals', () => {
+    const styles = readFileSync(
+      join(process.cwd(), 'projects', 'ui', 'src', 'lib', 'radio-group', 'radio-group.scss'),
+      'utf8',
+    );
+
+    it('resolves the button/legend gap from the theme’s `sm` step', () => {
+      expect(styles).toContain('var(--ui-radio-group-gap, var(--ui-sys-spacing-sm))');
+      expect(styles).not.toMatch(/--ui-radio-group-gap,\s*0\.5rem/);
+    });
+
+    it('resolves the row gap from the theme’s `md` step', () => {
+      expect(styles).toContain('var(--ui-radio-group-column-gap, var(--ui-sys-spacing-md))');
+      expect(styles).not.toMatch(/--ui-radio-group-column-gap,\s*1rem/);
     });
   });
 });
