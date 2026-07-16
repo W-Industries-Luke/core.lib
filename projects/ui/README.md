@@ -50,6 +50,41 @@ Anything that decorates an existing element is a directive on the native
 element, so `routerLink`, `aria-*`, `form` and friends keep working as they
 normally would.
 
+## Dark mode
+
+You get it by applying the theme. Every role — Material's `--mat-sys-*` and this
+library's `--ui-sys-*` alike — is emitted as a CSS `light-dark()` pair under
+`color-scheme: light dark`, so there is no second stylesheet to load, nothing to
+toggle at runtime, and no component to opt in. By default the app follows the
+user's OS preference. To pin a scheme instead:
+
+```scss
+:root {
+  color-scheme: dark; // or `light`
+}
+```
+
+That is the whole API, and it works on any subtree — `color-scheme` on an element
+re-resolves the tokens its subtree uses, so a permanently-dark sidebar is one
+declaration rather than an override.
+
+One thing the theme cannot do for you: it emits tokens onto `html`, but it does
+not paint your page. An app owns its own shell, so set the page surface from the
+same tokens, or dark mode will be dark text on a white page:
+
+```scss
+html,
+body {
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+```
+
+See `Foundations/Dark mode` in [Storybook][storybook] for the roles in both
+schemes side by side, and the **Scheme** toolbar to view any story in either.
+
+[storybook]: https://w-industries-luke.github.io/core.lib/
+
 ## Fonts
 
 Fonts are webfonts the **app** loads, not something this package bundles — a

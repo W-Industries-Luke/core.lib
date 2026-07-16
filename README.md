@@ -29,12 +29,24 @@ the catalogue is an honest preview rather than a lookalike. The wiring:
 | ------------------ | ---------------------------------------------------------------------------------------------------- |
 | Theme in previews  | `styles` option on the storybook targets in `angular.json`, which pulls in `.storybook/preview.scss` |
 | Roboto + icons     | `.storybook/preview-head.html`                                                                       |
+| Light/dark toolbar | `.storybook/color-scheme.ts`, wired up as a global + decorator in `.storybook/preview.ts`            |
 | Docs / args tables | compodoc (`compodoc: true` in `.storybook/main.ts`) -> `documentation.json` (generated, gitignored)  |
 | Deploy             | `.github/workflows/storybook.yml`                                                                    |
 
 Note the `styles` paths in `angular.json` are relative to the **project** root
 (`projects/ui`) and must start with `./` — the Storybook builder passes any other
 form through as a bare module import and the build fails to resolve it.
+
+Those `styles` entries only reach `storybook dev` / `build-storybook`, because it
+is the Storybook CLI that forwards them. A standalone `vitest` run (i.e.
+`npm run test:a11y`) has no CLI in front of it, so it gets its copy from
+`storybookAngularVitest({ styles: [...] })` in `vitest.config.ts` — keep the two
+in step, or the stories under test render unthemed.
+
+Every story renders in the scheme the **Scheme** toolbar selects (`System` by
+default, which is the `color-scheme: light dark` the theme ships). It is a
+decorator, so no story can opt out and a component that breaks in dark shows up
+on the story it already has.
 
 ## Accessibility
 
@@ -45,12 +57,20 @@ Chromium and runs [axe](https://github.com/dequelabs/axe-core) against it via
 
 ```bash
 npx playwright install --with-deps chromium   # once, and in CI
-npm run test:a11y
+npm run test:a11y        # as published — the theme's default scheme
+npm run test:a11y:dark   # the same stories, forced dark
 ```
 
 Each story is an assertion, so adding a story to a component adds a11y coverage
 for that configuration for free. This is the reason to prefer one story per
 meaningful variant over one story with knobs.
+
+`test:a11y:dark` is the same run with `STORYBOOK_SCHEME=dark`, which the preview
+reads into `initialGlobals` (the Vite builder's `envPrefix` exposes `STORYBOOK_*`
+to it). That matters because axe's rules include colour contrast: a role that is
+legible in light and muddy in dark is a real failure that only this run can see.
+`Foundations/Dark mode > Follows the toolbar` asserts the scheme actually reached
+the preview root, so a broken env seam fails loudly rather than re-testing light.
 
 The gate is `test: 'error'` in `.storybook/preview.ts`. **Do not turn it down to
 `'todo'` to go green** — fix the markup instead. For a genuine axe false
@@ -82,7 +102,14 @@ job — until it lands the check is local-only and a11y regressions can still re
   run: npx playwright install --with-deps chromium
 - name: Accessibility checks
   run: npm run test:a11y
+- name: Accessibility checks (dark)
+  run: npm run test:a11y:dark
 ```
+
+What `ci.yml` does cover is the source-level half of this: `theme-contract.spec.ts`
+fails the build on a literal colour in any stylesheet, which is the one way to
+break dark mode. It is not a substitute for the runs above — it cannot see
+contrast — but it holds the invariant they check for.
 
 ## Releasing
 

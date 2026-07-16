@@ -11,6 +11,8 @@
   "include": ["src/**/*.ts"],
   // Stories are documentation, not shippable API — they must never reach the
   // ng-packagr output or drag @storybook/* into the library's dependencies.
-  // (.storybook/tsconfig.json re-includes them for the Storybook build.)
-  "exclude": ["**/*.spec.ts", "**/*.stories.ts"]
+  // `token-swatches.ts` is a story's component, split out only so the two
+  // Foundations stories can share one list of roles; it belongs to the same
+  // category. (.storybook/tsconfig.json re-includes them for the Storybook build.)
+  "exclude": ["**/*.spec.ts", "**/*.stories.ts", "src/styles/token-swatches.ts"]
 }
