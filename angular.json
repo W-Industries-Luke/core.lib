@@ -28,6 +28,7 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/ui/tsconfig.spec.json",
+            "runnerConfig": "projects/ui/vitest.unit.config.ts",
             "coverage": true,
             "coverageInclude": ["projects/ui/src/**/*.ts"],
             "coverageExclude": [
