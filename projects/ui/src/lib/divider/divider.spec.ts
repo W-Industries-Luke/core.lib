@@ -3,7 +3,10 @@ import { join } from 'node:path';
 
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatDivider } from '@angular/material/divider';
+import { MatDividerHarness } from '@angular/material/divider/testing';
 
 import { Divider, UiDividerSpacing } from './divider';
 
@@ -23,6 +26,7 @@ class TestHost {
 describe('Divider', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
@@ -33,9 +37,17 @@ describe('Divider', () => {
   /** The `<mat-divider>` this component renders — the rule itself. */
   const matElement = (): HTMLElement => query('mat-divider')!;
 
+  // The `MatDividerHarness` speaks Material's *public* test surface —
+  // `getOrientation()`, `isInset()` — instead of the `mat-divider-*` class names
+  // and `aria-orientation` attribute the old spec read directly. Everything the
+  // harness cannot see — this library's own `ui-divider--*` host markers, the
+  // theme-driven spacing scale, the `role="separator"` a11y contract — stays a
+  // DOM assertion below.
+
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -48,31 +60,34 @@ describe('Divider', () => {
   // The rule a screen reader reads is Material's, not a border of ours — which
   // only holds while the `<mat-divider>` is really there to carry it.
   it('is a separator to assistive technology, named by its orientation', async () => {
+    const divider = await loader.getHarness(MatDividerHarness);
+    // The `role` is Material's a11y contract the harness has no getter for, so it
+    // stays a DOM read; the orientation the separator is *named* by comes off the
+    // harness's `getOrientation()`, which is exactly the `aria-orientation` value.
     expect(matElement().getAttribute('role')).toBe('separator');
-    expect(matElement().getAttribute('aria-orientation')).toBe('horizontal');
+    expect(await divider.getOrientation()).toBe('horizontal');
 
     host.vertical.set(true);
     await fixture.whenStable();
 
-    expect(matElement().getAttribute('aria-orientation')).toBe('vertical');
+    expect(await divider.getOrientation()).toBe('vertical');
   });
 
   describe('vertical', () => {
-    it('defaults to a horizontal rule', () => {
+    it('defaults to a horizontal rule', async () => {
       expect(host.ref().vertical()).toBe(false);
-      expect(matElement().classList).toContain('mat-divider-horizontal');
+      expect(await (await loader.getHarness(MatDividerHarness)).getOrientation()).toBe('horizontal');
       expect(hostElement().classList).not.toContain('ui-divider--vertical');
     });
 
-    // Material draws the rule off these classes, and the host class is what
+    // Material draws the rule off its orientation, and the host class is what
     // moves the spacing onto the other axis — so both have to follow the input.
     it('reaches MatDivider and marks the host when set', async () => {
       host.vertical.set(true);
       await fixture.whenStable();
 
       expect(host.ref().matDivider().vertical).toBe(true);
-      expect(matElement().classList).toContain('mat-divider-vertical');
-      expect(matElement().classList).not.toContain('mat-divider-horizontal');
+      expect(await (await loader.getHarness(MatDividerHarness)).getOrientation()).toBe('vertical');
       expect(hostElement().classList).toContain('ui-divider--vertical');
     });
 
@@ -82,7 +97,7 @@ describe('Divider', () => {
       host.vertical.set(false);
       await fixture.whenStable();
 
-      expect(matElement().classList).toContain('mat-divider-horizontal');
+      expect(await (await loader.getHarness(MatDividerHarness)).getOrientation()).toBe('horizontal');
       expect(hostElement().classList).not.toContain('ui-divider--vertical');
     });
 
@@ -95,17 +110,17 @@ describe('Divider', () => {
 
       const f = TestBed.createComponent(BareHost);
       await f.whenStable();
-      const rule = f.nativeElement.querySelector('mat-divider') as HTMLElement;
+      const divider = await TestbedHarnessEnvironment.loader(f).getHarness(MatDividerHarness);
 
-      expect(rule.classList).toContain('mat-divider-vertical');
-      expect(rule.classList).toContain('mat-divider-inset');
+      expect(await divider.getOrientation()).toBe('vertical');
+      expect(await divider.isInset()).toBe(true);
     });
   });
 
   describe('inset', () => {
-    it('defaults to a full-bleed rule', () => {
+    it('defaults to a full-bleed rule', async () => {
       expect(host.ref().inset()).toBe(false);
-      expect(matElement().classList).not.toContain('mat-divider-inset');
+      expect(await (await loader.getHarness(MatDividerHarness)).isInset()).toBe(false);
     });
 
     it('reaches MatDivider when set', async () => {
@@ -113,7 +128,7 @@ describe('Divider', () => {
       await fixture.whenStable();
 
       expect(host.ref().matDivider().inset).toBe(true);
-      expect(matElement().classList).toContain('mat-divider-inset');
+      expect(await (await loader.getHarness(MatDividerHarness)).isInset()).toBe(true);
     });
 
     // The inset is an indent, not an orientation: the two are independent inputs
@@ -123,8 +138,9 @@ describe('Divider', () => {
       host.vertical.set(true);
       await fixture.whenStable();
 
-      expect(matElement().classList).toContain('mat-divider-inset');
-      expect(matElement().classList).toContain('mat-divider-vertical');
+      const divider = await loader.getHarness(MatDividerHarness);
+      expect(await divider.isInset()).toBe(true);
+      expect(await divider.getOrientation()).toBe('vertical');
     });
   });
 

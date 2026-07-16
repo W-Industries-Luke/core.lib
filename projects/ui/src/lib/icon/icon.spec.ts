@@ -1,6 +1,9 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatIcon } from '@angular/material/icon';
+import { IconType, MatIconHarness } from '@angular/material/icon/testing';
 
 import { Icon, UI_ICON_FONT_SET, type UiIconColor, type UiIconSize } from './icon';
 
@@ -29,6 +32,7 @@ class TestHost {
 describe('Icon', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   /** The `<ui-icon>` host element — where the colour/size/a11y decisions land. */
   const uiIcon = (): HTMLElement => fixture.nativeElement.querySelector('ui-icon') as HTMLElement;
@@ -36,9 +40,17 @@ describe('Icon', () => {
   /** The `<mat-icon>` this component renders — where the glyph is drawn. */
   const matIcon = (): HTMLElement => fixture.nativeElement.querySelector('mat-icon') as HTMLElement;
 
+  // The `MatIconHarness` speaks Material's *public* test surface —
+  // `getName()`, `getType()`, `getNamespace()`, `isInline()` — instead of the
+  // `data-mat-icon-*` attributes and internal classes it reads them from.
+  // Everything the harness cannot see — this library's own `ui-icon--*` colour
+  // and fill markers, the px sizing, the `role`/`aria-label` a11y wiring, the
+  // `fontIcon` reflection this component pins — stays a DOM/instance assertion.
+
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -48,7 +60,11 @@ describe('Icon', () => {
     // MatIcon reflects its input back onto it, so asserting both pins the pair
     // this component relies on — if that reflection ever stopped, the glyph
     // would silently become an empty box while the input still read fine.
-    it('renders the name as a ligature, via the fontIcon attribute and input', () => {
+    it('renders the name as a ligature, via the fontIcon attribute and input', async () => {
+      // The name reads back through the harness's `getName()`; the `fontIcon`
+      // attribute and input stay DOM/instance reads, since they are the specific
+      // reflection this component relies on and Material's ligature rule draws.
+      expect(await (await loader.getHarness(MatIconHarness)).getName()).toBe('home');
       expect(matIcon().getAttribute('fontIcon')).toBe('home');
       expect(host.ref().matIcon().fontIcon).toBe('home');
     });
@@ -57,6 +73,7 @@ describe('Icon', () => {
       host.name.set('shopping_cart');
       await fixture.whenStable();
 
+      expect(await (await loader.getHarness(MatIconHarness)).getName()).toBe('shopping_cart');
       expect(matIcon().getAttribute('fontIcon')).toBe('shopping_cart');
       expect(host.ref().matIcon().fontIcon).toBe('shopping_cart');
     });
@@ -65,7 +82,16 @@ describe('Icon', () => {
     // — standardising that is most of this component's reason to exist. The
     // ligature class has to be there too, or Material adds the *name* as a CSS
     // class and draws nothing.
-    it('renders from the Material Symbols font set, as a ligature', () => {
+    it('renders from the Material Symbols font set, as a ligature', async () => {
+      const icon = await loader.getHarness(MatIconHarness);
+      // The harness confirms this is a font (ligature) icon whose namespace is the
+      // Material Symbols font set — the same claim the fontSet class/instance
+      // reads make. The `mat-ligature-font` presence and `material-icons` absence
+      // stay DOM reads: they are the ligature-rendering detail the harness has no
+      // getter for.
+      expect(await icon.getType()).toBe(IconType.FONT);
+      expect(await icon.getNamespace()).toBe(UI_ICON_FONT_SET);
+      expect(await icon.isInline()).toBe(false);
       expect(matIcon().classList).toContain(UI_ICON_FONT_SET);
       expect(matIcon().classList).toContain('mat-ligature-font');
       expect(matIcon().classList).not.toContain('material-icons');

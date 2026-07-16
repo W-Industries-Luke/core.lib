@@ -1,7 +1,9 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
+import { MatMenuHarness, MatMenuItemHarness } from '@angular/material/menu/testing';
 
 import { Menu, MenuItemDef, type UiMenuItem } from './menu';
 import { MenuTrigger } from './menu-trigger';
@@ -89,6 +91,16 @@ describe('Menu', () => {
     );
 
   const triggerButton = (): HTMLElement => fixture.nativeElement.querySelector('button');
+
+  // `MatMenuHarness` speaks Material's *public* test surface — `open()`,
+  // `isOpen()`, `getItems()` — and `MatMenuItemHarness` its `click()`, instead of
+  // clicking `.mat-mdc-menu-trigger` and indexing `.mat-mdc-menu-item` by hand. It
+  // finds the trigger on the fixture and its panel in the overlay for us. The rest
+  // of this spec asserts things the harness deliberately cannot express — the icon
+  // slot, nested-panel counts, `aria-*` naming, the `.ui-menu` theme class,
+  // projected content and custom templates — so those stay DOM assertions.
+  const menuHarness = (f: ComponentFixture<unknown> = fixture): Promise<MatMenuHarness> =>
+    TestbedHarnessEnvironment.loader(f).getHarness(MatMenuHarness);
 
   const open = async () => {
     triggerButton().click();
@@ -192,30 +204,38 @@ describe('Menu', () => {
 
   describe('itemSelected', () => {
     it('emits the chosen item, and closes the menu', async () => {
-      await open();
-      await clickItem(0);
+      const menu = await menuHarness();
+      await menu.open();
+      await (await menu.getItems())[0].click();
 
       expect(host.selected).toEqual([ITEMS[0]]);
-      expect(panels().length).toBe(0);
+      // Closing is Material's own — `isOpen()` reads it off the trigger rather than
+      // counting overlay panels.
+      expect(await menu.isOpen()).toBe(false);
     });
 
     it('emits the whole item, so the value and the label both survive', async () => {
-      await open();
-      await clickItem(1);
+      const menu = await menuHarness();
+      await menu.open();
+      await (await menu.getItems())[1].click();
 
       expect(host.selected[0].value).toBe('duplicate');
       expect(host.selected[0].label).toBe('Duplicate');
     });
 
     it('does not emit for a disabled item', async () => {
-      await open();
-      await clickItem(2);
+      const menu = await menuHarness();
+      await menu.open();
+      // The harness clicks the item like any other; Material's own disabled guard
+      // is what keeps it from emitting, exactly as the raw click relied on.
+      const items: MatMenuItemHarness[] = await menu.getItems();
+      await items[2].click();
 
       expect(host.selected).toEqual([]);
     });
 
     it('emits nothing merely for opening the menu', async () => {
-      await open();
+      await (await menuHarness()).open();
 
       expect(host.selected).toEqual([]);
     });
@@ -240,10 +260,9 @@ describe('Menu', () => {
 
       const f = TestBed.createComponent(ObjectHost);
       await f.whenStable();
-      f.nativeElement.querySelector('button').click();
-      await f.whenStable();
-      openItems()[0].click();
-      await f.whenStable();
+      const menu = await menuHarness(f);
+      await menu.open();
+      await (await menu.getItems())[0].click();
 
       expect(seen[0].value).toBe(target);
     });

@@ -1,11 +1,13 @@
 import { Component, inject, TemplateRef, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import {
   MAT_BOTTOM_SHEET_DATA,
   MAT_BOTTOM_SHEET_DEFAULT_OPTIONS,
   MatBottomSheet,
   MatBottomSheetRef,
 } from '@angular/material/bottom-sheet';
+import { MatBottomSheetHarness } from '@angular/material/bottom-sheet/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 
 import {
@@ -19,6 +21,22 @@ const container = (): HTMLElement | null => document.querySelector('.mat-bottom-
 
 /** The overlay pane the panel classes land on. */
 const pane = (): HTMLElement | null => document.querySelector('.cdk-overlay-pane');
+
+/** A throwaway host: `documentRootLoader` needs a fixture to hook into the TestBed,
+ *  even though the sheet itself lives in the document-root overlay, not in it. */
+@Component({ template: '' })
+class HarnessHost {}
+
+// `MatBottomSheetHarness` speaks Material's *public* test surface — `getAriaLabel()`,
+// `dismiss()` — instead of reading the container's attributes and pressing Escape by
+// hand. The harness locates the open sheet in the CDK overlay for us. The service
+// ref and its config (`disableClose`, `maxHeight`, `autoFocus`), the
+// `.ui-bottom-sheet-panel` theme class and the pane sizing are all beyond what the
+// harness can see, so those stay ref/DOM assertions.
+const bottomSheetHarness = (): Promise<MatBottomSheetHarness> =>
+  TestbedHarnessEnvironment.documentRootLoader(TestBed.createComponent(HarnessHost)).getHarness(
+    MatBottomSheetHarness,
+  );
 
 /**
  * Renders whatever the last call did, so the DOM assertions see it.
@@ -127,7 +145,9 @@ describe('BottomSheet', () => {
 
       let result: string | undefined = 'untouched';
       ref.afterDismissed().subscribe((value) => (result = value));
-      pressEscape();
+      // The harness's `dismiss()` presses Escape on the sheet for us; the ref's
+      // `afterDismissed()` is what proves it closed with no result.
+      await (await bottomSheetHarness()).dismiss();
       await settle();
 
       expect(result).toBeUndefined();
@@ -221,7 +241,7 @@ describe('BottomSheet', () => {
 
       expect(ref.disableClose).toBe(true);
       expect(document.querySelector('.cdk-overlay-backdrop')).toBeNull();
-      expect(container()!.getAttribute('aria-label')).toBe('Share this post');
+      expect(await (await bottomSheetHarness()).getAriaLabel()).toBe('Share this post');
     });
 
     // `disableClose` is only honoured if it actually reached Material, and the

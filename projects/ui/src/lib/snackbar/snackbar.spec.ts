@@ -1,7 +1,9 @@
 import { Component, inject, TemplateRef, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatSnackBar, MatSnackBarRef } from '@angular/material/snack-bar';
+import { MatSnackBarHarness } from '@angular/material/snack-bar/testing';
 
 import {
   provideUiSnackbarDefaults,
@@ -15,9 +17,22 @@ const VARIANTS: readonly UiSnackbarVariant[] = ['success', 'error', 'info'];
 /** The live snackbar's container element, or null when none is open. */
 const container = (): HTMLElement | null => document.querySelector('.mat-mdc-snack-bar-container');
 
-/** The action button, or null on a snackbar rendering none. */
-const actionButton = (): HTMLButtonElement | null =>
-  document.querySelector('.mat-mdc-snack-bar-container button');
+/** A throwaway host: `documentRootLoader` needs a fixture to hook into the TestBed,
+ *  even though the snackbar itself lives in the document-root overlay, not in it. */
+@Component({ template: '' })
+class HarnessHost {}
+
+// `MatSnackBarHarness` speaks Material's *public* test surface — `getMessage()`,
+// `getActionDescription()`, `hasAction()`, `dismissWithAction()` — instead of
+// reading the container's text and its `button` markup by hand. The harness locates
+// the open snackbar in the CDK overlay for us. The service ref and its
+// `snackBarConfig` (duration, position, politeness, panelClass), the
+// `ui-snackbar--*` theme classes and custom-content snackbars are all beyond what
+// the harness can see, so those stay ref/DOM assertions.
+const snackBarHarness = (): Promise<MatSnackBarHarness> =>
+  TestbedHarnessEnvironment.documentRootLoader(TestBed.createComponent(HarnessHost)).getHarness(
+    MatSnackBarHarness,
+  );
 
 /**
  * Renders whatever the last call did, so the DOM assertions see it.
@@ -63,21 +78,21 @@ describe('Snackbar', () => {
       snackbar.success('Draft saved');
       await settle();
 
-      expect(container()!.textContent).toContain('Draft saved');
+      expect(await (await snackBarHarness()).getMessage()).toBe('Draft saved');
     });
 
     it('renders the action label it is given', async () => {
       snackbar.info('Item archived', 'Undo');
       await settle();
 
-      expect(actionButton()!.textContent?.trim()).toBe('Undo');
+      expect(await (await snackBarHarness()).getActionDescription()).toBe('Undo');
     });
 
     it('renders no action button for a message that needs none', async () => {
       snackbar.success('Draft saved');
       await settle();
 
-      expect(actionButton()).toBeNull();
+      expect(await (await snackBarHarness()).hasAction()).toBe(false);
     });
 
     // The ref is Material's own, so `onAction()`, `afterDismissed()` and
@@ -93,7 +108,9 @@ describe('Snackbar', () => {
 
       let actioned = 0;
       ref.onAction().subscribe(() => actioned++);
-      actionButton()!.click();
+      // `dismissWithAction()` clicks the action button — the same gesture, driven
+      // through the harness; the ref's `onAction()` is what proves it landed.
+      await (await snackBarHarness()).dismissWithAction();
       await settle();
 
       expect(actioned).toBe(1);
@@ -106,7 +123,7 @@ describe('Snackbar', () => {
       snackbar.success('Second');
       await settle();
 
-      expect(container()!.textContent).toContain('Second');
+      expect(await (await snackBarHarness()).getMessage()).toBe('Second');
       expect(container()!.textContent).not.toContain('First');
     });
   });
@@ -184,21 +201,21 @@ describe('Snackbar', () => {
       snackbar.error('Could not reach the server');
       await settle();
 
-      expect(actionButton()!.textContent?.trim()).toBe('Dismiss');
+      expect(await (await snackBarHarness()).getActionDescription()).toBe('Dismiss');
     });
 
     it('leaves the consumer’s own action alone', async () => {
       snackbar.error('Could not reach the server', 'Retry');
       await settle();
 
-      expect(actionButton()!.textContent?.trim()).toBe('Retry');
+      expect(await (await snackBarHarness()).getActionDescription()).toBe('Retry');
     });
 
     it('dismisses the snackbar when the fallback action is pressed', async () => {
       snackbar.error('Could not reach the server');
       await settle();
 
-      actionButton()!.click();
+      await (await snackBarHarness()).dismissWithAction();
       await settle();
 
       expect(container()).toBeNull();
@@ -210,14 +227,14 @@ describe('Snackbar', () => {
       snackbar.info('Working offline', undefined, { duration: 0 });
       await settle();
 
-      expect(actionButton()!.textContent?.trim()).toBe('Dismiss');
+      expect(await (await snackBarHarness()).getActionDescription()).toBe('Dismiss');
     });
 
     it('adds nothing to a snackbar that times out on its own', async () => {
       snackbar.success('Draft saved');
       await settle();
 
-      expect(actionButton()).toBeNull();
+      expect(await (await snackBarHarness()).hasAction()).toBe(false);
     });
   });
 
@@ -410,6 +427,6 @@ describe('provideUiSnackbarDefaults', () => {
     TestBed.inject(Snackbar).error('Could not reach the server');
     await settle();
 
-    expect(actionButton()!.textContent?.trim()).toBe('Close');
+    expect(await (await snackBarHarness()).getActionDescription()).toBe('Close');
   });
 });

@@ -1,8 +1,12 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatFormField } from '@angular/material/form-field';
 import { MatSelect } from '@angular/material/select';
+import { MatSelectHarness } from '@angular/material/select/testing';
+import { MatOptionHarness } from '@angular/material/core/testing';
 
 import {
   Select,
@@ -60,6 +64,7 @@ class TestHost {
 describe('Select', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
@@ -67,34 +72,58 @@ describe('Select', () => {
   /** The `<mat-select>` host — the real control, the one with `role="combobox"`. */
   const selectElement = (): HTMLElement => query('mat-select') as HTMLElement;
 
-  /** The panel lives in an overlay at the document root, not inside the fixture. */
-  const panelOptions = (): HTMLElement[] =>
-    Array.from(document.querySelectorAll<HTMLElement>('mat-option'));
+  // The `MatSelectHarness` speaks Material's *public* test surface — `open()`,
+  // `getOptions()`, `clickOptions()`, `getValueText()`, `isOpen()`, `isDisabled()`,
+  // `isRequired()` — instead of the overlay and trigger markup
+  // (`.mat-mdc-select-trigger`, `.mat-mdc-select-value`, `mat-option`,
+  // `.mat-mdc-select-panel`) the old spec reached into. Those class names are
+  // Material's internal markup: the harness exists precisely so that when Material
+  // renames one, this spec keeps passing rather than breaking on a detail no
+  // consumer depends on. Everything the harness *cannot* see — this library's own
+  // composition, id/aria wiring, attribute forwarding and escape-hatch instances —
+  // stays a DOM or instance assertion below.
+  const select = (
+    f: ComponentFixture<unknown> = fixture,
+    filter?: Parameters<typeof MatSelectHarness.with>[0],
+  ): Promise<MatSelectHarness> =>
+    (f === fixture ? loader : TestbedHarnessEnvironment.loader(f)).getHarness(
+      MatSelectHarness.with(filter ?? {}),
+    );
 
+  /** Opens the panel through the harness and returns Material's option harnesses. */
+  const openOptions = async (
+    f: ComponentFixture<unknown> = fixture,
+  ): Promise<MatOptionHarness[]> => {
+    const harness = await select(f);
+    await harness.open();
+    return harness.getOptions();
+  };
+
+  /** The labels Material renders in the open panel, in order. */
+  const optionLabels = async (f: ComponentFixture<unknown> = fixture): Promise<string[]> =>
+    Promise.all((await openOptions(f)).map((o) => o.getText()));
+
+  /** Opens the panel the way a user would, through the harness. */
   const open = async (f: ComponentFixture<unknown> = fixture): Promise<void> => {
-    (f.nativeElement.querySelector('.mat-mdc-select-trigger') as HTMLElement).click();
-    await f.whenStable();
+    await (await select(f)).open();
   };
 
   /** Chooses an option the way a user would: open the panel, click the option. */
-  const choose = async (label: string, f: ComponentFixture<unknown> = fixture): Promise<void> => {
-    if (!document.querySelector('.mat-mdc-select-panel')) {
-      await open(f);
-    }
-    const option = panelOptions().find((o) => o.textContent?.trim() === label);
-    if (!option) {
-      throw new Error(`No option labelled "${label}" in the panel.`);
-    }
-    option.click();
-    await f.whenStable();
+  const choose = async (
+    label: string | RegExp,
+    f: ComponentFixture<unknown> = fixture,
+  ): Promise<void> => {
+    await (await select(f)).clickOptions({ text: label });
   };
 
   /** What the closed field shows as its value. */
-  const triggerText = (): string => query('.mat-mdc-select-value')!.textContent!.trim();
+  const triggerText = async (f: ComponentFixture<unknown> = fixture): Promise<string> =>
+    (await select(f)).getValueText();
 
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -123,44 +152,35 @@ describe('Select', () => {
 
   describe('options', () => {
     it('renders one Material option per option, in order', async () => {
-      await open();
-
-      expect(panelOptions().map((o) => o.textContent!.trim())).toEqual([
-        'United Kingdom',
-        'France',
-        'Germany',
-      ]);
+      expect(await optionLabels()).toEqual(['United Kingdom', 'France', 'Germany']);
     });
 
     it('renders no options for an empty list', async () => {
       host.options.set([]);
       await fixture.whenStable();
-      await open();
 
-      expect(panelOptions()).toEqual([]);
+      expect(await openOptions()).toEqual([]);
     });
 
     it('re-renders when the list changes', async () => {
       host.options.set([{ value: 'es', label: 'Spain' }]);
       await fixture.whenStable();
-      await open();
 
-      expect(panelOptions().map((o) => o.textContent!.trim())).toEqual(['Spain']);
+      expect(await optionLabels()).toEqual(['Spain']);
     });
 
     // A disabled option is one choice being unavailable — the rest still work,
     // which is what separates it from a disabled field.
     it('disables the option marked disabled, and only it', async () => {
-      await open();
-      const [uk, , germany] = panelOptions();
+      const [uk, , germany] = await openOptions();
 
-      expect(germany.getAttribute('aria-disabled')).toBe('true');
-      expect(uk.getAttribute('aria-disabled')).toBe('false');
+      expect(await germany.isDisabled()).toBe(true);
+      expect(await uk.isDisabled()).toBe(false);
     });
 
     it('does not choose a disabled option that is clicked', async () => {
-      await open();
-      panelOptions()[2].click();
+      const options = await openOptions();
+      await options[2].click();
       await fixture.whenStable();
 
       expect(host.value()).toBeNull();
@@ -262,7 +282,7 @@ describe('Select', () => {
       await choose('France');
 
       expect(query('.mat-mdc-select-placeholder')).toBeNull();
-      expect(triggerText()).toBe('France');
+      expect(await triggerText()).toBe('France');
     });
   });
 
@@ -312,9 +332,6 @@ describe('Select', () => {
     let f: ComponentFixture<MultiHost>;
     let multiHost: MultiHost;
 
-    const multiTriggerText = (): string =>
-      f.nativeElement.querySelector('.mat-mdc-select-value').textContent.trim();
-
     beforeEach(async () => {
       f = TestBed.createComponent(MultiHost);
       multiHost = f.componentInstance;
@@ -350,18 +367,21 @@ describe('Select', () => {
       expect(multiHost.value()).toEqual(['fr']);
     });
 
-    // Material's own checkbox — the visible difference between the two modes.
+    // The multi-selection mode every option reports — the visible difference
+    // between the two modes is Material's own checkbox, which the harness reads as
+    // the option being in multiple mode.
     it('gives every option a checkbox', async () => {
-      await open(f);
+      const options = await openOptions(f);
 
-      expect(document.querySelectorAll('mat-option .mat-pseudo-checkbox').length).toBe(3);
+      expect(options.length).toBe(3);
+      expect(await Promise.all(options.map((o) => o.isMultiple()))).toEqual([true, true, true]);
     });
 
     it('shows every chosen label in the closed field', async () => {
       await choose('United Kingdom', f);
       await choose('France', f);
 
-      expect(multiTriggerText()).toBe('United Kingdom, France');
+      expect(await triggerText(f)).toBe('United Kingdom, France');
     });
 
     // Material's own rule: choosing is not the end of the interaction here, the
@@ -369,7 +389,7 @@ describe('Select', () => {
     it('keeps the panel open on choosing', async () => {
       await choose('United Kingdom', f);
 
-      expect(multiHost.ref().matSelect().panelOpen).toBe(true);
+      expect(await (await select(f)).isOpen()).toBe(true);
     });
   });
 
@@ -377,6 +397,9 @@ describe('Select', () => {
     it('closes the panel on choosing', async () => {
       await choose('France');
 
+      // The harness's `isOpen()` reads the overlay, which lingers through the
+      // panel's close animation; the panel's *state* has already flipped. Assert
+      // that through the Material instance, which settles synchronously.
       expect(host.ref().matSelect().panelOpen).toBe(false);
     });
 
@@ -511,10 +534,8 @@ describe('Select', () => {
       });
 
       // writeValue
-      it('shows the model’s initial value', () => {
-        expect(f.nativeElement.querySelector('.mat-mdc-select-value').textContent.trim()).toBe(
-          'France',
-        );
+      it('shows the model’s initial value', async () => {
+        expect(await triggerText(f)).toBe('France');
       });
 
       // writeValue, after the fact
@@ -522,9 +543,7 @@ describe('Select', () => {
         modelHost.country.set('gb');
         await f.whenStable();
 
-        expect(f.nativeElement.querySelector('.mat-mdc-select-value').textContent.trim()).toBe(
-          'United Kingdom',
-        );
+        expect(await triggerText(f)).toBe('United Kingdom');
       });
 
       // registerOnChange
@@ -549,8 +568,7 @@ describe('Select', () => {
 
       // registerOnTouched, for the user who never opens the panel
       it('marks the control touched on blur', async () => {
-        f.nativeElement.querySelector('mat-select').dispatchEvent(new Event('blur'));
-        await f.whenStable();
+        await (await select(f)).blur();
 
         expect(modelHost.model().touched).toBe(true);
       });
@@ -577,8 +595,6 @@ describe('Select', () => {
       let f: ComponentFixture<ReactiveHost>;
       let reactiveHost: ReactiveHost;
 
-      const reactiveSelect = (): HTMLElement => f.nativeElement.querySelector('mat-select');
-
       beforeEach(async () => {
         f = TestBed.createComponent(ReactiveHost);
         reactiveHost = f.componentInstance;
@@ -590,9 +606,7 @@ describe('Select', () => {
         reactiveHost.control.setValue('de');
         await f.whenStable();
 
-        expect(f.nativeElement.querySelector('.mat-mdc-select-value').textContent.trim()).toBe(
-          'Germany',
-        );
+        expect(await triggerText(f)).toBe('Germany');
       });
 
       // registerOnChange
@@ -610,7 +624,7 @@ describe('Select', () => {
         reactiveHost.control.reset();
         await f.whenStable();
 
-        expect(f.nativeElement.querySelector('.mat-mdc-select-value').textContent.trim()).toBe('');
+        expect(await triggerText(f)).toBe('');
         expect(f.componentInstance.control.value).toBeNull();
       });
 
@@ -620,7 +634,7 @@ describe('Select', () => {
         reactiveHost.control.disable();
         await f.whenStable();
 
-        expect(reactiveSelect().getAttribute('aria-disabled')).toBe('true');
+        expect(await (await select(f)).isDisabled()).toBe(true);
         expect(f.nativeElement.querySelector('mat-form-field').classList).toContain(
           'mat-form-field-disabled',
         );
@@ -634,7 +648,7 @@ describe('Select', () => {
         reactiveHost.control.enable();
         await f.whenStable();
 
-        expect(reactiveSelect().getAttribute('aria-disabled')).toBe('false');
+        expect(await (await select(f)).isDisabled()).toBe(false);
       });
 
       it('starts disabled for a control that starts disabled', async () => {
@@ -650,9 +664,7 @@ describe('Select', () => {
         const df = TestBed.createComponent(DisabledHost);
         await df.whenStable();
 
-        expect(df.nativeElement.querySelector('mat-select').getAttribute('aria-disabled')).toBe(
-          'true',
-        );
+        expect(await (await select(df)).isDisabled()).toBe(true);
       });
     });
 
@@ -679,10 +691,8 @@ describe('Select', () => {
         await f.whenStable();
       });
 
-      it('shows every value the control starts with', () => {
-        expect(f.nativeElement.querySelector('.mat-mdc-select-value').textContent.trim()).toBe(
-          'United Kingdom, France',
-        );
+      it('shows every value the control starts with', async () => {
+        expect(await triggerText(f)).toBe('United Kingdom, France');
       });
 
       it('reports an array to the control', async () => {
@@ -696,7 +706,7 @@ describe('Select', () => {
         multiHost.control.reset();
         await f.whenStable();
 
-        expect(f.nativeElement.querySelector('.mat-mdc-select-value').textContent.trim()).toBe('');
+        expect(await triggerText(f)).toBe('');
         expect(f.debugElement.children[0].componentInstance.value()).toEqual([]);
       });
 
@@ -705,9 +715,7 @@ describe('Select', () => {
         multiHost.control.setValue('de' as unknown as string[]);
         await f.whenStable();
 
-        expect(f.nativeElement.querySelector('.mat-mdc-select-value').textContent.trim()).toBe(
-          'Germany',
-        );
+        expect(await triggerText(f)).toBe('Germany');
       });
     });
 
@@ -745,9 +753,7 @@ describe('Select', () => {
         const f = TestBed.createComponent(CompareHost);
         await f.whenStable();
 
-        expect(f.nativeElement.querySelector('.mat-mdc-select-value').textContent.trim()).toBe(
-          'France',
-        );
+        expect(await triggerText(f)).toBe('France');
       });
 
       it('leaves the field empty under the default ===, which is the reason it exists', async () => {
@@ -765,14 +771,14 @@ describe('Select', () => {
         const f = TestBed.createComponent(DefaultCompareHost);
         await f.whenStable();
 
-        expect(f.nativeElement.querySelector('.mat-mdc-select-value').textContent.trim()).toBe('');
+        expect(await triggerText(f)).toBe('');
       });
     });
   });
 
   describe('disabled', () => {
-    it('is enabled by default', () => {
-      expect(selectElement().getAttribute('aria-disabled')).toBe('false');
+    it('is enabled by default', async () => {
+      expect(await (await select()).isDisabled()).toBe(false);
     });
 
     it('disables Material’s control', async () => {
@@ -780,7 +786,7 @@ describe('Select', () => {
       await fixture.whenStable();
 
       expect(host.ref().matSelect().disabled).toBe(true);
-      expect(selectElement().getAttribute('aria-disabled')).toBe('true');
+      expect(await (await select()).isDisabled()).toBe(true);
       expect(query('mat-form-field')!.classList).toContain('mat-form-field-disabled');
     });
 
@@ -798,7 +804,7 @@ describe('Select', () => {
       await fixture.whenStable();
       await open();
 
-      expect(host.ref().matSelect().panelOpen).toBe(false);
+      expect(await (await select()).isOpen()).toBe(false);
     });
 
     it('reads the bare attribute as true', async () => {
@@ -813,9 +819,7 @@ describe('Select', () => {
       const f = TestBed.createComponent(AttrHost);
       await f.whenStable();
 
-      expect(f.nativeElement.querySelector('mat-select').getAttribute('aria-disabled')).toBe(
-        'true',
-      );
+      expect(await (await select(f)).isDisabled()).toBe(true);
     });
 
     // The two routes are independent: a form enabling its control — which is a
@@ -848,16 +852,16 @@ describe('Select', () => {
 
   // Rule 5: two-way state is a model(), for the field that is not part of a form.
   describe('[(value)]', () => {
-    it('starts with nothing chosen', () => {
+    it('starts with nothing chosen', async () => {
       expect(host.ref().value()).toBeNull();
-      expect(triggerText()).toBe('');
+      expect(await triggerText()).toBe('');
     });
 
     it('shows a value written by the consumer', async () => {
       host.value.set('de');
       await fixture.whenStable();
 
-      expect(triggerText()).toBe('Germany');
+      expect(await triggerText()).toBe('Germany');
     });
 
     it('writes what the user chooses back through the binding', async () => {
@@ -881,15 +885,14 @@ describe('Select', () => {
       await open();
       expect(host.opened()).toBe(true);
 
-      host.ref().matSelect().close();
-      await fixture.whenStable();
+      await (await select()).close();
       expect(host.opened()).toBe(false);
     });
   });
 
   describe('required', () => {
-    it('is optional by default', () => {
-      expect(selectElement().getAttribute('aria-required')).toBe('false');
+    it('is optional by default', async () => {
+      expect(await (await select()).isRequired()).toBe(false);
       expect(query('.mat-mdc-form-field-required-marker')).toBeNull();
     });
 
@@ -897,7 +900,7 @@ describe('Select', () => {
       host.required.set(true);
       await fixture.whenStable();
 
-      expect(selectElement().getAttribute('aria-required')).toBe('true');
+      expect(await (await select()).isRequired()).toBe(true);
       expect(query('.mat-mdc-form-field-required-marker')).not.toBeNull();
     });
 
@@ -913,9 +916,7 @@ describe('Select', () => {
       const f = TestBed.createComponent(MarkerHost);
       await f.whenStable();
 
-      expect(f.nativeElement.querySelector('mat-select').getAttribute('aria-required')).toBe(
-        'true',
-      );
+      expect(await (await select(f)).isRequired()).toBe(true);
       expect(f.nativeElement.querySelector('.mat-mdc-form-field-required-marker')).toBeNull();
     });
   });
@@ -1167,12 +1168,7 @@ describe('Select', () => {
 
       // The point of rendering *inside* `<mat-option>`: selection is untouched.
       it('leaves Material’s own option working', async () => {
-        (
-          Array.from(document.querySelectorAll<HTMLElement>('mat-option')).find((o) =>
-            o.textContent?.includes('France'),
-          ) as HTMLElement
-        ).click();
-        await f.whenStable();
+        await choose(/France/, f);
 
         expect(f.componentInstance.value()).toBe('fr');
       });
@@ -1279,10 +1275,10 @@ describe('Select', () => {
     // `onTouched` is a no-op until a form registers one: a field with no forms
     // directive must not break on blur or on closing its panel.
     it('survives a blur and a panel close', async () => {
-      selectElement().dispatchEvent(new Event('blur'));
-      await open();
-      host.ref().matSelect().close();
-      await fixture.whenStable();
+      const harness = await select();
+      await harness.blur();
+      await harness.open();
+      await harness.close();
 
       expect(selectElement()).not.toBeNull();
     });

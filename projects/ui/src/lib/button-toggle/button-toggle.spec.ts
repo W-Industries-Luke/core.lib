@@ -1,7 +1,13 @@
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonToggle, MatButtonToggleGroup } from '@angular/material/button-toggle';
+import {
+  MatButtonToggleGroupHarness,
+  MatButtonToggleHarness,
+} from '@angular/material/button-toggle/testing';
 
 import {
   ButtonToggle,
@@ -76,6 +82,15 @@ class MultipleHost {
 describe('ButtonToggle', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
+
+  // The button-toggle harnesses speak Material's public test surface — the group's
+  // `getToggles()`/`getAppearance()`/`isDisabled()`, each toggle's
+  // `isChecked()`/`isDisabled()`/`getText()`/`getName()`/`toggle()` — instead of the MDC
+  // class names (`.mat-button-toggle-button`) and the `aria-checked`/`aria-pressed`
+  // attributes the old spec read. The ARIA *roles* (radiogroup/radio vs group/button),
+  // the label associations, this library's own `.ui-button-toggle__*` markup and the
+  // Material instances behind the escape hatches all stay DOM/instance assertions.
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
@@ -88,15 +103,41 @@ describe('ButtonToggle', () => {
   const buttons = (f: ComponentFixture<unknown> = fixture): HTMLButtonElement[] =>
     Array.from(f.nativeElement.querySelectorAll('.mat-button-toggle-button'));
 
-  /** Chooses an option the way a user does: a click on the real button. */
+  /** Material's own group, through the harness. */
+  const groupHarness = (
+    f: ComponentFixture<unknown> = fixture,
+  ): Promise<MatButtonToggleGroupHarness> =>
+    (f === fixture ? loader : TestbedHarnessEnvironment.loader(f)).getHarness(
+      MatButtonToggleGroupHarness,
+    );
+
+  /** Material's toggles, in order, through the harness. */
+  const toggles = async (
+    f: ComponentFixture<unknown> = fixture,
+  ): Promise<MatButtonToggleHarness[]> => (await groupHarness(f)).getToggles();
+
+  /** Each toggle's checked state, in order — `aria-checked`/`aria-pressed` made boolean. */
+  const checkedStates = async (f: ComponentFixture<unknown> = fixture): Promise<boolean[]> =>
+    Promise.all((await toggles(f)).map((toggle) => toggle.isChecked()));
+
+  /** Each toggle's disabled state, in order. */
+  const disabledStates = async (f: ComponentFixture<unknown> = fixture): Promise<boolean[]> =>
+    Promise.all((await toggles(f)).map((toggle) => toggle.isDisabled()));
+
+  /**
+   * Chooses an option the way a user does: a click on the real button, driven through
+   * Material's own toggle harness rather than a raw `.click()`. Like a real click, the
+   * harness leaves a disabled toggle untouched.
+   */
   const click = async (index: number, f: ComponentFixture<unknown> = fixture): Promise<void> => {
-    buttons(f)[index].click();
+    await (await toggles(f))[index].toggle();
     await f.whenStable();
   };
 
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -110,13 +151,14 @@ describe('ButtonToggle', () => {
       expect(host.ref().matButtonToggles()[0]).toBeInstanceOf(MatButtonToggle);
     });
 
-    it('renders one toggle per option, in order', () => {
-      expect(buttons().length).toBe(VIEWS.length);
-      expect(
-        Array.from(fixture.nativeElement.querySelectorAll('.ui-button-toggle__text')).map((text) =>
-          (text as HTMLElement).textContent!.trim(),
-        ),
-      ).toEqual(['List', 'Grid', 'Map']);
+    it('renders one toggle per option, in order', async () => {
+      const rendered = await toggles();
+      expect(rendered.length).toBe(VIEWS.length);
+      expect(await Promise.all(rendered.map((toggle) => toggle.getText()))).toEqual([
+        'List',
+        'Grid',
+        'Map',
+      ]);
     });
 
     it('renders each option’s icon as this library’s own themed icon', () => {
@@ -138,8 +180,9 @@ describe('ButtonToggle', () => {
       host.options.set([{ value: 'table', label: 'Table' }]);
       await fixture.whenStable();
 
-      expect(buttons().length).toBe(1);
-      expect(query('.ui-button-toggle__text')!.textContent!.trim()).toBe('Table');
+      const rendered = await toggles();
+      expect(rendered.length).toBe(1);
+      expect(await rendered[0].getText()).toBe('Table');
     });
 
     it('takes the name a consumer gives a single-select group', async () => {
@@ -154,7 +197,8 @@ describe('ButtonToggle', () => {
       const f = TestBed.createComponent(NamedHost);
       await f.whenStable();
 
-      expect(buttons(f).every((button) => button.getAttribute('name') === 'view')).toBe(true);
+      const names = await Promise.all((await toggles(f)).map((toggle) => toggle.getName()));
+      expect(names.every((name) => name === 'view')).toBe(true);
     });
 
     // Two unnamed groups on one page must not share a name: a single-select group's
@@ -174,9 +218,12 @@ describe('ButtonToggle', () => {
       const f = TestBed.createComponent(TwoHost);
       await f.whenStable();
 
-      const names = (
-        Array.from(f.nativeElement.querySelectorAll('mat-button-toggle-group')) as HTMLElement[]
-      ).map((element) => element.querySelector('.mat-button-toggle-button')!.getAttribute('name'));
+      const groups = await TestbedHarnessEnvironment.loader(f).getAllHarnesses(
+        MatButtonToggleGroupHarness,
+      );
+      const names = await Promise.all(
+        groups.map(async (g) => (await g.getToggles())[0].getName()),
+      );
 
       expect(names[0]).toBeTruthy();
       expect(names[0]).not.toBe(names[1]);
@@ -281,8 +328,7 @@ describe('ButtonToggle', () => {
     it('marks the chosen toggle for assistive tech', async () => {
       await click(0);
 
-      expect(buttons()[0].getAttribute('aria-checked')).toBe('true');
-      expect(buttons()[1].getAttribute('aria-checked')).toBe('false');
+      expect(await checkedStates()).toEqual([true, false, false]);
     });
   });
 
@@ -330,16 +376,12 @@ describe('ButtonToggle', () => {
       host.value.set('grid');
       await fixture.whenStable();
 
-      expect(buttons().map((button) => button.getAttribute('aria-checked'))).toEqual([
-        'false',
-        'true',
-        'false',
-      ]);
+      expect(await checkedStates()).toEqual([false, true, false]);
       expect(host.ref().selectedOptions()).toEqual([VIEWS[1]]);
     });
 
-    it('disables one option without disabling the rest', () => {
-      expect(buttons().map((button) => button.disabled)).toEqual([false, false, true]);
+    it('disables one option without disabling the rest', async () => {
+      expect(await disabledStates()).toEqual([false, false, true]);
     });
 
     it('ignores a click on a disabled option', async () => {
@@ -354,9 +396,7 @@ describe('ButtonToggle', () => {
       await fixture.whenStable();
 
       expect(host.ref().selectedOptions()).toEqual([]);
-      expect(buttons().some((button) => button.getAttribute('aria-checked') === 'true')).toBe(
-        false,
-      );
+      expect((await checkedStates()).some((checked) => checked)).toBe(false);
     });
   });
 
@@ -373,11 +413,7 @@ describe('ButtonToggle', () => {
       await click(1);
 
       expect(host.value()).toBe('grid');
-      expect(buttons().map((button) => button.getAttribute('aria-checked'))).toEqual([
-        'false',
-        'true',
-        'false',
-      ]);
+      expect(await checkedStates()).toEqual([false, true, false]);
     });
 
     it('emits changed for a user’s choice only', async () => {
@@ -399,7 +435,7 @@ describe('ButtonToggle', () => {
       host.value.set(['grid']);
       await fixture.whenStable();
 
-      expect(buttons()[1].getAttribute('aria-checked')).toBe('true');
+      expect(await (await toggles())[1].isChecked()).toBe(true);
       expect(host.ref().selectedOptions()).toEqual([VIEWS[1]]);
     });
   });
@@ -420,11 +456,7 @@ describe('ButtonToggle', () => {
 
       expect(multipleHost.value()).toEqual(['list', 'grid']);
       expect(multipleHost.ref().selectedOptions()).toEqual([VIEWS[0], VIEWS[1]]);
-      expect(buttons(f).map((button) => button.getAttribute('aria-pressed'))).toEqual([
-        'true',
-        'true',
-        'false',
-      ]);
+      expect(await checkedStates(f)).toEqual([true, true, false]);
     });
 
     it('deselects a chosen toggle when it is clicked again', async () => {
@@ -432,7 +464,7 @@ describe('ButtonToggle', () => {
       await click(0, f);
 
       expect(multipleHost.value()).toEqual([]);
-      expect(buttons(f)[0].getAttribute('aria-pressed')).toBe('false');
+      expect(await (await toggles(f))[0].isChecked()).toBe(false);
     });
 
     it('emits the whole selection on changed, not just the toggle that moved', async () => {
@@ -448,29 +480,28 @@ describe('ButtonToggle', () => {
       multipleHost.value.set('grid');
       await f.whenStable();
 
-      expect(buttons(f)[1].getAttribute('aria-pressed')).toBe('true');
+      expect(await (await toggles(f))[1].isChecked()).toBe(true);
       expect(multipleHost.ref().selectedValues()).toEqual(['grid']);
     });
   });
 
   describe('appearance', () => {
-    // The class is Material's own switch between the two appearances — checking it
-    // rather than the instance is what proves the input reaches the rendering.
+    // The appearance is Material's own switch between the two looks — reading it back off
+    // the rendered group through the harness (rather than off the wrapped instance) is
+    // what proves the input reached the rendering.
     for (const appearance of APPEARANCES) {
       it(`renders the ${appearance} appearance with Material’s own class`, async () => {
         host.appearance.set(appearance);
         await fixture.whenStable();
 
         expect(host.ref().matButtonToggleGroup().appearance).toBe(appearance);
-        expect(group().classList.contains('mat-button-toggle-group-appearance-standard')).toBe(
-          appearance === 'standard',
-        );
+        expect(await (await groupHarness()).getAppearance()).toBe(appearance);
       });
     }
 
-    it('defaults to standard', () => {
+    it('defaults to standard', async () => {
       expect(host.ref().appearance()).toBe('standard');
-      expect(group().classList).toContain('mat-button-toggle-group-appearance-standard');
+      expect(await (await groupHarness()).getAppearance()).toBe('standard');
     });
   });
 
@@ -479,8 +510,8 @@ describe('ButtonToggle', () => {
       host.disabled.set(true);
       await fixture.whenStable();
 
-      expect(buttons().every((button) => button.disabled)).toBe(true);
-      expect(group().getAttribute('aria-disabled')).toBe('true');
+      expect(await disabledStates()).toEqual([true, true, true]);
+      expect(await (await groupHarness()).isDisabled()).toBe(true);
     });
 
     it('ignores a click while disabled', async () => {
@@ -550,7 +581,7 @@ describe('ButtonToggle', () => {
       f.componentInstance.value.set('list');
       await f.whenStable();
 
-      expect(buttons(f)[0].getAttribute('aria-checked')).toBe('true');
+      expect(await (await toggles(f))[0].isChecked()).toBe(true);
     });
 
     it('writes a user’s choice into a reactive control', async () => {
@@ -568,15 +599,13 @@ describe('ButtonToggle', () => {
       f.componentInstance.control.setValue('grid');
       await f.whenStable();
 
-      expect(buttons(f)[1].getAttribute('aria-checked')).toBe('true');
+      expect(await (await toggles(f))[1].isChecked()).toBe(true);
 
       // `reset()` writes `null` — the empty value a group with nothing chosen has.
       f.componentInstance.control.reset();
       await f.whenStable();
 
-      expect(buttons(f).some((button) => button.getAttribute('aria-checked') === 'true')).toBe(
-        false,
-      );
+      expect((await checkedStates(f)).some((checked) => checked)).toBe(false);
     });
 
     it('writes an array into a multiple group’s control', async () => {
@@ -609,14 +638,14 @@ describe('ButtonToggle', () => {
       f.componentInstance.control.disable();
       await f.whenStable();
 
-      expect(buttons(f).every((button) => button.disabled)).toBe(true);
+      expect(await disabledStates(f)).toEqual([true, true, true]);
 
       // Re-enabling gives every toggle back except the one the *option* disables, which
       // the form never owned.
       f.componentInstance.control.enable();
       await f.whenStable();
 
-      expect(buttons(f).map((button) => button.disabled)).toEqual([false, false, true]);
+      expect(await disabledStates(f)).toEqual([false, false, true]);
     });
 
     it('reports touched once the user has been in and out', async () => {

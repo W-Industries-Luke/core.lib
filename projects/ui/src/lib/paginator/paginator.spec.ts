@@ -1,7 +1,9 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatPaginator, MatPaginatorIntl } from '@angular/material/paginator';
+import { MatPaginatorHarness } from '@angular/material/paginator/testing';
 
 import { Paginator, type UiPageChange } from './paginator';
 
@@ -51,13 +53,26 @@ describe('Paginator', () => {
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
 
+  // `MatPaginatorHarness` speaks Material's *public* test surface —
+  // `goToNextPage()`, `getRangeLabel()`, `setPageSize()` — rather than the MDC
+  // class names (`.mat-mdc-paginator-navigation-next`) the old spec drove and read.
+  // Those classes are Material's internal markup: the harness exists so that when
+  // Material renames one, this spec keeps passing. Everything the harness cannot
+  // see — the `mat-paginator` composition, `aria-*` wiring, the `--ui-*` theme
+  // tokens, `first`/`last` disabled state — stays a DOM assertion below.
+  const paginator = (f: ComponentFixture<unknown> = fixture): Promise<MatPaginatorHarness> =>
+    TestbedHarnessEnvironment.loader(f).getHarness(MatPaginatorHarness);
+
   /** The navigation buttons Material renders, by what they do. */
   const button = (which: Nav): HTMLButtonElement | null =>
     query(`.mat-mdc-paginator-navigation-${which}`) as HTMLButtonElement | null;
 
   const click = async (which: Nav) => {
-    button(which)!.click();
-    await fixture.whenStable();
+    const p = await paginator();
+    if (which === 'first') await p.goToFirstPage();
+    else if (which === 'previous') await p.goToPreviousPage();
+    else if (which === 'next') await p.goToNextPage();
+    else await p.goToLastPage();
   };
 
   /**
@@ -68,8 +83,9 @@ describe('Paginator', () => {
   const isDisabled = (which: Nav): boolean =>
     button(which)!.getAttribute('aria-disabled') === 'true';
 
-  /** The `1 – 10 of 42` Material prints. */
-  const rangeLabel = (): string => query('.mat-mdc-paginator-range-label')!.textContent!.trim();
+  /** The `1 – 10 of 42` Material prints, read through the harness. */
+  const rangeLabel = (f: ComponentFixture<unknown> = fixture): Promise<string> =>
+    paginator(f).then((p) => p.getRangeLabel());
 
   /** The panel lives in an overlay at the document root, not inside the fixture. */
   const panelOptions = (): HTMLElement[] =>
@@ -82,17 +98,12 @@ describe('Paginator', () => {
     return panelOptions().map((option) => option.textContent!.trim());
   };
 
-  /** Picks a page size the way a user does: open the panel, click the option. */
+  /**
+   * Picks a page size the way a user does — the harness opens the select panel and
+   * clicks the matching option, the same gesture the hand-rolled helper spelled out.
+   */
   const chooseSize = async (size: number) => {
-    if (!document.querySelector('.mat-mdc-select-panel')) {
-      await sizeOptions();
-    }
-    const option = panelOptions().find((o) => o.textContent!.trim() === String(size));
-    if (!option) {
-      throw new Error(`No page size option "${size}" in the panel.`);
-    }
-    option.click();
-    await fixture.whenStable();
+    await (await paginator()).setPageSize(size);
   };
 
   beforeEach(async () => {
@@ -112,8 +123,8 @@ describe('Paginator', () => {
       expect(host.ref().matPaginator()).toBeInstanceOf(MatPaginator);
     });
 
-    it('renders Material’s range label, its size select and its buttons', () => {
-      expect(rangeLabel()).toBe('1 – 10 of 42');
+    it('renders Material’s range label, its size select and its buttons', async () => {
+      expect(await rangeLabel()).toBe('1 – 10 of 42');
       expect(query('mat-select')).not.toBeNull();
       expect(button('previous')).not.toBeNull();
       expect(button('next')).not.toBeNull();
@@ -121,8 +132,8 @@ describe('Paginator', () => {
   });
 
   describe('length', () => {
-    it('is the total being paged through, not the page — it sets the range', () => {
-      expect(rangeLabel()).toBe('1 – 10 of 42');
+    it('is the total being paged through, not the page — it sets the range', async () => {
+      expect(await rangeLabel()).toBe('1 – 10 of 42');
     });
 
     it('leaves the next button live while there are pages left', () => {
@@ -133,7 +144,7 @@ describe('Paginator', () => {
       host.pageIndex.set(4); // 42 items, 10 a page — page 5 of 5.
       await fixture.whenStable();
 
-      expect(rangeLabel()).toBe('41 – 42 of 42');
+      expect(await rangeLabel()).toBe('41 – 42 of 42');
       expect(isDisabled('next')).toBe(true);
     });
 
@@ -141,7 +152,7 @@ describe('Paginator', () => {
       host.length.set(7);
       await fixture.whenStable();
 
-      expect(rangeLabel()).toBe('1 – 7 of 7');
+      expect(await rangeLabel()).toBe('1 – 7 of 7');
       expect(isDisabled('next')).toBe(true);
     });
 
@@ -149,23 +160,23 @@ describe('Paginator', () => {
       host.length.set(0);
       await fixture.whenStable();
 
-      expect(rangeLabel()).toBe('0 of 0');
+      expect(await rangeLabel()).toBe('0 of 0');
       expect(isDisabled('next')).toBe(true);
       expect(isDisabled('previous')).toBe(true);
     });
   });
 
   describe('pageIndex', () => {
-    it('is zero-based', () => {
+    it('is zero-based', async () => {
       expect(host.ref().pageIndex()).toBe(0);
-      expect(rangeLabel()).toBe('1 – 10 of 42');
+      expect(await rangeLabel()).toBe('1 – 10 of 42');
     });
 
     it('moves on a click, and writes the new page back to the binding', async () => {
       await click('next');
 
       expect(host.pageIndex()).toBe(1);
-      expect(rangeLabel()).toBe('11 – 20 of 42');
+      expect(await rangeLabel()).toBe('11 – 20 of 42');
     });
 
     it('comes back on the previous button', async () => {
@@ -187,7 +198,7 @@ describe('Paginator', () => {
       host.pageIndex.set(2);
       await fixture.whenStable();
 
-      expect(rangeLabel()).toBe('21 – 30 of 42');
+      expect(await rangeLabel()).toBe('21 – 30 of 42');
       expect(isDisabled('previous')).toBe(false);
     });
   });
@@ -211,7 +222,7 @@ describe('Paginator', () => {
       await click('last');
 
       expect(host.pageIndex()).toBe(4);
-      expect(rangeLabel()).toBe('41 – 42 of 42');
+      expect(await rangeLabel()).toBe('41 – 42 of 42');
       expect(isDisabled('last')).toBe(true);
     });
 
@@ -222,7 +233,7 @@ describe('Paginator', () => {
       await click('first');
 
       expect(host.pageIndex()).toBe(0);
-      expect(rangeLabel()).toBe('1 – 10 of 42');
+      expect(await rangeLabel()).toBe('1 – 10 of 42');
     });
 
     it('drops them when they are turned off', async () => {
@@ -251,9 +262,7 @@ describe('Paginator', () => {
       await f.whenStable();
 
       expect(f.componentInstance.ref().pageSizeOptions()).toEqual([10, 25, 50, 100]);
-      expect(
-        f.nativeElement.querySelector('.mat-mdc-paginator-range-label').textContent.trim(),
-      ).toBe('1 – 10 of 500');
+      expect(await rangeLabel(f)).toBe('1 – 10 of 500');
     });
 
     it('renders one option per page size, in order', async () => {
@@ -266,21 +275,21 @@ describe('Paginator', () => {
       await fixture.whenStable();
 
       expect(await sizeOptions()).toEqual(['5', '15']);
-      expect(rangeLabel()).toBe('1 – 5 of 42');
+      expect(await rangeLabel()).toBe('1 – 5 of 42');
     });
 
     it('re-pages on a size the user picks, and writes it back', async () => {
       await chooseSize(25);
 
       expect(host.pageSize()).toBe(25);
-      expect(rangeLabel()).toBe('1 – 25 of 42');
+      expect(await rangeLabel()).toBe('1 – 25 of 42');
     });
 
     it('re-pages on a size set from code', async () => {
       host.pageSize.set(50);
       await fixture.whenStable();
 
-      expect(rangeLabel()).toBe('1 – 42 of 42');
+      expect(await rangeLabel()).toBe('1 – 42 of 42');
       expect(isDisabled('next')).toBe(true);
     });
 
@@ -294,7 +303,7 @@ describe('Paginator', () => {
 
       // Item 21 is on the first page of 25.
       expect(host.pageIndex()).toBe(0);
-      expect(rangeLabel()).toBe('1 – 25 of 42');
+      expect(await rangeLabel()).toBe('1 – 25 of 42');
     });
 
     // Rule 5: an unset size resolves to a real number rather than leaving the
@@ -321,9 +330,7 @@ describe('Paginator', () => {
 
       expect(f.componentInstance.size()).toBe(5);
       expect(f.componentInstance.ref().pageSize()).toBe(5);
-      expect(
-        f.nativeElement.querySelector('.mat-mdc-paginator-range-label').textContent.trim(),
-      ).toBe('1 – 5 of 42');
+      expect(await rangeLabel(f)).toBe('1 – 5 of 42');
     });
 
     it('hides the size selector when asked, keeping the range and the buttons', async () => {
@@ -332,7 +339,7 @@ describe('Paginator', () => {
 
       expect(query('mat-select')).toBeNull();
       expect(query('.mat-mdc-paginator-page-size')).toBeNull();
-      expect(rangeLabel()).toBe('1 – 10 of 42');
+      expect(await rangeLabel()).toBe('1 – 10 of 42');
       expect(button('next')).not.toBeNull();
     });
 
@@ -526,9 +533,7 @@ describe('Paginator', () => {
       const f = TestBed.createComponent(IntlHost);
       await f.whenStable();
 
-      expect(
-        f.nativeElement.querySelector('.mat-mdc-paginator-range-label').textContent.trim(),
-      ).toBe('1 o 5');
+      expect(await rangeLabel(f)).toBe('1 o 5');
       expect(
         f.nativeElement.querySelector('.mat-mdc-paginator-page-size-label').textContent.trim(),
       ).toBe('Eitemau fesul tudalen:');

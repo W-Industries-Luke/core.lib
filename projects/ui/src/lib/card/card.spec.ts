@@ -1,6 +1,9 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatCard, MatCardTitle } from '@angular/material/card';
+import { MatCardHarness } from '@angular/material/card/testing';
 
 import { Card, CardActions, CardHeader, UiCardActionsAlign, UiCardAppearance } from './card';
 
@@ -43,6 +46,7 @@ class TestHost {
 describe('Card', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
@@ -50,9 +54,18 @@ describe('Card', () => {
   /** The `<mat-card>` this component renders — the element Material styles. */
   const matCardElement = (): HTMLElement => query('mat-card')!;
 
+  // The `MatCardHarness` speaks Material's *public* test surface —
+  // `getText()`, `getTitleText()`, `getSubtitleText()` — so wherever a test only
+  // needs the rendered *text* of a region it reads it through the harness rather
+  // than off Material's internal `.mat-mdc-card-*` markup. Everything the harness
+  // cannot see — the `mat-mdc-card-outlined` appearance treatment, this library's
+  // own `.ui-card__header` slot, projection *location*, `exportAs` — stays a DOM
+  // or instance assertion below.
+
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -103,16 +116,24 @@ describe('Card', () => {
   });
 
   describe('content projection', () => {
-    it('projects the body into Material’s card content region', () => {
+    it('projects the body into Material’s card content region', async () => {
       const body = query('mat-card-content #body');
       expect(body).not.toBeNull();
-      expect(body!.textContent).toContain('1 Infinite Loop');
+      // The content text reads through the harness's `getText()`; the projection
+      // *location* stays a DOM check, since the harness cannot say which region
+      // the node landed in.
+      expect(await (await loader.getHarness(MatCardHarness)).getText()).toContain('1 Infinite Loop');
     });
 
-    it('projects a header marker into the header slot', () => {
+    it('projects a header marker into the header slot', async () => {
       const header = query('.ui-card__header');
       expect(header).not.toBeNull();
-      expect(header!.querySelector('h2')!.textContent).toContain('Shipping address');
+      // The title text reads through `getTitleText()` — the h2 carries
+      // `matCardTitle` — while the `.ui-card__header` marker is this library's own
+      // slot, invisible to the harness, so it stays a DOM assertion.
+      expect(await (await loader.getHarness(MatCardHarness)).getTitleText()).toContain(
+        'Shipping address',
+      );
     });
 
     // The actions have to be the *direct* children of `<mat-card-actions>`, not
@@ -159,7 +180,7 @@ describe('Card', () => {
       await fixture.whenStable();
 
       expect(matCardElement().children.length).toBe(1);
-      expect(query('mat-card-content')!.textContent).toContain('1 Infinite Loop');
+      expect(await (await loader.getHarness(MatCardHarness)).getText()).toContain('1 Infinite Loop');
     });
 
     it('brings a slot back when its content appears later', async () => {

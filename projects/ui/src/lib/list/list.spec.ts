@@ -1,8 +1,11 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatList, MatSelectionList } from '@angular/material/list';
+import { MatListHarness } from '@angular/material/list/testing';
 
 import {
   List,
@@ -56,6 +59,7 @@ class TestHost {
 describe('List', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
@@ -66,13 +70,28 @@ describe('List', () => {
   /** The rows on screen, whichever container is rendered. */
   const rows = (): HTMLElement[] => queryAll('mat-list-item, mat-list-option');
 
-  /** The rows' first lines, in order. */
-  const titles = (): string[] =>
-    queryAll('.mat-mdc-list-item-title').map((line) => line.textContent!.trim());
+  // The `MatListHarness` speaks Material's *public* test surface — `getItems()`,
+  // and each item's `getTitle()` / `getSecondaryText()` — instead of the MDC class
+  // names (`.mat-mdc-list-item-title`, `.mat-mdc-list-item-line`) the old spec read
+  // the rows' text off. Those classes are Material's internal markup; the harness is
+  // how a static list's content is read here. Everything the harness *cannot* see —
+  // a selectable list's `aria-selected`, the roles, the radio/checkbox indicators,
+  // the leading icon/avatar slots, this component's own escape hatches — stays a DOM
+  // assertion below. (Content reads run against the default, non-selectable list,
+  // which is Material's plain `<mat-list>`.)
+
+  /** The rows' first lines, in order — read through the list harness. */
+  const titles = async (): Promise<string[]> => {
+    const items = await (await loader.getHarness(MatListHarness)).getItems();
+    return Promise.all(items.map((item) => item.getTitle()));
+  };
 
   /** The rows' second lines, in order — only the rows that have one appear. */
-  const lines = (): string[] =>
-    queryAll('.mat-mdc-list-item-line').map((line) => line.textContent!.trim());
+  const lines = async (): Promise<string[]> => {
+    const items = await (await loader.getHarness(MatListHarness)).getItems();
+    const secondary = await Promise.all(items.map((item) => item.getSecondaryText()));
+    return secondary.filter((text): text is string => text !== null);
+  };
 
   /** Clicks a row the way a user does: on the element Material listens to. */
   const clickRow = async (index: number): Promise<void> => {
@@ -86,25 +105,28 @@ describe('List', () => {
 
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
   describe('items', () => {
-    it('renders a row per item, with its label as the title', () => {
-      expect(rows()).toHaveLength(3);
-      expect(titles()).toEqual(['Inbox', 'Starred', 'Archive']);
+    it('renders a row per item, with its label as the title', async () => {
+      const items = await (await loader.getHarness(MatListHarness)).getItems();
+
+      expect(items).toHaveLength(3);
+      expect(await titles()).toEqual(['Inbox', 'Starred', 'Archive']);
     });
 
     it('renders a second line only for an item that has a sublabel', async () => {
-      expect(lines()).toEqual(['12 unread', 'Nothing yet', '3 items']);
+      expect(await lines()).toEqual(['12 unread', 'Nothing yet', '3 items']);
 
       host.items.set([{ label: 'Inbox', value: 'inbox' }]);
       await fixture.whenStable();
 
       // A row with nothing to say on a second line does not get one — Material infers
       // the row's height from the lines it finds, so an empty line is a taller row.
-      expect(titles()).toEqual(['Inbox']);
-      expect(lines()).toEqual([]);
+      expect(await titles()).toEqual(['Inbox']);
+      expect(await lines()).toEqual([]);
     });
 
     it('renders an empty sublabel as a line, so a list can be two-line throughout', async () => {
@@ -114,7 +136,7 @@ describe('List', () => {
       ]);
       await fixture.whenStable();
 
-      expect(lines()).toHaveLength(2);
+      expect(await lines()).toHaveLength(2);
     });
 
     it("renders the item's icon name into Material's leading slot", () => {
@@ -128,7 +150,8 @@ describe('List', () => {
       host.items.set([ITEMS[1], ITEMS[0], ITEMS[2]]);
       await fixture.whenStable();
 
-      expect(titles()).toEqual(['Starred', 'Inbox', 'Archive']);
+      expect(await titles()).toEqual(['Starred', 'Inbox', 'Archive']);
+      // Row identity across a re-order is a DOM fact the harness abstracts away.
       expect(rows()[1]).toBe(before);
     });
   });
