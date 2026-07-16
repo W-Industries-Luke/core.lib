@@ -2,6 +2,7 @@ import { FormsModule, ReactiveFormsModule, FormControl, Validators } from '@angu
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, waitFor } from 'storybook/test';
 
 import { Button } from '../button/button';
 import {
@@ -268,6 +269,25 @@ export const WithError: Story = {
     ...TYPE_FIELDS.email,
     value: 'ada@',
     error: 'Enter an email address like name@example.com.',
+  },
+  // Guards the regression this story exists to prevent (issue #122): the `error`
+  // arg must reach the `[error]` input, so the `<mat-error>` renders and the
+  // field goes into Material's own invalid state. A smoke-render alone passes
+  // even when the message is missing, so this asserts it is actually there.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    // The message renders as Material's own `<mat-error>`…
+    await waitFor(() => {
+      const error = canvasElement.querySelector('mat-error');
+      expect(error).not.toBeNull();
+      expect(error!.textContent!.trim()).toBe('Enter an email address like name@example.com.');
+    });
+
+    // …and the field is in Material's own invalid state, not merely painted red.
+    expect(canvasElement.querySelector('.mat-form-field-invalid')).not.toBeNull();
+    expect(canvasElement.querySelector('input')!.getAttribute('aria-invalid')).toBe('true');
+
+    // The error replaces the hint rather than stacking on it.
+    expect(canvasElement.querySelector('mat-hint')).toBeNull();
   },
 };
 

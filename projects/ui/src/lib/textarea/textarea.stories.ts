@@ -1,6 +1,7 @@
 import { FormControl, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, waitFor } from 'storybook/test';
 
 import { Button } from '../button/button';
 import { Textarea, TextareaHint, type UiTextareaAppearance } from './textarea';
@@ -382,6 +383,20 @@ export const WithError: Story = {
     value: 'ok',
     hint: 'Shown on your public profile.',
     error: 'Say a little more about yourself — a sentence or two.',
+  },
+  // Guards the regression from issue #122: the `error` arg must reach the `[error]`
+  // input, so `<mat-error>` renders and the field enters Material's own invalid
+  // state. A smoke-render alone passes even when the message is missing.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await waitFor(() => {
+      const error = canvasElement.querySelector('mat-error');
+      expect(error).not.toBeNull();
+      expect(error!.textContent!.trim()).toBe('Say a little more about yourself — a sentence or two.');
+    });
+
+    expect(canvasElement.querySelector('.mat-form-field-invalid')).not.toBeNull();
+    expect(canvasElement.querySelector('[aria-invalid="true"]')).not.toBeNull();
+    expect(canvasElement.querySelector('mat-hint')).toBeNull();
   },
 };
 
