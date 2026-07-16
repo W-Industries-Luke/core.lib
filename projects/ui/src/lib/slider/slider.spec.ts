@@ -1,7 +1,10 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatSlider, MatSliderRangeThumb, MatSliderThumb } from '@angular/material/slider';
+import { MatSliderHarness, MatSliderThumbHarness } from '@angular/material/slider/testing';
 
 import { Slider, type UiSliderRange, type UiSliderValue } from './slider';
 
@@ -43,6 +46,15 @@ class TestHost {
 describe('Slider', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
+
+  // The Material slider harnesses speak Material's public test surface —
+  // `getMinValue()`/`getMaxValue()`/`getStep()`/`isDisabled()` on the slider and
+  // `getValue()`/`getMinValue()`/`getMaxValue()` on each thumb — instead of reading the
+  // `<input type="range">` attributes the old spec poked at directly. What is *about* the
+  // input being a real control — its `type`, its `aria-*`, an attribute this component
+  // forwards onto it — stays a DOM assertion, alongside the `inputs()` helper that drives
+  // the drag gestures the live-value / `changed` distinction depends on.
 
   /** The real controls — the `<input type="range">`s Material renders. */
   const inputs = (f: ComponentFixture<unknown> = fixture): HTMLInputElement[] =>
@@ -71,6 +83,7 @@ describe('Slider', () => {
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -97,9 +110,12 @@ describe('Slider', () => {
       host.step.set(2);
       await fixture.whenStable();
 
-      expect(input().min).toBe('10');
-      expect(input().max).toBe('20');
-      expect(input().step).toBe('2');
+      // The harness reads min/max/step off the rendered slider — the same numbers the
+      // old spec pulled from the input's attributes, without naming the input.
+      const harness = await loader.getHarness(MatSliderHarness);
+      expect(await harness.getMinValue()).toBe(10);
+      expect(await harness.getMaxValue()).toBe(20);
+      expect(await harness.getStep()).toBe(2);
     });
 
     // Bounds and stepping are the browser's, not this component's — which is the
@@ -114,7 +130,10 @@ describe('Slider', () => {
       host.value.set(40);
       await fixture.whenStable();
 
-      expect(input().value).toBe('40');
+      const thumb: MatSliderThumbHarness = await (
+        await loader.getHarness(MatSliderHarness)
+      ).getEndThumb();
+      expect(await thumb.getValue()).toBe(40);
     });
 
     it('follows the thumb while it is dragged, not only when it is released', async () => {
@@ -155,11 +174,11 @@ describe('Slider', () => {
       host.disabled.set(true);
       await fixture.whenStable();
 
-      expect(input().disabled).toBe(true);
+      expect(await (await loader.getHarness(MatSliderHarness)).isDisabled()).toBe(true);
     });
 
-    it('leaves the input enabled by default', () => {
-      expect(input().disabled).toBe(false);
+    it('leaves the input enabled by default', async () => {
+      expect(await (await loader.getHarness(MatSliderHarness)).isDisabled()).toBe(false);
     });
   });
 
@@ -224,7 +243,9 @@ describe('Slider', () => {
       host.endValue.set(80);
       await fixture.whenStable();
 
-      expect(inputs().map((i) => i.value)).toEqual(['20', '80']);
+      const harness = await loader.getHarness(MatSliderHarness);
+      expect(await (await harness.getStartThumb()).getValue()).toBe(20);
+      expect(await (await harness.getEndThumb()).getValue()).toBe(80);
     });
 
     it('reports each thumb separately', async () => {
@@ -242,8 +263,11 @@ describe('Slider', () => {
       host.endValue.set(60);
       await fixture.whenStable();
 
-      expect(inputs()[0].max).toBe('60');
-      expect(inputs()[1].min).toBe('40');
+      // Each thumb reports the bound its sibling has moved, which the harness reads off
+      // the thumb's own min/max — the start thumb cannot pass 60, the end thumb not 40.
+      const harness = await loader.getHarness(MatSliderHarness);
+      expect(await (await harness.getStartThumb()).getMaxValue()).toBe(60);
+      expect(await (await harness.getEndThumb()).getMinValue()).toBe(40);
     });
 
     it('rebuilds the slider when range is flipped, so Material rewires its thumbs', async () => {

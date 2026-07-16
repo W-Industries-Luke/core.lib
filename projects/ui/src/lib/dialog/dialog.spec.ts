@@ -1,6 +1,8 @@
 import { Component, inject, signal, TemplateRef, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { MatDialogHarness } from '@angular/material/dialog/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 
 import { ConfirmDialog } from './confirm-dialog';
@@ -12,6 +14,23 @@ const container = (): HTMLElement | null => document.querySelector('.mat-mdc-dia
 
 /** The overlay pane the panel classes land on. */
 const pane = (): HTMLElement | null => document.querySelector('.cdk-overlay-pane');
+
+/** A throwaway host: `documentRootLoader` needs a fixture to hook into the TestBed,
+ *  even though the dialog itself lives in the document-root overlay, not in it. */
+@Component({ template: '' })
+class HarnessHost {}
+
+// `MatDialogHarness` speaks Material's *public* test surface — `getRole()`,
+// `getAriaLabelledby()`, `getContentText()` — instead of reading the dialog
+// container's attributes and MDC class names by hand. The harness locates the open
+// dialog in the CDK overlay for us. The service ref (`afterClosed()`, `id`,
+// `disableClose`), the `.ui-dialog-panel` theme class, focus management and the
+// Escape-to-close mechanism are all things the harness has no say over, so those
+// stay ref/DOM assertions.
+const dialogHarness = (): Promise<MatDialogHarness> =>
+  TestbedHarnessEnvironment.documentRootLoader(TestBed.createComponent(HarnessHost)).getHarness(
+    MatDialogHarness,
+  );
 
 /** Every button in the open dialog, in DOM order — cancel first, confirm last. */
 const buttons = (): HTMLButtonElement[] => [
@@ -398,7 +417,7 @@ describe('Dialog', () => {
       dialog.open(TestDialog);
       await settle();
 
-      const labelledBy = container()!.getAttribute('aria-labelledby');
+      const labelledBy = await (await dialogHarness()).getAriaLabelledby();
       expect(labelledBy).toBeTruthy();
       expect(document.getElementById(labelledBy!)?.textContent).toBe('Rename project');
     });
@@ -411,7 +430,7 @@ describe('Dialog', () => {
       ref.componentInstance.titleId.set('my-title');
       await settle();
 
-      expect(container()!.getAttribute('aria-labelledby')).toBe('my-title');
+      expect(await (await dialogHarness()).getAriaLabelledby()).toBe('my-title');
     });
 
     it('gives a dialog with no title no name to point at', async () => {
@@ -419,28 +438,28 @@ describe('Dialog', () => {
       ref.componentInstance.withTitle.set(false);
       await settle();
 
-      expect(container()!.getAttribute('aria-labelledby')).toBeNull();
+      expect(await (await dialogHarness()).getAriaLabelledby()).toBeNull();
     });
 
     it('marks a confirm as an alertdialog', async () => {
       dialog.confirm({ title: 'Discard draft?' });
       await settle();
 
-      expect(container()!.getAttribute('role')).toBe('alertdialog');
+      expect(await (await dialogHarness()).getRole()).toBe('alertdialog');
     });
 
     it('leaves an ordinary dialog on Material’s own role', async () => {
       dialog.open(TestDialog);
       await settle();
 
-      expect(container()!.getAttribute('role')).toBe('dialog');
+      expect(await (await dialogHarness()).getRole()).toBe('dialog');
     });
 
     it('describes a confirm by its message', async () => {
       dialog.confirm({ title: 'Discard draft?', message: 'This cannot be undone.' });
       await settle();
 
-      const describedBy = container()!.getAttribute('aria-describedby');
+      const describedBy = await (await dialogHarness()).getAriaDescribedby();
       expect(describedBy).toBeTruthy();
       expect(document.getElementById(describedBy!)?.textContent?.trim()).toBe(
         'This cannot be undone.',
@@ -452,14 +471,14 @@ describe('Dialog', () => {
       dialog.confirm({ title: 'Discard draft?' });
       await settle();
 
-      expect(container()!.getAttribute('aria-describedby')).toBeNull();
+      expect(await (await dialogHarness()).getAriaDescribedby()).toBeNull();
     });
 
     it('lets the caller override the description', async () => {
       dialog.confirm({ title: 'Discard draft?', message: 'Gone.' }, { ariaDescribedBy: 'mine' });
       await settle();
 
-      expect(container()!.getAttribute('aria-describedby')).toBe('mine');
+      expect(await (await dialogHarness()).getAriaDescribedby()).toBe('mine');
     });
 
     /**
@@ -615,16 +634,16 @@ describe('DialogLayout', () => {
     dialog.open(TestDialog);
     await settle();
 
-    const content = container()!.querySelector('.mat-mdc-dialog-content');
-    expect(content?.textContent).toContain('Body copy');
+    // `getContentText()` reads Material's own `mat-dialog-content` region — the
+    // proof the body was projected into it rather than left loose in the container.
+    expect(await (await dialogHarness()).getContentText()).toContain('Body copy');
   });
 
   it('projects the actions into Material’s actions row', async () => {
     dialog.open(TestDialog);
     await settle();
 
-    const actions = container()!.querySelector('.mat-mdc-dialog-actions');
-    expect(actions?.querySelector('button')?.textContent?.trim()).toBe('Rename');
+    expect(await (await dialogHarness()).getActionsText()).toBe('Rename');
   });
 
   // The heading is Material's title element itself, not something wrapped in one

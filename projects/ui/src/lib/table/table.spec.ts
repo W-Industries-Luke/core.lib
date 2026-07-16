@@ -1,8 +1,11 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatSort } from '@angular/material/sort';
 import { MatTable } from '@angular/material/table';
+import { MatTableHarness } from '@angular/material/table/testing';
 
 import {
   Table,
@@ -66,6 +69,7 @@ const noAnimations = { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisab
 describe('Table', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   const queryAll = (selector: string): HTMLElement[] =>
     Array.from(fixture.nativeElement.querySelectorAll(selector));
@@ -76,23 +80,29 @@ describe('Table', () => {
   /** The header cells Material renders, in order. */
   const headers = (): HTMLElement[] => queryAll('th.mat-mdc-header-cell');
 
-  /** The header text of each column. */
-  const headerText = (): string[] => headers().map((th) => th.textContent?.trim() ?? '');
+  // The `MatTableHarness` speaks Material's *public* test surface —
+  // `getHeaderRows()`, `getRows()`, `getCellTextByIndex()` — instead of the MDC
+  // class names (`th.mat-mdc-header-cell`, `tr.mat-mdc-row`) the old spec read the
+  // cells' text off. Reading the rows through it also gets the no-data row exclusion
+  // for free: the harness's `getRows()` is the data rows only, so the spinner and
+  // the empty state no longer read as a row of data the way the raw `tr.mat-mdc-row`
+  // query used to risk. Everything the harness *cannot* see — a header's `style.width`
+  // and `aria-sort`, the sort control's arrow and `role="button"`, this component's
+  // spinner/empty-state, its theme hooks and escape hatches — stays a DOM assertion.
+  const table = (): Promise<MatTableHarness> => loader.getHarness(MatTableHarness);
 
-  /**
-   * The body rows, each as its cells' text.
-   *
-   * Material styles its no-data row *as* a row — it adds `mat-mdc-row` to it —
-   * so the empty state and the spinner would otherwise read as a row of data
-   * here. `mat-mdc-no-data-row` is Material's own marker for it.
-   */
-  const rows = (): string[][] =>
-    queryAll('tr.mat-mdc-row:not(.mat-mdc-no-data-row)').map((tr) =>
-      Array.from(tr.querySelectorAll('td')).map((td) => td.textContent?.trim() ?? ''),
-    );
+  /** The header text of each column, read through the table harness. */
+  const headerText = async (): Promise<string[]> => {
+    const [header] = await (await table()).getHeaderRows();
+    return header.getCellTextByIndex();
+  };
+
+  /** The body rows, each as its cells' text — the data rows only. */
+  const rows = async (): Promise<string[][]> => (await table()).getCellTextByIndex();
 
   /** One column's cells, top to bottom — the reading a sort assertion wants. */
-  const column = (index: number): string[] => rows().map((cells) => cells[index]);
+  const column = async (index: number): Promise<string[]> =>
+    (await rows()).map((cells) => cells[index]);
 
   const clickHeader = async (index: number) => {
     headers()[index].click();
@@ -103,6 +113,7 @@ describe('Table', () => {
     TestBed.configureTestingModule({ providers: [noAnimations] });
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -113,12 +124,12 @@ describe('Table', () => {
   });
 
   describe('columns', () => {
-    it('renders one header per column, in order', () => {
-      expect(headerText()).toEqual(['Order', 'Customer', 'Quantity']);
+    it('renders one header per column, in order', async () => {
+      expect(await headerText()).toEqual(['Order', 'Customer', 'Quantity']);
     });
 
-    it('renders a cell per column per row, reading each column’s key off the row', () => {
-      expect(rows()).toEqual([
+    it('renders a cell per column per row, reading each column’s key off the row', async () => {
+      expect(await rows()).toEqual([
         ['4213', 'Sam', '3'],
         ['4214', 'alex', '10'],
         ['4215', 'Rae', '2'],
@@ -138,7 +149,7 @@ describe('Table', () => {
       ]);
       await fixture.whenStable();
 
-      expect(rows()).toEqual([
+      expect(await rows()).toEqual([
         ['4213', 'Sam × 3'],
         ['4214', 'alex × 10'],
         ['4215', 'Rae × 2'],
@@ -149,22 +160,22 @@ describe('Table', () => {
       host.columns.set([{ key: 'missing', header: 'Missing' }]);
       await fixture.whenStable();
 
-      expect(rows()).toEqual([[''], [''], ['']]);
+      expect(await rows()).toEqual([[''], [''], ['']]);
     });
 
     it('picks up a column added after the first render', async () => {
       host.columns.set([...COLUMNS, { key: 'placed', header: 'Placed' }]);
       await fixture.whenStable();
 
-      expect(headerText()).toEqual(['Order', 'Customer', 'Quantity', 'Placed']);
+      expect(await headerText()).toEqual(['Order', 'Customer', 'Quantity', 'Placed']);
     });
 
     it('drops a column that is removed', async () => {
       host.columns.set(COLUMNS.slice(0, 2));
       await fixture.whenStable();
 
-      expect(headerText()).toEqual(['Order', 'Customer']);
-      expect(rows()).toEqual([
+      expect(await headerText()).toEqual(['Order', 'Customer']);
+      expect(await rows()).toEqual([
         ['4213', 'Sam'],
         ['4214', 'alex'],
         ['4215', 'Rae'],
@@ -177,11 +188,11 @@ describe('Table', () => {
       host.data.set([{ id: '9', customer: 'Jo', quantity: 1, placed: new Date('2024-06-01') }]);
       await fixture.whenStable();
 
-      expect(rows()).toEqual([['9', 'Jo', '1']]);
+      expect(await rows()).toEqual([['9', 'Jo', '1']]);
     });
 
-    it('renders the rows in the data’s own order until it is sorted', () => {
-      expect(column(0)).toEqual(['4213', '4214', '4215']);
+    it('renders the rows in the data’s own order until it is sorted', async () => {
+      expect(await column(0)).toEqual(['4213', '4214', '4215']);
     });
 
     it('leaves the consumer’s array alone when it sorts', async () => {
@@ -217,7 +228,7 @@ describe('Table', () => {
       await clickHeader(1);
 
       expect(host.sort()).toEqual({ active: 'customer', direction: 'asc' });
-      expect(column(1)).toEqual(['Rae', 'Sam', 'alex']);
+      expect(await column(1)).toEqual(['Rae', 'Sam', 'alex']);
     });
 
     it('reverses on a second click', async () => {
@@ -225,7 +236,7 @@ describe('Table', () => {
       await clickHeader(1);
 
       expect(host.sort()).toEqual({ active: 'customer', direction: 'desc' });
-      expect(column(1)).toEqual(['alex', 'Sam', 'Rae']);
+      expect(await column(1)).toEqual(['alex', 'Sam', 'Rae']);
     });
 
     // Pinned rather than fixed: Material compares strings with `>`, i.e. by code
@@ -237,7 +248,7 @@ describe('Table', () => {
     it('sorts strings case-sensitively, as Material does', async () => {
       await clickHeader(1);
 
-      expect(column(1)).toEqual(['Rae', 'Sam', 'alex']);
+      expect(await column(1)).toEqual(['Rae', 'Sam', 'alex']);
     });
 
     it('takes a case-insensitive order from a column’s value accessor', async () => {
@@ -253,7 +264,7 @@ describe('Table', () => {
       host.sort.set({ active: 'customer', direction: 'asc' });
       await fixture.whenStable();
 
-      expect(column(0)).toEqual(['4214', '4215', '4213']);
+      expect(await column(0)).toEqual(['4214', '4215', '4213']);
     });
 
     // Material's third click clears the sort, which has to put the rows back in
@@ -264,7 +275,7 @@ describe('Table', () => {
       await clickHeader(1);
 
       expect(host.sort()).toEqual({ active: 'customer', direction: '' });
-      expect(column(0)).toEqual(['4213', '4214', '4215']);
+      expect(await column(0)).toEqual(['4213', '4214', '4215']);
     });
 
     // Material's comparator, which is the reason this component borrows it rather
@@ -272,7 +283,7 @@ describe('Table', () => {
     it('sorts numbers numerically rather than lexically', async () => {
       await clickHeader(2);
 
-      expect(column(2)).toEqual(['2', '3', '10']);
+      expect(await column(2)).toEqual(['2', '3', '10']);
     });
 
     it('sorts on a column’s value accessor when it has one', async () => {
@@ -283,7 +294,7 @@ describe('Table', () => {
       host.sort.set({ active: 'placed', direction: 'asc' });
       await fixture.whenStable();
 
-      expect(column(0)).toEqual(['4214', '4213', '4215']);
+      expect(await column(0)).toEqual(['4214', '4213', '4215']);
     });
 
     // The half of rule 5 a data source cannot do: Material's own
@@ -294,7 +305,7 @@ describe('Table', () => {
       host.sort.set({ active: 'quantity', direction: 'desc' });
       await fixture.whenStable();
 
-      expect(column(2)).toEqual(['10', '3', '2']);
+      expect(await column(2)).toEqual(['10', '3', '2']);
     });
 
     it('shows a sort set from code on the header', async () => {
@@ -312,7 +323,7 @@ describe('Table', () => {
       host.data.set([...ORDERS, { id: '9', customer: 'Jo', quantity: 1, placed: new Date() }]);
       await fixture.whenStable();
 
-      expect(column(2)).toEqual(['1', '2', '3', '10']);
+      expect(await column(2)).toEqual(['1', '2', '3', '10']);
     });
 
     // A column with no arrow cannot be un-sorted by the user, so it must never be
@@ -321,25 +332,25 @@ describe('Table', () => {
       host.sort.set({ active: 'id', direction: 'desc' });
       await fixture.whenStable();
 
-      expect(column(0)).toEqual(['4213', '4214', '4215']);
+      expect(await column(0)).toEqual(['4213', '4214', '4215']);
     });
 
     it('ignores a sort naming a column that does not exist', async () => {
       host.sort.set({ active: 'nope', direction: 'asc' });
       await fixture.whenStable();
 
-      expect(column(0)).toEqual(['4213', '4214', '4215']);
+      expect(await column(0)).toEqual(['4213', '4214', '4215']);
     });
 
     it('re-sorts when a column becomes sortable', async () => {
       host.sort.set({ active: 'id', direction: 'desc' });
       await fixture.whenStable();
-      expect(column(0)).toEqual(['4213', '4214', '4215']);
+      expect(await column(0)).toEqual(['4213', '4214', '4215']);
 
       host.columns.set([{ key: 'id', header: 'Order', sortable: true }]);
       await fixture.whenStable();
 
-      expect(column(0)).toEqual(['4215', '4214', '4213']);
+      expect(await column(0)).toEqual(['4215', '4214', '4213']);
     });
 
     it('emits sortChange for a click but not for a one-way write', async () => {
@@ -381,13 +392,15 @@ describe('Table', () => {
       await fixture.whenStable();
     });
 
-    it('shows a spinner instead of the rows', () => {
+    it('shows a spinner instead of the rows', async () => {
       expect(query('ui-spinner')).not.toBeNull();
-      expect(rows()).toEqual([]);
+      // The harness's `getRows()` is the data rows only, so the spinner's no-data row
+      // does not read as one here.
+      expect(await rows()).toEqual([]);
     });
 
-    it('keeps the headers, so the table does not collapse', () => {
-      expect(headerText()).toEqual(['Order', 'Customer', 'Quantity']);
+    it('keeps the headers, so the table does not collapse', async () => {
+      expect(await headerText()).toEqual(['Order', 'Customer', 'Quantity']);
     });
 
     it('spans the spinner across every column', () => {
@@ -421,7 +434,7 @@ describe('Table', () => {
       await fixture.whenStable();
 
       expect(query('ui-spinner')).toBeNull();
-      expect(rows().length).toBe(3);
+      expect(await rows()).toHaveLength(3);
     });
 
     // `booleanAttribute`: the bare attribute is what a template naturally writes.
@@ -455,9 +468,9 @@ describe('Table', () => {
       expect(query('ui-empty-state')!.textContent).toContain('No orders match your filters');
     });
 
-    it('keeps the headers, so the table does not collapse', () => {
-      expect(headerText()).toEqual(['Order', 'Customer', 'Quantity']);
-      expect(rows()).toEqual([]);
+    it('keeps the headers, so the table does not collapse', async () => {
+      expect(await headerText()).toEqual(['Order', 'Customer', 'Quantity']);
+      expect(await rows()).toEqual([]);
     });
 
     it('falls back to a default message', async () => {
@@ -482,7 +495,7 @@ describe('Table', () => {
       await fixture.whenStable();
 
       expect(query('ui-empty-state')).toBeNull();
-      expect(rows().length).toBe(3);
+      expect(await rows()).toHaveLength(3);
     });
 
     // Rule 7: an empty state that needs a way out of it is not a string.

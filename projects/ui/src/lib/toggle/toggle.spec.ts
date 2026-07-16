@@ -1,7 +1,10 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatSlideToggle } from '@angular/material/slide-toggle';
+import { MatSlideToggleHarness } from '@angular/material/slide-toggle/testing';
 
 import { Toggle, type UiToggleLabelPosition } from './toggle';
 
@@ -36,9 +39,26 @@ class TestHost {
 describe('Toggle', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
+
+  // The `MatSlideToggleHarness` speaks Material's *public* test surface —
+  // `isChecked()`, `isDisabled()`, `isRequired()`, `getLabelText()`, `toggle()`
+  // — instead of poking at the `<button role="switch">` Material renders and its
+  // `aria-checked`. Reaching into that markup couples this spec to Material's
+  // internals; the harness exists precisely so that when Material moves the
+  // detail, the spec keeps passing. Everything the harness *cannot* see — this
+  // library's attribute forwarding onto the real switch, `<label for>`
+  // association, Material's own layout classes and switch icons, the
+  // `ControlValueAccessor` internals asserted through the host `FormControl` —
+  // stays a DOM or instance assertion below.
+  const slideToggle = (
+    f: ComponentFixture<unknown> = fixture,
+    filter?: Parameters<typeof MatSlideToggleHarness.with>[0],
+  ): Promise<MatSlideToggleHarness> =>
+    TestbedHarnessEnvironment.loader(f).getHarness(MatSlideToggleHarness.with(filter ?? {}));
 
   /** The real control — the `<button role="switch">` Material renders. */
   const button = (f: ComponentFixture<unknown> = fixture): HTMLButtonElement =>
@@ -48,15 +68,10 @@ describe('Toggle', () => {
   const label = (f: ComponentFixture<unknown> = fixture): HTMLLabelElement =>
     f.nativeElement.querySelector('label');
 
-  /** Flips the switch the way a user does: a click on the real button. */
-  const click = async (f: ComponentFixture<unknown> = fixture): Promise<void> => {
-    button(f).click();
-    await f.whenStable();
-  };
-
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -84,8 +99,8 @@ describe('Toggle', () => {
   });
 
   describe('label', () => {
-    it('renders the label inside Material’s own label element', () => {
-      expect(label().textContent!.trim()).toBe('Dark mode');
+    it('renders the label inside Material’s own label element', async () => {
+      expect(await (await loader.getHarness(MatSlideToggleHarness)).getLabelText()).toBe('Dark mode');
     });
 
     // Verifying Material's association rather than reimplementing it: `for`
@@ -108,7 +123,7 @@ describe('Toggle', () => {
       host.label.set(undefined);
       await fixture.whenStable();
 
-      expect(label().textContent!.trim()).toBe('');
+      expect(await (await loader.getHarness(MatSlideToggleHarness)).getLabelText()).toBe('');
     });
 
     it('renders projected content in place of the label string', async () => {
@@ -123,7 +138,7 @@ describe('Toggle', () => {
       const f = TestBed.createComponent(ContentHost);
       await f.whenStable();
 
-      expect(label(f).textContent!.trim()).toBe('Sync over cellular Uses your data');
+      expect(await (await slideToggle(f)).getLabelText()).toBe('Sync over cellular Uses your data');
       // Inside Material's own `<label for>`, so clicking the hint's row still
       // reaches the switch — the whole reason the content is projected there.
       expect(label(f).querySelector('.hint')).not.toBeNull();
@@ -132,20 +147,22 @@ describe('Toggle', () => {
 
   describe('checked', () => {
     it('reflects the model into the real switch', async () => {
-      expect(button().getAttribute('aria-checked')).toBe('false');
+      const harness = await loader.getHarness(MatSlideToggleHarness);
+      expect(await harness.isChecked()).toBe(false);
 
       host.checked.set(true);
       await fixture.whenStable();
 
-      expect(button().getAttribute('aria-checked')).toBe('true');
+      expect(await harness.isChecked()).toBe(true);
     });
 
     it('reports a user’s click back through the two-way binding', async () => {
-      await click();
+      const harness = await loader.getHarness(MatSlideToggleHarness);
+      await harness.toggle();
 
       expect(host.checked()).toBe(true);
 
-      await click();
+      await harness.toggle();
 
       expect(host.checked()).toBe(false);
     });
@@ -160,14 +177,15 @@ describe('Toggle', () => {
       const f = TestBed.createComponent(CheckedHost);
       await f.whenStable();
 
-      expect(button(f).getAttribute('aria-checked')).toBe('true');
+      expect(await (await slideToggle(f)).isChecked()).toBe(true);
     });
   });
 
   describe('changed', () => {
     it('emits the new state when the user flips the switch', async () => {
-      await click();
-      await click();
+      const harness = await loader.getHarness(MatSlideToggleHarness);
+      await harness.toggle();
+      await harness.toggle();
 
       expect(host.changes).toEqual([true, false]);
     });
@@ -184,7 +202,7 @@ describe('Toggle', () => {
 
   describe('toggled', () => {
     it('emits when the user acts on the switch', async () => {
-      await click();
+      await (await loader.getHarness(MatSlideToggleHarness)).toggle();
 
       expect(host.toggles).toBe(1);
     });
@@ -199,18 +217,21 @@ describe('Toggle', () => {
 
   describe('disabled', () => {
     it('disables the real switch', async () => {
-      expect(button().disabled).toBe(false);
+      const harness = await loader.getHarness(MatSlideToggleHarness);
+      expect(await harness.isDisabled()).toBe(false);
 
       host.disabled.set(true);
       await fixture.whenStable();
 
-      expect(button().disabled).toBe(true);
+      expect(await harness.isDisabled()).toBe(true);
     });
 
     it('ignores a click while disabled', async () => {
       host.disabled.set(true);
       await fixture.whenStable();
-      await click();
+      // The harness flips the switch by clicking the real button; a disabled
+      // button swallows that click, so nothing is written back.
+      await (await loader.getHarness(MatSlideToggleHarness)).toggle();
 
       expect(host.checked()).toBe(false);
       expect(host.changes).toEqual([]);
@@ -228,6 +249,9 @@ describe('Toggle', () => {
       const f = TestBed.createComponent(InteractiveHost);
       await f.whenStable();
 
+      // The harness's `isDisabled()` reports `true` here — it reads `aria-disabled`
+      // as well as the native state, and cannot tell the two apart. This test's
+      // whole point is that split, so the native `disabled` stays a DOM read.
       expect(button(f).disabled).toBe(false);
       expect(button(f).getAttribute('aria-disabled')).toBe('true');
     });
@@ -300,7 +324,7 @@ describe('Toggle', () => {
     it('writes a user’s click into an ngModel', async () => {
       const f = TestBed.createComponent(NgModelHost);
       await f.whenStable();
-      await click(f);
+      await (await slideToggle(f)).toggle();
 
       expect(f.componentInstance.value()).toBe(true);
     });
@@ -310,24 +334,25 @@ describe('Toggle', () => {
       f.componentInstance.value.set(true);
       await f.whenStable();
 
-      expect(button(f).getAttribute('aria-checked')).toBe('true');
+      expect(await (await slideToggle(f)).isChecked()).toBe(true);
     });
 
     it('renders a form’s value, whatever shape it arrives in', async () => {
       const f = TestBed.createComponent(ReactiveHost);
       await f.whenStable();
+      const harness = await slideToggle(f);
 
       // `null` is a form's empty value — `reset()` writes it — and a switch is a
       // boolean, so it has to read as off rather than as "null".
       f.componentInstance.control.setValue(null);
       await f.whenStable();
 
-      expect(button(f).getAttribute('aria-checked')).toBe('false');
+      expect(await harness.isChecked()).toBe(false);
 
       f.componentInstance.control.setValue(true);
       await f.whenStable();
 
-      expect(button(f).getAttribute('aria-checked')).toBe('true');
+      expect(await harness.isChecked()).toBe(true);
     });
 
     it('follows a reactive form’s own disable()', async () => {
@@ -337,7 +362,7 @@ describe('Toggle', () => {
       f.componentInstance.control.disable();
       await f.whenStable();
 
-      expect(button(f).disabled).toBe(true);
+      expect(await (await slideToggle(f)).isDisabled()).toBe(true);
     });
 
     it('reports touched once the user has been in and out', async () => {
@@ -361,7 +386,7 @@ describe('Toggle', () => {
       expect(f.componentInstance.control.invalid).toBe(true);
       expect(f.componentInstance.control.errors).toEqual({ required: true });
 
-      await click(f);
+      await (await slideToggle(f)).toggle();
 
       expect(f.componentInstance.control.valid).toBe(true);
       expect(f.componentInstance.control.errors).toBeNull();
@@ -393,7 +418,7 @@ describe('Toggle', () => {
       const f = TestBed.createComponent(ReactiveHost);
       await f.whenStable();
 
-      expect(button(f).getAttribute('aria-required')).toBe('true');
+      expect(await (await slideToggle(f)).isRequired()).toBe(true);
     });
   });
 

@@ -1,8 +1,11 @@
 import { BreakpointObserver, Breakpoints, type BreakpointState } from '@angular/cdk/layout';
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatSidenav, MatSidenavContainer } from '@angular/material/sidenav';
+import { MatSidenavHarness } from '@angular/material/sidenav/testing';
 import { BehaviorSubject, map, type Observable } from 'rxjs';
 
 import { Sidenav, SidenavDrawer, type UiSidenavMode, type UiSidenavPosition } from './sidenav';
@@ -80,12 +83,27 @@ describe('Sidenav', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
   let breakpoints: FakeBreakpointObserver;
+  let loader: HarnessLoader;
 
+  // The `MatSidenavHarness` speaks Material's *public* test surface —
+  // `isOpen()`, `getMode()`, `getPosition()` — instead of reading Material's
+  // `mat-drawer-opened`/`mat-drawer-<mode>`/`mat-drawer-end` classes off the
+  // rendered drawer, as the old spec did. Those class names are Material's
+  // internal markup: the harness exists precisely so that when Material renames
+  // one, this spec keeps passing rather than breaking on a detail no consumer
+  // depends on. Everything the harness *cannot* see — content projection into
+  // the drawer and the main, the scrim (`.mat-drawer-backdrop`) this component
+  // toggles, the responsive/model plumbing driven through the component's own
+  // instance, and its `--ui-*` theme hooks — stays a DOM or instance assertion
+  // below.
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
 
   const drawer = (): HTMLElement => query('mat-sidenav')!;
   const backdrop = (): HTMLElement | null => query('.mat-drawer-backdrop');
+
+  /** The sidenav (drawer) harness — Material's public window onto its state. */
+  const sidenav = (): Promise<MatSidenavHarness> => loader.getHarness(MatSidenavHarness);
 
   /**
    * Settles the fixture *and* the macrotask queue.
@@ -107,6 +125,7 @@ describe('Sidenav', () => {
     });
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await settle();
   });
 
@@ -149,9 +168,9 @@ describe('Sidenav', () => {
   });
 
   describe('mode', () => {
-    it('defaults to side, so the content keeps its own space', () => {
+    it('defaults to side, so the content keeps its own space', async () => {
       expect(host.ref().mode()).toBe('side');
-      expect(drawer().classList).toContain('mat-drawer-side');
+      expect(await (await sidenav()).getMode()).toBe('side');
       expect(host.ref().matSidenav().mode).toBe('side');
     });
 
@@ -161,15 +180,15 @@ describe('Sidenav', () => {
         await settle();
 
         expect(host.ref().matSidenav().mode).toBe(mode);
-        expect(drawer().classList).toContain(`mat-drawer-${mode}`);
+        expect(await (await sidenav()).getMode()).toBe(mode);
       });
     }
   });
 
   describe('position', () => {
-    it('defaults to start, as Material does', () => {
+    it('defaults to start, as Material does', async () => {
       expect(host.ref().matSidenav().position).toBe('start');
-      expect(drawer().classList).not.toContain('mat-drawer-end');
+      expect(await (await sidenav()).getPosition()).toBe('start');
     });
 
     it('anchors the drawer to the end edge when asked', async () => {
@@ -177,15 +196,15 @@ describe('Sidenav', () => {
       await settle();
 
       expect(host.ref().matSidenav().position).toBe('end');
-      expect(drawer().classList).toContain('mat-drawer-end');
+      expect(await (await sidenav()).getPosition()).toBe('end');
     });
   });
 
   describe('opened', () => {
-    it('starts closed', () => {
+    it('starts closed', async () => {
       expect(host.ref().opened()).toBe(false);
       expect(host.ref().matSidenav().opened).toBe(false);
-      expect(drawer().classList).not.toContain('mat-drawer-opened');
+      expect(await (await sidenav()).isOpen()).toBe(false);
     });
 
     it('opens the drawer when the binding is set', async () => {
@@ -193,7 +212,7 @@ describe('Sidenav', () => {
       await settle();
 
       expect(host.ref().matSidenav().opened).toBe(true);
-      expect(drawer().classList).toContain('mat-drawer-opened');
+      expect(await (await sidenav()).isOpen()).toBe(true);
     });
 
     // The `model` half of rule 5: a dismissal has to write back through the same
@@ -298,7 +317,7 @@ describe('Sidenav', () => {
       expect(host.ref().compact()).toBe(true);
       expect(host.ref().mode()).toBe('side');
       expect(host.ref().matSidenav().mode).toBe('over');
-      expect(drawer().classList).toContain('mat-drawer-over');
+      expect(await (await sidenav()).getMode()).toBe('over');
     });
 
     it('gives the mode back when the screen widens again', async () => {

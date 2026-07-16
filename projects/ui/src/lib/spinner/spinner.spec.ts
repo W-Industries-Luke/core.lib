@@ -1,6 +1,9 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MatProgressSpinnerHarness } from '@angular/material/progress-spinner/testing';
 
 import { Spinner, UiSpinnerMode } from './spinner';
 
@@ -29,7 +32,17 @@ class TestHost {
 describe('Spinner', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
+  // The `MatProgressSpinnerHarness` speaks Material's *public* test surface —
+  // `getMode()` and `getValue()` — instead of reading the `mode` attribute and
+  // `aria-valuenow` off Material's rendered markup, as the old spec did. Those
+  // are Material's internal wiring: the harness exists precisely so that when
+  // Material reworks how it exposes its state, this spec keeps passing rather
+  // than breaking on a detail no consumer depends on. Everything the harness
+  // *cannot* see — the SVG diameter and stroke width, the live-region ARIA this
+  // component adds, and its `--ui-*` theme hooks — stays a DOM or instance
+  // assertion below.
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
 
@@ -42,6 +55,7 @@ describe('Spinner', () => {
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -52,10 +66,12 @@ describe('Spinner', () => {
   });
 
   describe('mode', () => {
-    it('defaults to indeterminate', () => {
+    it('defaults to indeterminate', async () => {
+      const spinner = await loader.getHarness(MatProgressSpinnerHarness);
+
       expect(host.ref().mode()).toBe('indeterminate');
       expect(host.ref().matProgressSpinner().mode).toBe('indeterminate');
-      expect(matElement().getAttribute('mode')).toBe('indeterminate');
+      expect(await spinner.getMode()).toBe('indeterminate');
     });
 
     it('passes determinate through to MatProgressSpinner', async () => {
@@ -63,7 +79,9 @@ describe('Spinner', () => {
       await fixture.whenStable();
 
       expect(host.ref().matProgressSpinner().mode).toBe('determinate');
-      expect(matElement().getAttribute('mode')).toBe('determinate');
+      expect(await (await loader.getHarness(MatProgressSpinnerHarness)).getMode()).toBe(
+        'determinate',
+      );
     });
 
     it('switches back to indeterminate', async () => {
@@ -72,7 +90,9 @@ describe('Spinner', () => {
       host.mode.set('indeterminate');
       await fixture.whenStable();
 
-      expect(matElement().getAttribute('mode')).toBe('indeterminate');
+      expect(await (await loader.getHarness(MatProgressSpinnerHarness)).getMode()).toBe(
+        'indeterminate',
+      );
     });
   });
 
@@ -91,7 +111,9 @@ describe('Spinner', () => {
         await fixture.whenStable();
 
         expect(host.ref().matProgressSpinner().value).toBe(value);
-        expect(matElement().getAttribute('aria-valuenow')).toBe(String(value));
+        // `getValue()` reads the same `aria-valuenow` the old assertion did — what
+        // a screen reader reads out — without naming the attribute.
+        expect(await (await loader.getHarness(MatProgressSpinnerHarness)).getValue()).toBe(value);
       });
     }
 
@@ -103,29 +125,29 @@ describe('Spinner', () => {
       await fixture.whenStable();
 
       expect(host.ref().value()).toBe(60);
-      expect(matElement().getAttribute('aria-valuenow')).toBeNull();
+      expect(await (await loader.getHarness(MatProgressSpinnerHarness)).getValue()).toBeNull();
     });
 
     it('starts reporting the bound value as soon as the mode becomes determinate', async () => {
       host.value.set(60);
       await fixture.whenStable();
-      expect(matElement().getAttribute('aria-valuenow')).toBeNull();
+      expect(await (await loader.getHarness(MatProgressSpinnerHarness)).getValue()).toBeNull();
 
       host.mode.set('determinate');
       await fixture.whenStable();
 
-      expect(matElement().getAttribute('aria-valuenow')).toBe('60');
+      expect(await (await loader.getHarness(MatProgressSpinnerHarness)).getValue()).toBe(60);
     });
 
     it('clamps out-of-range values to 0–100', async () => {
       host.mode.set('determinate');
       host.value.set(140);
       await fixture.whenStable();
-      expect(matElement().getAttribute('aria-valuenow')).toBe('100');
+      expect(await (await loader.getHarness(MatProgressSpinnerHarness)).getValue()).toBe(100);
 
       host.value.set(-20);
       await fixture.whenStable();
-      expect(matElement().getAttribute('aria-valuenow')).toBe('0');
+      expect(await (await loader.getHarness(MatProgressSpinnerHarness)).getValue()).toBe(0);
     });
 
     // `numberAttribute` is what makes the plain attribute form work. Without it
@@ -143,8 +165,10 @@ describe('Spinner', () => {
       await f.whenStable();
 
       expect(f.componentInstance.ref().value()).toBe(40);
-      expect(f.nativeElement.querySelector('mat-progress-spinner').getAttribute('aria-valuenow'))
-        .toBe('40');
+      const spinner = await TestbedHarnessEnvironment.loader(f).getHarness(
+        MatProgressSpinnerHarness,
+      );
+      expect(await spinner.getValue()).toBe(40);
     });
   });
 

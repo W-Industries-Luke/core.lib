@@ -1,7 +1,10 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatCheckbox } from '@angular/material/checkbox';
+import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 
 import { Checkbox, type UiCheckboxLabelPosition } from './checkbox';
 
@@ -36,9 +39,25 @@ class TestHost {
 describe('Checkbox', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
+
+  // The `MatCheckboxHarness` speaks Material's *public* test surface —
+  // `isChecked()`, `isIndeterminate()`, `isDisabled()`, `isRequired()`,
+  // `getLabelText()`, `toggle()` — instead of poking at the `<input>` Material
+  // renders. Reaching into that input couples this spec to Material's internal
+  // markup; the harness exists precisely so that when Material moves the detail,
+  // the spec keeps passing. Everything the harness *cannot* see — this library's
+  // attribute forwarding onto the real input, `<label for>` association,
+  // Material's own layout classes, the `ControlValueAccessor` internals asserted
+  // through the host `FormControl` — stays a DOM or instance assertion below.
+  const checkbox = (
+    f: ComponentFixture<unknown> = fixture,
+    filter?: Parameters<typeof MatCheckboxHarness.with>[0],
+  ): Promise<MatCheckboxHarness> =>
+    TestbedHarnessEnvironment.loader(f).getHarness(MatCheckboxHarness.with(filter ?? {}));
 
   /** The real control — the `<input type="checkbox">` Material renders. */
   const input = (f: ComponentFixture<unknown> = fixture): HTMLInputElement =>
@@ -48,15 +67,10 @@ describe('Checkbox', () => {
   const label = (f: ComponentFixture<unknown> = fixture): HTMLLabelElement =>
     f.nativeElement.querySelector('label');
 
-  /** Toggles the box the way a user does: a click on the real input. */
-  const click = async (f: ComponentFixture<unknown> = fixture): Promise<void> => {
-    input(f).click();
-    await f.whenStable();
-  };
-
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -77,8 +91,8 @@ describe('Checkbox', () => {
   });
 
   describe('label', () => {
-    it('renders the label inside Material’s own label element', () => {
-      expect(label().textContent!.trim()).toBe('Remember me');
+    it('renders the label inside Material’s own label element', async () => {
+      expect(await (await loader.getHarness(MatCheckboxHarness)).getLabelText()).toBe('Remember me');
     });
 
     // Verifying Material's association rather than reimplementing it: `for`
@@ -100,7 +114,7 @@ describe('Checkbox', () => {
       host.label.set(undefined);
       await fixture.whenStable();
 
-      expect(label().textContent!.trim()).toBe('');
+      expect(await (await loader.getHarness(MatCheckboxHarness)).getLabelText()).toBe('');
     });
 
     it('renders projected content in place of the label string', async () => {
@@ -115,7 +129,7 @@ describe('Checkbox', () => {
       const f = TestBed.createComponent(ContentHost);
       await f.whenStable();
 
-      expect(label(f).textContent!.trim()).toBe('I accept the terms');
+      expect(await (await checkbox(f)).getLabelText()).toBe('I accept the terms');
       // Inside Material's own `<label for>`, so clicking the link's row still
       // reaches the box — the whole reason the content is projected there.
       expect(label(f).querySelector('a')).not.toBeNull();
@@ -124,20 +138,22 @@ describe('Checkbox', () => {
 
   describe('checked', () => {
     it('reflects the model into the real input', async () => {
-      expect(input().checked).toBe(false);
+      const harness = await loader.getHarness(MatCheckboxHarness);
+      expect(await harness.isChecked()).toBe(false);
 
       host.checked.set(true);
       await fixture.whenStable();
 
-      expect(input().checked).toBe(true);
+      expect(await harness.isChecked()).toBe(true);
     });
 
     it('reports a user’s click back through the two-way binding', async () => {
-      await click();
+      const harness = await loader.getHarness(MatCheckboxHarness);
+      await harness.toggle();
 
       expect(host.checked()).toBe(true);
 
-      await click();
+      await harness.toggle();
 
       expect(host.checked()).toBe(false);
     });
@@ -152,14 +168,15 @@ describe('Checkbox', () => {
       const f = TestBed.createComponent(CheckedHost);
       await f.whenStable();
 
-      expect(input(f).checked).toBe(true);
+      expect(await (await checkbox(f)).isChecked()).toBe(true);
     });
   });
 
   describe('changed', () => {
     it('emits the new state when the user toggles the box', async () => {
-      await click();
-      await click();
+      const harness = await loader.getHarness(MatCheckboxHarness);
+      await harness.toggle();
+      await harness.toggle();
 
       expect(host.changes).toEqual([true, false]);
     });
@@ -180,41 +197,47 @@ describe('Checkbox', () => {
       await fixture.whenStable();
     });
 
-    it('renders Material’s mixed state on the real input', () => {
-      expect(input().indeterminate).toBe(true);
+    it('renders Material’s mixed state on the real input', async () => {
+      expect(await (await loader.getHarness(MatCheckboxHarness)).isIndeterminate()).toBe(true);
+      // The `aria-checked="mixed"` wiring is an accessibility detail the harness
+      // does not surface, so this half stays a DOM read.
       expect(input().getAttribute('aria-checked')).toBe('mixed');
     });
 
     // A click is an answer, so the mixed state is over. It is two-way precisely
     // so a parent's signal does not go on claiming a state the DOM has left.
     it('clears itself on a click, and reports that back', async () => {
-      await click();
+      const harness = await loader.getHarness(MatCheckboxHarness);
+      await harness.toggle();
 
       expect(host.indeterminate()).toBe(false);
-      expect(input().indeterminate).toBe(false);
+      expect(await harness.isIndeterminate()).toBe(false);
       expect(host.checked()).toBe(true);
     });
 
-    it('is a display state, not a value: the control still reports checked', () => {
+    it('is a display state, not a value: the control still reports checked', async () => {
       expect(host.checked()).toBe(false);
-      expect(input().checked).toBe(false);
+      expect(await (await loader.getHarness(MatCheckboxHarness)).isChecked()).toBe(false);
     });
   });
 
   describe('disabled', () => {
     it('disables the real input', async () => {
-      expect(input().disabled).toBe(false);
+      const harness = await loader.getHarness(MatCheckboxHarness);
+      expect(await harness.isDisabled()).toBe(false);
 
       host.disabled.set(true);
       await fixture.whenStable();
 
-      expect(input().disabled).toBe(true);
+      expect(await harness.isDisabled()).toBe(true);
     });
 
     it('ignores a click while disabled', async () => {
       host.disabled.set(true);
       await fixture.whenStable();
-      await click();
+      // The harness toggles by clicking the real input; a disabled input
+      // swallows that click, so nothing is written back.
+      await (await loader.getHarness(MatCheckboxHarness)).toggle();
 
       expect(host.checked()).toBe(false);
       expect(host.changes).toEqual([]);
@@ -230,6 +253,9 @@ describe('Checkbox', () => {
       const f = TestBed.createComponent(InteractiveHost);
       await f.whenStable();
 
+      // The harness's `isDisabled()` reports `true` here — it reads `aria-disabled`
+      // as well as the native attribute, and cannot tell the two apart. This test's
+      // whole point is that split, so the native `disabled` stays a DOM read.
       expect(input(f).disabled).toBe(false);
       expect(input(f).getAttribute('aria-disabled')).toBe('true');
     });
@@ -281,7 +307,7 @@ describe('Checkbox', () => {
     it('writes a user’s click into an ngModel', async () => {
       const f = TestBed.createComponent(NgModelHost);
       await f.whenStable();
-      await click(f);
+      await (await checkbox(f)).toggle();
 
       expect(f.componentInstance.value()).toBe(true);
     });
@@ -291,24 +317,25 @@ describe('Checkbox', () => {
       f.componentInstance.value.set(true);
       await f.whenStable();
 
-      expect(input(f).checked).toBe(true);
+      expect(await (await checkbox(f)).isChecked()).toBe(true);
     });
 
     it('renders a form’s value, whatever shape it arrives in', async () => {
       const f = TestBed.createComponent(ReactiveHost);
       await f.whenStable();
+      const harness = await checkbox(f);
 
       // `null` is a form's empty value — `reset()` writes it — and a checkbox is
       // a boolean, so it has to read as unticked rather than as "null".
       f.componentInstance.control.setValue(null);
       await f.whenStable();
 
-      expect(input(f).checked).toBe(false);
+      expect(await harness.isChecked()).toBe(false);
 
       f.componentInstance.control.setValue(true);
       await f.whenStable();
 
-      expect(input(f).checked).toBe(true);
+      expect(await harness.isChecked()).toBe(true);
     });
 
     it('follows a reactive form’s own disable()', async () => {
@@ -318,7 +345,7 @@ describe('Checkbox', () => {
       f.componentInstance.control.disable();
       await f.whenStable();
 
-      expect(input(f).disabled).toBe(true);
+      expect(await (await checkbox(f)).isDisabled()).toBe(true);
     });
 
     it('reports touched once the user has been in and out', async () => {
@@ -342,7 +369,7 @@ describe('Checkbox', () => {
       expect(f.componentInstance.control.invalid).toBe(true);
       expect(f.componentInstance.control.errors).toEqual({ required: true });
 
-      await click(f);
+      await (await checkbox(f)).toggle();
 
       expect(f.componentInstance.control.valid).toBe(true);
       expect(f.componentInstance.control.errors).toBeNull();
@@ -374,7 +401,7 @@ describe('Checkbox', () => {
       const f = TestBed.createComponent(ReactiveHost);
       await f.whenStable();
 
-      expect(input(f).required).toBe(true);
+      expect(await (await checkbox(f)).isRequired()).toBe(true);
     });
   });
 

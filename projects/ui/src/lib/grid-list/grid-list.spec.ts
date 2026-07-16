@@ -1,7 +1,10 @@
 import { BreakpointObserver, Breakpoints, type BreakpointState } from '@angular/cdk/layout';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatGridList } from '@angular/material/grid-list';
+import { MatGridListHarness } from '@angular/material/grid-list/testing';
 import { BehaviorSubject, type Observable } from 'rxjs';
 
 import {
@@ -88,12 +91,20 @@ class SlotHost {
 describe('GridList', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
   let breakpoints: FakeBreakpointObserver;
 
   const grid = (): GridList<string> => host.ref();
   const matGridList = (): MatGridList => grid().matGridList();
   const tileEls = (): HTMLElement[] =>
     Array.from(fixture.nativeElement.querySelectorAll('mat-grid-tile'));
+
+  // `MatGridListHarness` speaks Material's *public* test surface — `getTiles()`,
+  // and each tile's `getColspan()` / `getRowspan()` — rather than reaching into
+  // Material's tile-coordinator internals or its inline layout styles. What the
+  // harness cannot see — the escape-hatch `matGridList()` instance and `_tiles`
+  // content query, a tile's body text, the widths Material writes — stays below.
+  const gridHarness = (): Promise<MatGridListHarness> => loader.getHarness(MatGridListHarness);
 
   beforeEach(async () => {
     breakpoints = new FakeBreakpointObserver();
@@ -103,13 +114,14 @@ describe('GridList', () => {
 
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
   describe('tiles are Material’s own, placed by Material', () => {
-    it('renders one Material grid with a tile per item', () => {
+    it('renders one Material grid with a tile per item', async () => {
       expect(fixture.nativeElement.querySelectorAll('mat-grid-list')).toHaveLength(1);
-      expect(tileEls()).toHaveLength(3);
+      expect(await (await gridHarness()).getTiles()).toHaveLength(3);
     });
 
     // The tiles have to reach Material's own content query, or none are laid out.
@@ -124,11 +136,11 @@ describe('GridList', () => {
     it('reflects tiles added and removed after first render', async () => {
       host.tiles.update((tiles) => [...tiles, { value: 'Four' }]);
       await fixture.whenStable();
-      expect(matGridList()._tiles.length).toBe(4);
+      expect(await (await gridHarness()).getTiles()).toHaveLength(4);
 
       host.tiles.set([{ value: 'Only' }]);
       await fixture.whenStable();
-      expect(matGridList()._tiles.length).toBe(1);
+      expect(await (await gridHarness()).getTiles()).toHaveLength(1);
     });
 
     it('renders a tile’s value as text when there is no slot', () => {
@@ -145,9 +157,12 @@ describe('GridList', () => {
       ]);
       await fixture.whenStable();
 
-      const tiles = matGridList()._tiles.toArray();
-      expect(tiles.map((tile) => tile.colspan)).toEqual([2, 1, 1]);
-      expect(tiles.map((tile) => tile.rowspan)).toEqual([1, 3, 1]);
+      // The harness reports the span Material actually laid each tile out with —
+      // the same claim the old `_tiles` internal read made, off Material's public
+      // test surface rather than its content query.
+      const tiles = await (await gridHarness()).getTiles();
+      expect(await Promise.all(tiles.map((tile) => tile.getColspan()))).toEqual([2, 1, 1]);
+      expect(await Promise.all(tiles.map((tile) => tile.getRowspan()))).toEqual([1, 3, 1]);
 
       // Material sizes a colspan-2 tile differently from a colspan-1 one at the same
       // cols — the widths it writes are not the same value.

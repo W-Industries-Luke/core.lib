@@ -98,6 +98,77 @@ token at `:root` (`:root { --mat-sys-headline-large-size: 2.5rem; }`), but reach
 for that sparingly: a per-role override lives outside the theme and so is invisible
 to the fleet's single source of truth.
 
+## Testing
+
+Unit tests run on **vitest** through `@angular/build:unit-test` — headless, no
+browser (`npx ng test ui --watch=false`). Every component ships a `.spec.ts` with
+meaningful tests, not "should create".
+
+### Test Material through its harnesses, not its DOM
+
+A component that wraps a Material one is tested through **Material's own CDK test
+harnesses** (`@angular/cdk/testing`), never by querying Material's internal
+markup. The MDC class names (`mat-mdc-unelevated-button`), the overlay structure a
+`<mat-select>` renders its panel into, the `<input>` buried inside a
+`<mat-checkbox>` — those are Material's implementation details, and a spec that
+asserts on them breaks the day Material renames one, on a detail no consumer
+depends on. A harness is Material's *published* test surface; assert through it and
+the spec survives the upgrade.
+
+`projects/ui/src/lib/button/button.spec.ts` is the reference. The shape:
+
+```ts
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { MatButtonHarness } from '@angular/material/button/testing';
+
+let loader: HarnessLoader;
+
+beforeEach(async () => {
+  fixture = TestBed.createComponent(TestHost);
+  loader = TestbedHarnessEnvironment.loader(fixture);
+  await fixture.whenStable();
+});
+
+it('passes the variant through to MatButton', async () => {
+  host.variant.set('outlined');
+  await fixture.whenStable();
+
+  const button = await loader.getHarness(MatButtonHarness);
+  expect(await button.getAppearance()).toBe('outlined'); // not a `.mat-mdc-*` class
+});
+```
+
+Harness methods are async — `await` them. Find a specific instance with a filter
+(`loader.getHarness(MatButtonHarness.with({ text: 'Save' }))`) rather than indexing
+a `querySelectorAll`. For a component that renders into a **CDK overlay** (dialog,
+snackbar, menu, a select's panel), reach it with
+`TestbedHarnessEnvironment.documentRootLoader(fixture)` — the overlay lives outside
+the fixture's own element.
+
+### What stays a DOM assertion
+
+Harnesses speak Material's surface — appearance, `checked`, `value`, `disabled`,
+open/close, the options in a panel. They have nothing to say about what *this*
+library adds on top, so those assertions stay as DOM or instance reads:
+
+- **Theme marker classes and styling hooks** — `ui-button--accent`, the `--ui-*`
+  custom properties. These are how `_button.scss` re-points Material's tokens; the
+  harness can't see them.
+- **Native-attribute forwarding** — the proof that `aria-*`, `id`, `data-*`,
+  `routerLink`, `form`/`name`/`value` land on the *real* element (and are taken off
+  the wrapper). A harness abstracts the element away, which is the opposite of what
+  that test asserts.
+- **`id` / `<label for>` association** specifics.
+- **`ControlValueAccessor` / `Validator` behaviour** — assert it through the bound
+  `FormControl` (`control.valid`, `.errors`, `.touched`), not the harness.
+- **Escape-hatch instance accessors** — the underlying Material instance a
+  component exposes (`host.ref().matButton`, `matCheckbox()`, a returned
+  `dialogRef`).
+
+So a spec is usually *both*: harness calls for Material's own behaviour, DOM and
+instance reads for the seams this library owns.
+
 ## Accessibility
 
 This library is the a11y floor for every consuming app, so a11y is asserted
@@ -251,7 +322,9 @@ Every component should:
 1. Live in `projects/ui/src/lib/<name>/`.
 2. Be exported from `projects/ui/src/public-api.ts` — otherwise consumers can't
    import it and it's effectively dead code.
-3. Ship a `.spec.ts` with meaningful tests (not just "should create").
+3. Ship a `.spec.ts` with meaningful tests (not just "should create"). If it wraps
+   a Material component, test that component through its CDK harness — see
+   [Testing](#testing).
 4. Ship a `.stories.ts` with one story per meaningful configuration — the
    catalogue is how the app teams discover what exists, so an undocumented
    variant may as well not exist. See `src/lib/ui.stories.ts` for the pattern.

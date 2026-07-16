@@ -1,7 +1,9 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { FormControl, FormsModule, NgModel, ReactiveFormsModule } from '@angular/forms';
 import { MatRadioButton, MatRadioGroup } from '@angular/material/radio';
+import { MatRadioButtonHarness, MatRadioGroupHarness } from '@angular/material/radio/testing';
 
 import {
   RadioGroup,
@@ -55,6 +57,27 @@ describe('RadioGroup', () => {
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
 
+  // The `MatRadioGroupHarness` / `MatRadioButtonHarness` pair speaks Material's
+  // *public* test surface — `getRadioButtons()`, `isChecked()`, `isDisabled()`,
+  // `isRequired()`, `getName()`, `getLabelText()`, `check()` — instead of poking
+  // at the `<input type="radio">`s Material renders. Reaching into those inputs
+  // couples this spec to Material's internal markup; the harness exists precisely
+  // so that when Material moves the detail, the spec keeps passing. Everything
+  // the harness *cannot* see — this library's own `ui-radio-group__*` classes and
+  // rendered legend, the `aria-labelledby` association, attribute forwarding onto
+  // the real group, Material's layout classes, the projected `uiRadioOption`
+  // template, the `ControlValueAccessor` internals asserted through the host
+  // `FormControl` / `NgModel` — stays a DOM or instance assertion below.
+  const radioGroup = (
+    f: ComponentFixture<unknown> = fixture,
+    filter?: Parameters<typeof MatRadioGroupHarness.with>[0],
+  ): Promise<MatRadioGroupHarness> =>
+    TestbedHarnessEnvironment.loader(f).getHarness(MatRadioGroupHarness.with(filter ?? {}));
+
+  /** The radio buttons, in order, through Material's public harness surface. */
+  const buttons = async (f: ComponentFixture<unknown> = fixture): Promise<MatRadioButtonHarness[]> =>
+    (await radioGroup(f)).getRadioButtons();
+
   /** The element carrying the `radiogroup` role — Material's own group. */
   const group = (f: ComponentFixture<unknown> = fixture): HTMLElement =>
     f.nativeElement.querySelector('mat-radio-group');
@@ -62,12 +85,6 @@ describe('RadioGroup', () => {
   /** The real controls — the `<input type="radio">`s Material renders. */
   const inputs = (f: ComponentFixture<unknown> = fixture): HTMLInputElement[] =>
     Array.from(f.nativeElement.querySelectorAll('input[type="radio"]'));
-
-  /** Chooses an option the way a user does: a click on the real input. */
-  const click = async (index: number, f: ComponentFixture<unknown> = fixture): Promise<void> => {
-    inputs(f)[index].click();
-    await f.whenStable();
-  };
 
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
@@ -86,19 +103,22 @@ describe('RadioGroup', () => {
       expect(host.ref().matRadioButtons()[0]).toBeInstanceOf(MatRadioButton);
     });
 
-    it('renders one native radio per option, in order', () => {
-      expect(inputs().length).toBe(OPTIONS.length);
-      expect(
-        Array.from(fixture.nativeElement.querySelectorAll('mat-radio-button')).map((button) =>
-          (button as HTMLElement).textContent!.trim(),
-        ),
-      ).toEqual(['Standard', 'Express', 'Courier']);
+    it('renders one native radio per option, in order', async () => {
+      const btns = await buttons();
+
+      expect(btns.length).toBe(OPTIONS.length);
+      expect(await Promise.all(btns.map((b) => b.getLabelText()))).toEqual([
+        'Standard',
+        'Express',
+        'Courier',
+      ]);
     });
 
     // Material's own exclusivity mechanism: one shared `name` across the inputs is
     // what makes choosing one clear the rest, without this component tracking it.
-    it('gives every radio one shared, non-empty name', () => {
-      const names = new Set(inputs().map((input) => input.name));
+    it('gives every radio one shared, non-empty name', async () => {
+      const btns = await buttons();
+      const names = new Set(await Promise.all(btns.map((b) => b.getName())));
 
       expect(names.size).toBe(1);
       expect([...names][0]).not.toBe('');
@@ -116,7 +136,10 @@ describe('RadioGroup', () => {
       const f = TestBed.createComponent(NamedHost);
       await f.whenStable();
 
-      expect(inputs(f).every((input) => input.name === 'delivery')).toBe(true);
+      const btns = await buttons(f);
+      expect((await Promise.all(btns.map((b) => b.getName()))).every((n) => n === 'delivery')).toBe(
+        true,
+      );
     });
 
     // Two unnamed groups on one page must not share a name: radios are grouped by
@@ -136,10 +159,10 @@ describe('RadioGroup', () => {
       const f = TestBed.createComponent(TwoHost);
       await f.whenStable();
 
-      const groups = Array.from(f.nativeElement.querySelectorAll('mat-radio-group')) as HTMLElement[];
-      const names = groups.map(
-        (element) => element.querySelector<HTMLInputElement>('input[type="radio"]')!.name,
+      const [first, second] = await TestbedHarnessEnvironment.loader(f).getAllHarnesses(
+        MatRadioGroupHarness,
       );
+      const names = [await first.getName(), await second.getName()];
 
       expect(names[0]).toBeTruthy();
       expect(names[0]).not.toBe(names[1]);
@@ -231,7 +254,8 @@ describe('RadioGroup', () => {
       host.required.set(true);
       await fixture.whenStable();
 
-      expect(inputs().every((input) => input.required)).toBe(true);
+      const btns = await buttons();
+      expect((await Promise.all(btns.map((b) => b.isRequired()))).every(Boolean)).toBe(true);
     });
   });
 
@@ -240,16 +264,19 @@ describe('RadioGroup', () => {
       host.value.set('express');
       await fixture.whenStable();
 
-      expect(inputs().map((input) => input.checked)).toEqual([false, true, false]);
+      const btns = await buttons();
+      expect(await Promise.all(btns.map((b) => b.isChecked()))).toEqual([false, true, false]);
       expect(host.ref().selectedOption()).toEqual(OPTIONS[1]);
     });
 
-    it('disables one option without disabling the rest', () => {
-      expect(inputs().map((input) => input.disabled)).toEqual([false, false, true]);
+    it('disables one option without disabling the rest', async () => {
+      const btns = await buttons();
+      expect(await Promise.all(btns.map((b) => b.isDisabled()))).toEqual([false, false, true]);
     });
 
     it('ignores a click on a disabled option', async () => {
-      await click(2);
+      // `check()` clicks the button; a disabled radio swallows the click.
+      await (await buttons())[2].check();
 
       expect(host.value()).toBeNull();
       expect(host.changes).toEqual([]);
@@ -259,37 +286,41 @@ describe('RadioGroup', () => {
       host.options.set([{ value: 'pickup', label: 'Collect in store' }]);
       await fixture.whenStable();
 
-      expect(inputs().length).toBe(1);
-      expect(query('mat-radio-button')!.textContent!.trim()).toBe('Collect in store');
+      const btns = await buttons();
+      expect(btns.length).toBe(1);
+      expect(await btns[0].getLabelText()).toBe('Collect in store');
     });
 
     it('reports no selected option for a value no option holds', async () => {
       host.value.set('teleport');
       await fixture.whenStable();
 
+      const btns = await buttons();
       expect(host.ref().selectedOption()).toBeUndefined();
-      expect(inputs().some((input) => input.checked)).toBe(false);
+      expect((await Promise.all(btns.map((b) => b.isChecked()))).some(Boolean)).toBe(false);
     });
   });
 
   describe('value', () => {
     it('writes a user’s choice back through the two-way binding', async () => {
-      await click(1);
+      const btns = await buttons();
+      await btns[1].check();
 
       expect(host.value()).toBe('express');
-      expect(inputs()[1].checked).toBe(true);
+      expect(await btns[1].isChecked()).toBe(true);
     });
 
     it('clears the previous choice when another is made', async () => {
-      await click(0);
-      await click(1);
+      const btns = await buttons();
+      await btns[0].check();
+      await btns[1].check();
 
       expect(host.value()).toBe('express');
-      expect(inputs().map((input) => input.checked)).toEqual([false, true, false]);
+      expect(await Promise.all(btns.map((b) => b.isChecked()))).toEqual([false, true, false]);
     });
 
     it('emits changed for a user’s choice only', async () => {
-      await click(0);
+      await (await buttons())[0].check();
 
       expect(host.changes).toEqual(['standard']);
 
@@ -339,13 +370,15 @@ describe('RadioGroup', () => {
       host.disabled.set(true);
       await fixture.whenStable();
 
-      expect(inputs().every((input) => input.disabled)).toBe(true);
+      const btns = await buttons();
+      expect((await Promise.all(btns.map((b) => b.isDisabled()))).every(Boolean)).toBe(true);
     });
 
     it('ignores a click while disabled', async () => {
       host.disabled.set(true);
       await fixture.whenStable();
-      await click(0);
+      // `check()` clicks the button; a disabled radio swallows the click.
+      await (await buttons())[0].check();
 
       expect(host.value()).toBeNull();
       expect(host.changes).toEqual([]);
@@ -368,6 +401,9 @@ describe('RadioGroup', () => {
       const f = TestBed.createComponent(InteractiveHost);
       await f.whenStable();
 
+      // The harness's `isDisabled()` reports `true` here — it reads `aria-disabled`
+      // as well as the native attribute, and cannot tell the two apart. This test's
+      // whole point is that split, so both halves stay DOM reads.
       expect(inputs(f).some((input) => input.disabled)).toBe(false);
       expect(inputs(f).every((input) => input.getAttribute('aria-disabled') === 'true')).toBe(true);
     });
@@ -397,7 +433,7 @@ describe('RadioGroup', () => {
     it('writes a user’s choice into an ngModel', async () => {
       const f = TestBed.createComponent(NgModelHost);
       await f.whenStable();
-      await click(1, f);
+      await (await buttons(f))[1].check();
 
       expect(f.componentInstance.value()).toBe('express');
     });
@@ -407,13 +443,13 @@ describe('RadioGroup', () => {
       f.componentInstance.value.set('standard');
       await f.whenStable();
 
-      expect(inputs(f)[0].checked).toBe(true);
+      expect(await (await buttons(f))[0].isChecked()).toBe(true);
     });
 
     it('writes a user’s choice into a reactive control', async () => {
       const f = TestBed.createComponent(ReactiveHost);
       await f.whenStable();
-      await click(0, f);
+      await (await buttons(f))[0].check();
 
       expect(f.componentInstance.control.value).toBe('standard');
     });
@@ -421,34 +457,36 @@ describe('RadioGroup', () => {
     it('renders a form’s value, and clears on reset', async () => {
       const f = TestBed.createComponent(ReactiveHost);
       await f.whenStable();
+      const btns = await buttons(f);
 
       f.componentInstance.control.setValue('express');
       await f.whenStable();
 
-      expect(inputs(f)[1].checked).toBe(true);
+      expect(await btns[1].isChecked()).toBe(true);
 
       // `reset()` writes `null` — the empty value a group with nothing chosen has.
       f.componentInstance.control.reset();
       await f.whenStable();
 
-      expect(inputs(f).some((input) => input.checked)).toBe(false);
+      expect((await Promise.all(btns.map((b) => b.isChecked()))).some(Boolean)).toBe(false);
     });
 
     it('follows a reactive form’s own disable()', async () => {
       const f = TestBed.createComponent(ReactiveHost);
       await f.whenStable();
+      const btns = await buttons(f);
 
       f.componentInstance.control.disable();
       await f.whenStable();
 
-      expect(inputs(f).every((input) => input.disabled)).toBe(true);
+      expect((await Promise.all(btns.map((b) => b.isDisabled()))).every(Boolean)).toBe(true);
 
       // Re-enabling gives every button back except the one the *option* disables,
       // which the form never owned.
       f.componentInstance.control.enable();
       await f.whenStable();
 
-      expect(inputs(f).map((input) => input.disabled)).toEqual([false, false, true]);
+      expect(await Promise.all(btns.map((b) => b.isDisabled()))).toEqual([false, false, true]);
     });
 
     it('reports touched once the user has been in and out', async () => {
@@ -489,10 +527,11 @@ describe('RadioGroup', () => {
         NgModel,
       );
 
+      const btns = await buttons(f);
       expect(model.invalid).toBe(true);
-      expect(inputs(f).every((input) => input.required)).toBe(true);
+      expect((await Promise.all(btns.map((b) => b.isRequired()))).every(Boolean)).toBe(true);
 
-      await click(0, f);
+      await btns[0].check();
 
       expect(model.valid).toBe(true);
     });
