@@ -24,7 +24,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: var(--ui-empty-state-gap, 8px);
+  gap: var(--ui-empty-state-gap, var(--ui-sys-spacing-sm));
   padding: var(--ui-empty-state-padding, 48px 24px);
 
   // The public hooks (rule 6) resolve here, once, so every rule below reads the
@@ -114,11 +114,11 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: var(--ui-empty-state-actions-gap, 8px);
+  gap: var(--ui-empty-state-actions-gap, var(--ui-sys-spacing-sm));
 
   // The actions are a step apart from the text they follow, rather than the
   // column's own gap: the icon, title and message are one block of prose, and the
-  // button is the thing to do about it. This is on top of the column's gap, so it
-  // moves with `--ui-empty-state-gap` rather than fighting it.
-  margin-block-start: 8px;
+  // button is the thing to do about it. The theme's `sm` step, so this extra gap
+  // keeps the fleet's rhythm rather than pinning a literal of its own.
+  margin-block-start: var(--ui-sys-spacing-sm);
 }

@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HarnessLoader } from '@angular/cdk/testing';
@@ -439,6 +442,26 @@ describe('Toolbar', () => {
           '--mat-toolbar-container-background-color',
         ),
       ).toBe('');
+    });
+  });
+
+  /**
+   * The gap between the elements within a slot is on the theme's `sm` step, so a
+   * toolbar keeps the fleet's rhythm rather than a `8px` of its own — the drift
+   * `--ui-sys-spacing-*` exists to prevent. The `16px` inline padding is
+   * Material's own container metric and stays a literal, as its comment says.
+   * jsdom does not resolve `var()`, so this is a source-level assertion, in the
+   * spirit of `ui-divider`'s.
+   */
+  describe('spacing comes from the theme, not from literals', () => {
+    const styles = readFileSync(
+      join(process.cwd(), 'projects', 'ui', 'src', 'lib', 'toolbar', 'toolbar.scss'),
+      'utf8',
+    );
+
+    it('resolves the slot gap from the theme’s `sm` step', () => {
+      expect(styles).toContain('var(--ui-toolbar-gap, var(--ui-sys-spacing-sm))');
+      expect(styles).not.toMatch(/--ui-toolbar-gap,\s*8px/);
     });
   });
 });

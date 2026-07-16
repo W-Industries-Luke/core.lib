@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { HarnessLoader } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component, signal, viewChild } from '@angular/core';
@@ -793,6 +796,31 @@ describe('ButtonToggle', () => {
       await fixture.whenStable();
 
       expect(document.activeElement).toBe(buttons()[1]);
+    });
+  });
+
+  /**
+   * The label gap and the icon/text gap are only shared with the rest of the
+   * fleet if they come from the theme's spacing scale — the same `sm` step
+   * `ui-radio-group` uses, so a label sits the same distance above every control.
+   * A literal here builds and renders identically and drifts silently the moment
+   * the theme's rhythm changes; jsdom does not resolve `var()`, so this is a
+   * source-level assertion, in the spirit of `ui-divider`'s.
+   */
+  describe('spacing comes from the theme, not from literals', () => {
+    const styles = readFileSync(
+      join(process.cwd(), 'projects', 'ui', 'src', 'lib', 'button-toggle', 'button-toggle.scss'),
+      'utf8',
+    );
+
+    it('resolves the label gap from the theme’s `sm` step', () => {
+      expect(styles).toContain('var(--ui-button-toggle-gap, var(--ui-sys-spacing-sm))');
+      expect(styles).not.toMatch(/--ui-button-toggle-gap,\s*0\.5rem/);
+    });
+
+    it('resolves the icon/text gap from the theme’s `sm` step, with no bare literal', () => {
+      expect(styles).toContain('margin-inline-start: var(--ui-sys-spacing-sm)');
+      expect(styles).not.toMatch(/margin-inline-start:\s*0\.5rem/);
     });
   });
 });
