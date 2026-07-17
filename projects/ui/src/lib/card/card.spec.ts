@@ -5,7 +5,7 @@ import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HarnessLoader } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
-import { MatCard, MatCardTitle } from '@angular/material/card';
+import { MatCard, MatCardAvatar, MatCardSubtitle, MatCardTitle } from '@angular/material/card';
 import { MatCardHarness } from '@angular/material/card/testing';
 
 import { Card, CardActions, CardHeader, UiCardActionsAlign, UiCardAppearance } from './card';
@@ -155,6 +155,62 @@ describe('Card', () => {
       );
 
       expect(regions).toEqual(['div', 'mat-card-content', 'mat-card-actions']);
+    });
+
+    // The header slot is a plain block, so a consumer can mark a *wrapper* that
+    // lays Material's own `matCardAvatar` / `matCardTitle` / `matCardSubtitle` out
+    // however they like — the story of the same name — and the whole thing lands
+    // in the header rather than the body.
+    it('projects a marked wrapper of Material header parts into the header slot', async () => {
+      @Component({
+        imports: [Card, CardHeader, MatCardAvatar, MatCardTitle, MatCardSubtitle],
+        template: `
+          <ui-card>
+            <div uiCardHeader>
+              <img matCardAvatar alt="" src="shiba.jpg" />
+              <h2 matCardTitle>Shiba Inu</h2>
+              <span matCardSubtitle>Dog breed</span>
+            </div>
+            <p id="body">A hunting dog from Japan.</p>
+          </ui-card>
+        `,
+      })
+      class WrapperHost {}
+
+      const f = TestBed.createComponent(WrapperHost);
+      await f.whenStable();
+      const header = f.nativeElement.querySelector('.ui-card__header')!;
+
+      expect(header).not.toBeNull();
+      expect(header.querySelector('[matCardAvatar]')).not.toBeNull();
+      expect(header.querySelector('[matCardTitle]')!.textContent).toContain('Shiba Inu');
+      expect(header.querySelector('[matCardSubtitle]')!.textContent).toContain('Dog breed');
+      // The wrapper's parts stayed out of the body.
+      expect(f.nativeElement.querySelector('.ui-card__body [matCardAvatar]')).toBeNull();
+    });
+
+    // The everyday header is two markers — a title over a subtitle — and both are
+    // direct children marked `uiCardHeader`, so both project into the one slot.
+    it('projects several header markers into the one header slot', async () => {
+      @Component({
+        imports: [Card, CardHeader, MatCardTitle, MatCardSubtitle],
+        template: `
+          <ui-card>
+            <h2 uiCardHeader matCardTitle>Shipping address</h2>
+            <span uiCardHeader matCardSubtitle>Where it goes</span>
+            <p id="body">1 Infinite Loop</p>
+          </ui-card>
+        `,
+      })
+      class TwoMarkerHost {}
+
+      const f = TestBed.createComponent(TwoMarkerHost);
+      await f.whenStable();
+      const header = f.nativeElement.querySelector('.ui-card__header')!;
+
+      expect(header.querySelector('[matCardTitle]')!.textContent).toContain('Shipping address');
+      expect(header.querySelector('[matCardSubtitle]')!.textContent).toContain('Where it goes');
+      expect(f.nativeElement.querySelector('.ui-card__body [matCardTitle]')).toBeNull();
     });
   });
 

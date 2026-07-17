@@ -3,7 +3,7 @@ import { HarnessLoader } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatGridList } from '@angular/material/grid-list';
+import { MatGridList, MatGridTileFooterCssMatStyler } from '@angular/material/grid-list';
 import { MatGridListHarness } from '@angular/material/grid-list/testing';
 import { BehaviorSubject, type Observable } from 'rxjs';
 
@@ -183,6 +183,33 @@ describe('GridList', () => {
       // index:value:colspan — proves all three context values reach the template.
       expect(cells.map((el) => el.textContent?.trim())).toEqual(['0:A:2', '1:B:1']);
     });
+
+    // The slot renders *inside* Material's placed `<mat-grid-tile>`, so Material's
+    // own `<mat-grid-tile-footer>` works within it — the caption bar the
+    // `Tile header & footer` story shows over each tile.
+    it('renders a footer projected through the slot inside the placed tile', async () => {
+      @Component({
+        imports: [GridList, GridListTileDef, MatGridTileFooterCssMatStyler],
+        template: `
+          <ui-grid-list [tiles]="tiles" [cols]="3">
+            <ng-template uiGridListTile let-value>
+              <mat-grid-tile-footer>{{ value }}</mat-grid-tile-footer>
+            </ng-template>
+          </ui-grid-list>
+        `,
+      })
+      class FooterHost {
+        readonly tiles: UiGridListTile<string>[] = [{ value: 'Sunrise' }, { value: 'Harbour' }];
+      }
+
+      const f = TestBed.createComponent(FooterHost);
+      await f.whenStable();
+      const footers = f.nativeElement.querySelectorAll('mat-grid-tile-footer');
+
+      expect(footers).toHaveLength(2);
+      expect(footers[0].closest('mat-grid-tile')).not.toBeNull();
+      expect(footers[0].textContent).toContain('Sunrise');
+    });
   });
 
   describe('cols / rowHeight / gutterSize forward to MatGridList', () => {
@@ -200,6 +227,16 @@ describe('GridList', () => {
 
       expect(matGridList().rowHeight).toBe('4:3');
       expect(matGridList().gutterSize).toBe('16px');
+    });
+
+    // `'fit'` is a distinct Material row-height mode — the rows share the list's own
+    // height rather than sizing off the columns — so it is worth pinning on its own
+    // alongside the ratio the story of the same name also shows.
+    it('forwards the fit row-height mode to Material', async () => {
+      host.rowHeight.set('fit');
+      await fixture.whenStable();
+
+      expect(matGridList().rowHeight).toBe('fit');
     });
 
     it('defaults to a 4-column square grid so it renders without configuration', () => {

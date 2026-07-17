@@ -29,7 +29,7 @@ import { MatGridList, MatGridTile } from '@angular/material/grid-list';
  * change upstream is a compile error here rather than a value this component
  * forwards and Material throws on.
  */
-export type UiGridListRowHeight = string | number;
+export type UiGridListRowHeight = MatGridList['rowHeight'];
 
 /**
  * One tile in a {@link GridList}.

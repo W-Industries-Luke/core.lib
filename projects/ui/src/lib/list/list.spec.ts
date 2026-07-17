@@ -154,6 +154,17 @@ describe('List', () => {
       // Row identity across a re-order is a DOM fact the harness abstracts away.
       expect(rows()[1]).toBe(before);
     });
+
+    // A list with nothing in it is still a list: the container renders, and it
+    // keeps its name, rather than collapsing to nothing on screen.
+    it('renders the container with no rows when items is empty', async () => {
+      host.items.set([]);
+      await fixture.whenStable();
+
+      expect(query('mat-list')).not.toBeNull();
+      expect(rows()).toEqual([]);
+      expect(query('mat-list')!.getAttribute('aria-label')).toBe('Mailboxes');
+    });
   });
 
   describe('selectable', () => {
@@ -223,6 +234,20 @@ describe('List', () => {
 
       expect(host.changes).toEqual([]);
     });
+
+    // Replacing a single-select value emits a change carrying the row the user
+    // touched: `changed` is Material's own `options`, which for a single-select
+    // click is the newly-chosen row (Material does not put the deselected one in
+    // it). `value` and `selected` report the whole selection after the swap.
+    it('reports the chosen row through selectionChange when the value is replaced', async () => {
+      await clickRow(0);
+      await clickRow(1);
+
+      const last = host.changes.at(-1)!;
+      expect(last.value).toBe('starred');
+      expect(last.selected).toEqual([ITEMS[1]]);
+      expect(last.changed).toEqual([ITEMS[1]]);
+    });
   });
 
   describe('multiple', () => {
@@ -284,6 +309,76 @@ describe('List', () => {
 
       expect(host.value()).toEqual(['archive']);
       expect(rows()[2].getAttribute('aria-selected')).toBe('true');
+    });
+  });
+
+  describe('togglePosition', () => {
+    @Component({
+      imports: [List],
+      template: `
+        <ui-list selectable multiple [items]="items" [togglePosition]="position()" aria-label="Mailboxes" />
+      `,
+    })
+    class PositionHost {
+      readonly items = ITEMS;
+      readonly position = signal<'before' | 'after'>('after');
+    }
+
+    // Material only marks the *leading* position with a class; the default `after`
+    // leaves the indicator trailing the text, so the leading slot is free for an
+    // icon or avatar.
+    it('trails the text by default, leaving the leading slot free', async () => {
+      const f = TestBed.createComponent(PositionHost);
+      await f.whenStable();
+
+      expect(f.nativeElement.querySelector('.mat-mdc-list-option-checkbox-before')).toBeNull();
+    });
+
+    it('moves the checkbox to the leading edge for before', async () => {
+      const f = TestBed.createComponent(PositionHost);
+      f.componentInstance.position.set('before');
+      await f.whenStable();
+
+      expect(f.nativeElement.querySelector('.mat-mdc-list-option-checkbox-before')).not.toBeNull();
+    });
+  });
+
+  describe('hideSingleSelectionIndicator', () => {
+    @Component({
+      imports: [List],
+      template: `
+        <ui-list
+          selectable
+          [items]="items"
+          [value]="value"
+          [hideSingleSelectionIndicator]="hidden()"
+          aria-label="View"
+        />
+      `,
+    })
+    class HideHost {
+      readonly items = ITEMS;
+      readonly value = 'starred';
+      readonly hidden = signal(false);
+    }
+
+    it('shows a radio on each row by default', async () => {
+      const f = TestBed.createComponent(HideHost);
+      await f.whenStable();
+
+      expect(f.nativeElement.querySelector('mat-list-option .mdc-radio')).not.toBeNull();
+    });
+
+    // For a list of *views* rather than of choices, where a column of radios reads
+    // as a form: the radio goes, and the chosen row is marked by its fill alone.
+    it('drops the radio when hidden, leaving the chosen row still selected', async () => {
+      const f = TestBed.createComponent(HideHost);
+      f.componentInstance.hidden.set(true);
+      await f.whenStable();
+
+      expect(f.nativeElement.querySelector('.mdc-radio')).toBeNull();
+      const options = f.nativeElement.querySelectorAll('mat-list-option');
+      expect((options[1] as HTMLElement).getAttribute('aria-selected')).toBe('true');
     });
   });
 
@@ -574,6 +669,85 @@ describe('List', () => {
       await fixture.whenStable();
 
       expect(query('mat-selection-list')!.getAttribute('aria-label')).toBe('Mailboxes');
+    });
+  });
+
+  // The colours are Material's, resolved from the shared theme's tokens. This
+  // component only re-points those tokens at hooks whose defaults are the tokens
+  // Material would have used anyway.
+  describe('theming', () => {
+    // These read the *declaration* rather than a painted colour, on purpose: `ng
+    // test` runs in jsdom, which does not substitute `var()` at all. What a list
+    // resolves to under the real theme is asserted by the Storybook stories, which
+    // run in Chromium.
+    const declaration = (token: string) =>
+      getComputedStyle(query('ui-list')!).getPropertyValue(token);
+
+    const noLiterals = /#[0-9a-f]{3,8}\b|\brgba?\(/i;
+
+    it('resolves the two lines from the theme, not a literal', () => {
+      expect(declaration('--mat-list-list-item-label-text-color')).toContain(
+        'var(--ui-list-label-text-color',
+      );
+      expect(declaration('--mat-list-list-item-label-text-color')).toContain(
+        'var(--mat-sys-on-surface)',
+      );
+      expect(declaration('--mat-list-list-item-supporting-text-color')).toContain(
+        'var(--ui-list-supporting-text-color',
+      );
+      expect(declaration('--mat-list-list-item-supporting-text-color')).toContain(
+        'var(--mat-sys-on-surface-variant)',
+      );
+      expect(declaration('--mat-list-list-item-supporting-text-color')).not.toMatch(noLiterals);
+    });
+
+    it('resolves the leading icon and avatar from the theme, not a literal', () => {
+      expect(declaration('--mat-list-list-item-leading-icon-color')).toContain(
+        'var(--ui-list-leading-icon-color',
+      );
+      expect(declaration('--mat-list-list-item-leading-icon-color')).toContain(
+        'var(--mat-sys-on-surface-variant)',
+      );
+      expect(declaration('--mat-list-list-item-leading-avatar-color')).toContain(
+        'var(--ui-list-leading-avatar-color',
+      );
+      expect(declaration('--mat-list-list-item-leading-avatar-color')).toContain(
+        'var(--mat-sys-primary-container)',
+      );
+    });
+
+    // Material's own M3 default is `transparent` — kept, so a list takes the colour
+    // of the card or sheet it sits on rather than punching a hole in it.
+    it('defaults a row’s fill and a selected row’s fill to transparent', () => {
+      expect(declaration('--mat-list-list-item-container-color')).toContain(
+        'var(--ui-list-item-container-color',
+      );
+      expect(declaration('--mat-list-list-item-container-color')).toContain('transparent');
+      expect(declaration('--mat-list-list-item-selected-container-color')).toContain(
+        'var(--ui-list-selected-container-color',
+      );
+    });
+
+    it('exposes the row’s corners as a hook, defaulting to M3’s square', () => {
+      expect(declaration('--mat-list-list-item-container-shape')).toContain(
+        'var(--ui-list-item-shape',
+      );
+      expect(declaration('--mat-list-list-item-container-shape')).toContain(
+        'var(--mat-sys-corner-none)',
+      );
+    });
+
+    // The hooks are emitted on the host, which is what keeps a consumer off
+    // `::ng-deep`: `--ui-list-item-shape` set by an ordinary rule on `ui-list` —
+    // or inherited from any ancestor — reaches the elements inside Material's
+    // template by CSS's own inheritance.
+    it('exposes the hooks on the host, not on Material’s internals', () => {
+      expect(declaration('--mat-list-list-item-label-text-color')).not.toBe('');
+      expect(
+        getComputedStyle(query('mat-list')!).getPropertyValue(
+          '--mat-list-list-item-label-text-color',
+        ),
+      ).toBe('');
     });
   });
 
