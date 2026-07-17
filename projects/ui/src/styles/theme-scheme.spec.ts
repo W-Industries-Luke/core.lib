@@ -23,6 +23,35 @@ import { compile } from 'sass';
  * them to a `prefers-color-scheme`-only polyfill is the job of `build.cssTarget`
  * in `.storybook/main.ts`, asserted end-to-end by `Foundations/Dark mode`.)
  */
+/**
+ * The core colour roles dark mode has to flip, named one by one.
+ *
+ * The bulk assertion below proves *most* roles flip, but a bulk count cannot
+ * catch a single role regressing to a light-only value — 50-odd others still
+ * differ, so `> half` and `> 20` stay green while `--mat-sys-primary` (say) is
+ * quietly frozen light. These are the roles a page is actually built from —
+ * every M3 bold/container pair with its `on-` partner, plus this library's own
+ * `success`/`warning` additions — so each is asserted by name. This is the guard
+ * #132 asks for, generalised from #123's single `--mat-sys-surface` across the
+ * whole set an app renders against.
+ */
+const CORE_ROLES: readonly string[] = [
+  '--mat-sys-surface',
+  '--mat-sys-on-surface',
+  ...['primary', 'secondary', 'tertiary', 'error'].flatMap((name) => [
+    `--mat-sys-${name}`,
+    `--mat-sys-on-${name}`,
+    `--mat-sys-${name}-container`,
+    `--mat-sys-on-${name}-container`,
+  ]),
+  ...['success', 'warning'].flatMap((name) => [
+    `--ui-sys-${name}`,
+    `--ui-sys-on-${name}`,
+    `--ui-sys-${name}-container`,
+    `--ui-sys-on-${name}-container`,
+  ]),
+];
+
 describe('theme colour scheme', () => {
   // Compile the real theme the way an app consuming `styles/theme` does — the
   // `@use '@angular/material'` inside it resolves off `node_modules`.
@@ -61,6 +90,27 @@ describe('theme colour scheme', () => {
       expect(pair, role).not.toBeNull();
       expect(pair![0], role).not.toBe(pair![1]);
     }
+  });
+
+  it.each(CORE_ROLES)('flips %s between light and dark', (role) => {
+    // Named one by one, not counted: this is the regression #132 wants caught —
+    // any single core role frozen to a light-only value (a bare tone, a stray
+    // `theme-type: light`) fails here even while every other role still flips, so
+    // the bulk assertion below stays green and this does not. Each must be a
+    // well-formed `light-dark(a, b)` whose two sides genuinely differ.
+    const pair = schemes(declaration(role));
+    expect(pair, `${role} is not a light-dark() pair`).not.toBeNull();
+    expect(pair![0], `${role} does not flip`).not.toBe(pair![1]);
+  });
+
+  it('covers the core roles a page is built from', () => {
+    // A guard on a hand-written list is only as good as the list: a role dropped
+    // from `CORE_ROLES` would silently stop being checked. Pin the shape so the
+    // enumeration cannot quietly shrink — the four M3 palettes' four-role pairing
+    // (16) plus surface/on-surface (2) plus the two `--ui-sys-*` status roles'
+    // pairing (8).
+    expect(CORE_ROLES).toHaveLength(26);
+    expect(new Set(CORE_ROLES).size).toBe(CORE_ROLES.length);
   });
 
   it('makes a color-scheme theme of it — the colour roles are differing pairs', () => {
