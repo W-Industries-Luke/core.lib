@@ -119,6 +119,20 @@ describe('Alert', () => {
       });
     }
 
+    // #121: alert is one of the two components where the icon-as-text bug surfaced.
+    // jsdom applies no icon font, so this pins the structural half a regression in
+    // this family would break — the leading icon is a real Material <mat-icon>
+    // drawing the variant's ligature (not a <span> of prose the font never reaches),
+    // and it is hidden from assistive tech so "info" is never announced as a word.
+    it('renders the leading icon as a Material glyph, not ligature text', () => {
+      const icon = iconElement()!;
+
+      expect(icon.tagName.toLowerCase()).toBe('mat-icon');
+      expect(icon.classList).toContain('mat-icon');
+      expect(icon.textContent?.trim()).toBe('info');
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+    });
+
     it('lets a consumer name another ligature', async () => {
       host.icon.set('cloud_off');
       await fixture.whenStable();
@@ -263,6 +277,22 @@ describe('Alert', () => {
       await fixture.whenStable();
 
       expect(dismissButton()!.classList).toContain('mat-mdc-icon-button');
+    });
+
+    // #121, again: the dismiss affordance is Material's `close` glyph, not the word.
+    // As with the leading icon, jsdom cannot render the font, so this pins the
+    // structural half — a real <mat-icon> drawing the ligature, hidden from AT so
+    // the button announces its `aria-label` alone rather than "Dismiss close".
+    it('draws the dismiss affordance as a hidden close glyph', async () => {
+      host.dismissible.set(true);
+      await fixture.whenStable();
+
+      const icon = dismissButton()!.querySelector('mat-icon')!;
+
+      expect(icon.tagName.toLowerCase()).toBe('mat-icon');
+      expect(icon.classList).toContain('mat-icon');
+      expect(icon.textContent?.trim()).toBe('close');
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
     });
 
     it('names the button Dismiss by default', async () => {
