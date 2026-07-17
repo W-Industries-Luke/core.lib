@@ -630,6 +630,51 @@ describe('Chips', () => {
     });
   });
 
+  // #121: the remove affordance is a Material Symbols glyph, not the literal word
+  // "cancel". jsdom applies no icon font, so what a regression in this family would
+  // break — and what these pin — is the structural half: the affordance is a real
+  // <mat-icon> drawing the `cancel` ligature (not a <span> of prose), and it is
+  // hidden from assistive tech so the button announces its `aria-label` alone,
+  // never "Remove design cancel".
+  describe('remove button glyph', () => {
+    const removeIcons = (): HTMLElement[] => queryAll('button[matChipRemove] mat-icon');
+
+    it('draws the remove affordance as a Material cancel glyph', async () => {
+      host.removable.set(true);
+      await fixture.whenStable();
+
+      const icons = removeIcons();
+      expect(icons.length).toBe(2);
+      for (const icon of icons) {
+        expect(icon.tagName.toLowerCase()).toBe('mat-icon');
+        expect(icon.classList).toContain('mat-icon');
+        // The ligature name Material draws the glyph from — the thing the icon font
+        // renders, rather than selectable, translatable prose.
+        expect(icon.textContent?.trim()).toBe('cancel');
+      }
+    });
+
+    it('hides the glyph from assistive tech, so the button reads as its label alone', async () => {
+      host.removable.set(true);
+      await fixture.whenStable();
+
+      for (const icon of removeIcons()) {
+        expect(icon.getAttribute('aria-hidden')).toBe('true');
+      }
+      // The name a screen reader gets is the button's, not the glyph's.
+      expect(removeButtons()[0].getAttribute('aria-label')).toBe('Remove design');
+    });
+
+    it('draws the same glyph on an editable set’s rows', async () => {
+      host.removable.set(true);
+      await editable();
+
+      const icons = removeIcons();
+      expect(icons.length).toBe(2);
+      expect(icons.every((icon) => icon.textContent?.trim() === 'cancel')).toBe(true);
+    });
+  });
+
   describe('accessibility', () => {
     // Material's own default role for a chip set is `presentation`, which an
     // `aria-label` may not name and which tells a screen reader nothing about how many
