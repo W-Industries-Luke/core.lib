@@ -1,9 +1,14 @@
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, userEvent, waitFor } from 'storybook/test';
 
 import { Button } from '../button/button';
 import { Slider } from './slider';
+
+/** The readout `<p>` a Forms story renders under its slider, found by its text. */
+const readout = (canvas: HTMLElement, contains: string): HTMLElement =>
+  [...canvas.querySelectorAll('p')].find((p) => p.textContent!.includes(contains))!;
 
 /**
  * A slider takes the width it is given, so every story gets a container to fill.
@@ -360,6 +365,20 @@ export const NgModel: Story = {
       ),
     ),
   }),
+  // Proves the round-trip the description claims: each thumb is a real
+  // `<input type="range">`, so a step moves the value and it reaches `[(ngModel)]`
+  // live. Driving the native input's own `input` event is the path an arrow key
+  // takes through Material.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const thumb = canvasElement.querySelector<HTMLInputElement>('input[type="range"]')!;
+    expect(readout(canvasElement, 'volume:').textContent).toContain('40');
+
+    thumb.focus();
+    thumb.stepUp();
+    thumb.dispatchEvent(new Event('input', { bubbles: true }));
+
+    await waitFor(() => expect(readout(canvasElement, 'volume:').textContent).toContain('41'));
+  },
 };
 
 /**
@@ -452,6 +471,17 @@ export const FormDisabled: Story = {
       ),
     ),
   }),
+  // Proves `setDisabledState` round-trips both ways: a slider that starts disabled
+  // by the form renders its thumb disabled, and enabling the form re-enables it —
+  // with nothing in the template driving `disabled`.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const thumb = canvasElement.querySelector<HTMLInputElement>('input[type="range"]')!;
+    expect(thumb.disabled).toBe(true);
+
+    await userEvent.click(canvasElement.querySelector('button')!);
+
+    await waitFor(() => expect(thumb.disabled).toBe(false));
+  },
 };
 
 // --- Theming ---------------------------------------------------------------

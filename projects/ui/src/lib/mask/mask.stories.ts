@@ -2,6 +2,7 @@ import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, userEvent, waitFor } from 'storybook/test';
 
 import { Mask, UI_MASK_PRESETS } from './mask';
 
@@ -60,7 +61,20 @@ export default meta;
 type Story = StoryObj<Mask>;
 
 /** US phone: type `5551234567` — the field shows `(555) 123-4567`, the value stays `5551234567`. */
-export const Phone: Story = { args: { uiMask: 'phone', unmaskedValue: true, placeholderChar: '_' } };
+export const Phone: Story = {
+  args: { uiMask: 'phone', unmaskedValue: true, placeholderChar: '_' },
+  // Proves the split the directive exists for: the *display* is the formatted
+  // mask while the *form value* stays the raw digits. A smoke-render shows the
+  // empty field but never proves either side of that boundary.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const input = canvasElement.querySelector<HTMLInputElement>('input')!;
+
+    await userEvent.type(input, '5551234567');
+
+    await waitFor(() => expect(input.value).toBe('(555) 123-4567'));
+    expect(canvasElement.querySelector('mat-hint strong')!.textContent).toContain('5551234567');
+  },
+};
 
 /** `MM/DD/YYYY`. Type `12312024`. */
 export const Date: Story = { args: { uiMask: 'date', unmaskedValue: true, placeholderChar: '_' } };
@@ -142,4 +156,15 @@ export const StoreFormattedValue: Story = {
       </p>
     `,
   }),
+  // Proves the other side of the boundary: with `unmaskedValue=false` the form
+  // stores the *formatted* string, so the control value carries the separators.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const input = canvasElement.querySelector<HTMLInputElement>('input')!;
+
+    await userEvent.type(input, '5551234567');
+
+    await waitFor(() =>
+      expect(canvasElement.querySelector('p strong')!.textContent).toContain('(555) 123-4567'),
+    );
+  },
 };

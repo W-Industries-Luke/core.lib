@@ -308,7 +308,7 @@ class BottomSheetScrollDemo {
        padding. The top keeps a corner's worth of clearance, because the panel's
        rounded top corners clip anything flush to its top edge and would shave the
        title's first glyphs. It tracks the sheet's own radius hook (the same value
-       `_bottom-sheet.scss` rounds the corners by), so it follows any restyle and
+       _bottom-sheet.scss rounds the corners by), so it follows any restyle and
        carries no colour or size literal, and the header clears the curve while
        the content below still runs full bleed. */
     .demo-full-bleed {
