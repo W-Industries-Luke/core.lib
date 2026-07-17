@@ -530,6 +530,35 @@ export const MaxWidth: Story = {
 export const TemplateRef: Story = {
   name: 'Escape hatch: exportAs',
   parameters: { controls: { disable: true } },
+  // The whole lifecycle, asserted in a real browser. A tooltip is hover- and
+  // focus-only by nature, so `exportAs` is how it is opened from code — this
+  // presses the toggle, reads the message back out of the overlay, and presses
+  // it again to close, so "opens → content present → dismisses" fails loudly
+  // rather than sitting in the prose. It is the behavioural counterpart to the
+  // `Positions` play, which asserts the opening but never the close.
+  play: async ({ canvasElement }) => {
+    const doc = canvasElement.ownerDocument;
+    const toggle = Array.from(canvasElement.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Toggle it',
+    )!;
+
+    toggle.click();
+
+    // The theme's class is applied to Material's own container as it shows, and
+    // the message is the content the overlay is carrying — both retry, because
+    // the class lands as the show completes rather than as the element appears.
+    const tip = await waitFor(() => {
+      const el = doc.querySelector<HTMLElement>('.mat-mdc-tooltip');
+      expect(el).toBeTruthy();
+      expect(el!.classList).toContain('ui-tooltip');
+      expect(el!.textContent).toContain('Opened from code');
+      return el!;
+    });
+
+    toggle.click();
+
+    await waitFor(() => expect(tip.isConnected).toBe(false));
+  },
   render: () => ({
     template: `
       <div style="display: flex; gap: 1rem; align-items: center; padding: 3rem; padding-bottom: 8rem;">

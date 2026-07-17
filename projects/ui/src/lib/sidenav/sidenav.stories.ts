@@ -1,5 +1,6 @@
 import { MatButton } from '@angular/material/button';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, waitFor } from 'storybook/test';
 
 import { Button } from '../button/button';
 import { Sidenav, SidenavDrawer, type UiSidenavMode } from './sidenav';
@@ -547,7 +548,34 @@ export const CustomShape: Story = {
  */
 export const EscapeHatch: Story = {
   name: 'Escape hatch: exportAs',
-  parameters: { controls: { disable: true } },
+  parameters: { controls: { disable: true }, ...cdkFocusTrapAnchors },
+  // The whole lifecycle, asserted in a real browser: `toggle()` opens the `over`
+  // drawer, its navigation is in place inside Material's own drawer, and a click
+  // on the scrim closes it again — Material's own dismissal, written back through
+  // `[(opened)]`. A `side` drawer is always in the layout, so `over` is the mode
+  // where "opens → content present → dismisses" is a real transition to assert.
+  play: async ({ canvasElement }) => {
+    const drawer = canvasElement.querySelector('mat-sidenav') as HTMLElement;
+    const toggle = Array.from(canvasElement.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Toggle',
+    )!;
+
+    toggle.click();
+
+    await waitFor(() => expect(drawer.classList).toContain('mat-drawer-opened'));
+
+    // The marked content lands inside Material's own drawer — the focus trap and
+    // the scroll container — rather than in a box beside it.
+    const nav = drawer.querySelector('nav[aria-label="Main"]');
+    expect(nav).toBeTruthy();
+    expect(nav!.textContent).toContain('Orders');
+
+    // The scrim is Material's own dismissal for a modal drawer; it writes the
+    // close back through the model, so the readout below cannot drift from it.
+    (canvasElement.querySelector('.mat-drawer-backdrop') as HTMLElement).click();
+
+    await waitFor(() => expect(drawer.classList).not.toContain('mat-drawer-opened'));
+  },
   render: () => ({
     template: frame(`
       <ui-sidenav #nav="uiSidenav" mode="over" style="${fit}">
