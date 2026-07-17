@@ -18,6 +18,7 @@ import {
   type Meta,
   type StoryObj,
 } from '@storybook/angular-vite';
+import { expect, waitFor } from 'storybook/test';
 
 import { Button } from '../button/button';
 import { Menu, MenuItemDef, type UiMenuItem } from './menu';
@@ -408,6 +409,34 @@ export const Restyled: Story = {
  */
 export const IconButtonTrigger: Story = {
   name: 'Trigger: icon button',
+  // The whole lifecycle, asserted in a real browser: click the trigger, the
+  // panel opens into the CDK overlay with its named items in it, and a click on
+  // the backdrop closes it — Material's own dismissal, which restores focus to
+  // the trigger. The panel does not exist in the page until it opens, so this is
+  // what turns "opens → content present → dismisses" from prose into a check
+  // that fails loudly.
+  play: async ({ canvasElement }) => {
+    const doc = canvasElement.ownerDocument;
+
+    (canvasElement.querySelector('button') as HTMLButtonElement).click();
+
+    // The panel names itself from the trigger's `aria-label`, and its items are
+    // the content the story is documenting; the role binding lands a tick after
+    // the element, so the whole assertion retries.
+    const panel = await waitFor(() => {
+      const el = doc.querySelector<HTMLElement>('.mat-mdc-menu-panel');
+      expect(el).toBeTruthy();
+      expect(el!.getAttribute('role')).toBe('menu');
+      expect(el!.getAttribute('aria-label')).toBe('Record actions');
+      expect(el!.querySelectorAll('.mat-mdc-menu-item').length).toBe(ICON_ITEMS.length);
+      expect(el!.textContent).toContain('Edit');
+      return el!;
+    });
+
+    (doc.querySelector('.cdk-overlay-backdrop') as HTMLElement).click();
+
+    await waitFor(() => expect(panel.isConnected).toBe(false));
+  },
   render: () => ({
     template: `
       <button matIconButton [uiMenuTriggerFor]="menu" aria-label="Record actions">
