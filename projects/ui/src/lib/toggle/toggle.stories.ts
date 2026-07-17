@@ -1,9 +1,18 @@
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, userEvent, waitFor } from 'storybook/test';
 
 import { Button } from '../button/button';
 import { Toggle, type UiToggleLabelPosition } from './toggle';
+
+/** The readout `<p>` a Forms story renders under its control, found by its text. */
+const readout = (canvas: HTMLElement, contains: string): HTMLElement =>
+  [...canvas.querySelectorAll('p')].find((p) => p.textContent!.includes(contains))!;
+
+/** Clicks the action `<button>` (not the switch) whose text matches, e.g. `Toggle`. */
+const clickAction = (canvas: HTMLElement, text: string): Promise<void> =>
+  userEvent.click([...canvas.querySelectorAll('button')].find((b) => b.textContent!.trim() === text)!);
 
 const LABEL_POSITIONS: UiToggleLabelPosition[] = ['after', 'before'];
 
@@ -311,6 +320,18 @@ export const NgModel: Story = {
         dark: <strong>{{ dark }}</strong>
       </p>`),
   }),
+  // Proves the round-trip the description claims: flipping the switch reaches
+  // `[(ngModel)]`. A smoke-render shows the switch but never proves the binding.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const sw = canvasElement.querySelector<HTMLButtonElement>('button[role="switch"]')!;
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(readout(canvasElement, 'dark:').textContent).toContain('false');
+
+    await userEvent.click(canvasElement.querySelector('label')!);
+
+    await waitFor(() => expect(sw.getAttribute('aria-checked')).toBe('true'));
+    expect(readout(canvasElement, 'dark:').textContent).toContain('true');
+  },
 };
 
 /**
@@ -363,6 +384,18 @@ export const RequiredValidation: Story = {
         valid: <strong>{{ backups.valid }}</strong> · touched: <strong>{{ backups.touched }}</strong>
       </p>`),
   }),
+  // Proves the switch-specific validation the description claims: `required`
+  // means *on*, so the control is invalid until it is flipped — which
+  // `Validators.required` alone would not enforce, since `false` is not empty.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    expect(readout(canvasElement, 'valid:').textContent).toContain('valid: false');
+
+    await userEvent.click(canvasElement.querySelector('label')!);
+
+    await waitFor(() =>
+      expect(readout(canvasElement, 'valid:').textContent).toContain('valid: true'),
+    );
+  },
 };
 
 /**
@@ -383,6 +416,17 @@ export const FormDisabled: Story = {
         Toggle
       </button>`),
   }),
+  // Proves `setDisabledState` round-trips both ways: a control that starts
+  // disabled by the form renders disabled, and enabling the form re-enables it —
+  // with nothing in the template driving the switch's `disabled`.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const sw = canvasElement.querySelector<HTMLButtonElement>('button[role="switch"]')!;
+    expect(sw.disabled).toBe(true);
+
+    await clickAction(canvasElement, 'Toggle');
+
+    await waitFor(() => expect(sw.disabled).toBe(false));
+  },
 };
 
 /**

@@ -1,6 +1,7 @@
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, userEvent, waitFor } from 'storybook/test';
 
 import { Button } from '../button/button';
 import { Icon } from '../icon/icon';
@@ -53,6 +54,24 @@ const grid = (content: string, columns = 2) => `
 
 const column = (content: string) =>
   `<div style="display: flex; flex-direction: column; align-items: start; gap: 1rem;">${content}</div>`;
+
+/** The readout `<p>` a Forms story renders under its group, found by its text. */
+const readout = (canvas: HTMLElement, contains: string): HTMLElement =>
+  [...canvas.querySelectorAll('p')].find((p) => p.textContent!.includes(contains))!;
+
+/** Chooses a toggle by clicking the option button whose text contains `text`. */
+const chooseToggle = (canvas: HTMLElement, text: string): Promise<void> =>
+  userEvent.click(
+    [...canvas.querySelectorAll('mat-button-toggle button')].find((b) =>
+      b.textContent!.includes(text),
+    ) as HTMLElement,
+  );
+
+/** Clicks the action `<button>` (outside the group) whose text matches, e.g. `Clear`. */
+const clickAction = (canvas: HTMLElement, text: string): Promise<void> =>
+  userEvent.click(
+    [...canvas.querySelectorAll('button')].find((b) => b.textContent!.trim() === text)!,
+  );
 
 const meta: Meta<ButtonToggle<string>> = {
   title: 'Components/ButtonToggle',
@@ -417,6 +436,15 @@ export const NgModel: Story = {
       <ui-button-toggle label="View" [options]="options" [(ngModel)]="view" />
       <p style="font: var(--mat-sys-body-small); margin: 0;">view: <strong>{{ view }}</strong></p>`),
   }),
+  // Proves the round-trip the description claims: choosing a toggle reaches
+  // `[(ngModel)]`, and the value is the option's own `value`, not its label.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    expect(readout(canvasElement, 'view:').textContent).toContain('list');
+
+    await chooseToggle(canvasElement, 'Grid');
+
+    await waitFor(() => expect(readout(canvasElement, 'view:').textContent).toContain('grid'));
+  },
 };
 
 /**
@@ -461,6 +489,19 @@ export const ReactiveMultiple: Story = {
         touched: <strong>{{ control.touched }}</strong>
       </p>`),
   }),
+  // Proves the `multiple` behavior the description claims: the value is an array,
+  // and choosing a second toggle adds to it rather than replacing.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    expect(readout(canvasElement, 'value:').textContent).toContain('bold');
+
+    await chooseToggle(canvasElement, 'Italic');
+
+    await waitFor(() => {
+      const text = readout(canvasElement, 'value:').textContent!;
+      expect(text).toContain('bold');
+      expect(text).toContain('italic');
+    });
+  },
 };
 
 /**
@@ -482,6 +523,17 @@ export const FormDisabled: Story = {
         Toggle
       </button>`),
   }),
+  // Proves `setDisabledState` round-trips both ways: a group that starts disabled
+  // by the form renders its toggles disabled, and enabling the form re-enables
+  // them — with nothing in the template driving `disabled`.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const toggle = canvasElement.querySelector<HTMLButtonElement>('mat-button-toggle button')!;
+    expect(toggle.disabled).toBe(true);
+
+    await clickAction(canvasElement, 'Toggle');
+
+    await waitFor(() => expect(toggle.disabled).toBe(false));
+  },
 };
 
 /**
