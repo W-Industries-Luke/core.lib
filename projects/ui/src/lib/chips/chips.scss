@@ -1,0 +1,63 @@
+// Box metrics and the styling hooks for `ui-chips`.
+//
+// There is not a literal colour in this file on purpose: `<mat-chip-set>`,
+// `<mat-chip>` and `<mat-chip-grid>` already resolve their fill, their label, their
+// outline and their trailing icon from the `--mat-sys-*` tokens that
+// `../../styles/_theme.scss` emits, so a palette change there re-colours every chip
+// with no help from here. The overrides below only re-point those tokens at *hooks*
+// whose defaults are the very tokens Material would have used, so the default chip
+// ships no colour decision of its own.
+
+@use '@angular/material' as mat;
+
+:host {
+  // Material's chip set is a flex row that wraps, and takes the width it is given. A
+  // block host is what lets a consumer size it (`ui-chips { max-width: 30rem; }`)
+  // rather than have it impose a size of its own.
+  display: block;
+
+  // The public hooks (rule 6), each defaulting to the token Material itself resolves
+  // to under the shared M3 theme — so an untouched `ui-chips` is a stock Material
+  // chip set, and a consumer who sets one is re-pointing a role rather than picking a
+  // colour.
+  //
+  // These go through `mat.chips-overrides()` rather than a rule on Material's
+  // internals: the tokens are Material's own API, so the structure, the density and
+  // the type stay Material's. Custom properties inherit through the encapsulation
+  // boundary, so a hook set on `ui-chips` reaches the elements inside Material's
+  // template with no `::ng-deep`.
+  @include mat.chips-overrides(
+    (
+      // The chip's fill. M3's unselected chip is outlined rather than filled, which is
+      // what `transparent` is here — Material's own default, kept.
+      elevated-container-color: var(--ui-chips-container-color, transparent),
+      // M3 puts a chip's label on the quieter `on-surface-variant` role rather than on
+      // `on-surface`: a chip is a tag beside the content, not the content.
+      label-text-color: var(--ui-chips-label-text-color, var(--mat-sys-on-surface-variant)),
+      outline-color: var(--ui-chips-outline-color, var(--mat-sys-outline)),
+      outline-width: var(--ui-chips-outline-width, 1px),
+      // The remove button's icon, on the same quiet role as the label it sits beside.
+      with-trailing-icon-trailing-icon-color: var(
+          --ui-chips-trailing-icon-color,
+          var(--mat-sys-on-surface-variant)
+        ),
+      // M3 ships chips at an 8px corner, which is the theme's `corner-small`. Naming
+      // the role rather than the number keeps a chip and the rest of the fleet in step
+      // if the theme ever re-tunes its shape scale.
+      container-shape-radius: var(--ui-chips-shape, var(--mat-sys-corner-small))
+    )
+  );
+
+  // Note there is no height hook: `--mat-chip-container-height` is Material's density
+  // token, and density is a fleet-wide decision `_theme.scss` owns. A chip that is
+  // 32px in one app and 24px in the next is exactly the drift this library exists to
+  // prevent.
+}
+
+// An `editable` set's field. Material's form field is `display: inline-flex` and
+// sizes to its content, which leaves a chips field jumping wider as chips are added.
+// A full-width field inside a block host is the shape every other field in this
+// library takes (`--ui-select-width`), and `--ui-chips-width` is the same knob.
+mat-form-field {
+  width: var(--ui-chips-width, 100%);
+}

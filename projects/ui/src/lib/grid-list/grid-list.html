@@ -1,0 +1,31 @@
+<!--
+  Material's grid is the whole widget: the absolute placement of each tile, the
+  column/row arithmetic that turns `cols`, `rowHeight` and `gutterSize` into
+  positions, the `colspan`/`rowspan` a tile straddles, and the header/footer type
+  scale are all `<mat-grid-list>`'s and `<mat-grid-tile>`'s own. Nothing here
+  re-implements any of it.
+
+  The tiles are a data input rendered here rather than content projected into this
+  component: `MatGridList` finds its tiles with a content query, which does not see
+  through a wrapper's `<ng-content>` — a tile projected in would land in the grid
+  but never be counted, and so never be placed. Declaring each `<mat-grid-tile>`
+  here is what keeps the layout Material's. `ui-list` does the same, for the same
+  reason. See `grid-list.ts`.
+
+  `activeCols` is `cols` for a fixed grid and the breakpoint-driven count for a
+  responsive one — the one place this wrapper adds anything to Material's own API.
+-->
+<mat-grid-list [cols]="activeCols()" [rowHeight]="rowHeight()" [gutterSize]="gutterSize()">
+  @for (tile of tiles(); track $index; let index = $index) {
+    <mat-grid-tile [colspan]="tile.colspan ?? 1" [rowspan]="tile.rowspan ?? 1">
+      @if (tileDef(); as def) {
+        <ng-container
+          [ngTemplateOutlet]="def.template"
+          [ngTemplateOutletContext]="contextFor(tile, index)"
+        />
+      } @else {
+        {{ tile.value }}
+      }
+    </mat-grid-tile>
+  }
+</mat-grid-list>

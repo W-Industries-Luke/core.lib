@@ -1,0 +1,28 @@
+<!--
+  Material draws the whole glyph: `<mat-icon>` resolves the font set's classes,
+  renders the name as a ligature and marks itself `aria-hidden`. Nothing here
+  re-implements any of it — this template only says which font set to use and how
+  big to be, and `icon.scss` re-points its colour token at the shared theme.
+
+  `name` goes to `fontIcon` rather than into the element's text, because that is
+  what makes the glyph a ligature Material draws through
+  `.mat-icon.mat-ligature-font[fontIcon]::before { content: attr(fontIcon); }`:
+  the name stays out of the DOM's text, so it is never selectable, never picked
+  up by a translator, and never indexed as the literal word "home". MatIcon
+  reflects the input back onto the attribute itself, so binding the input is
+  enough — there is no `[attr.fontIcon]` to keep in sync here.
+-->
+<mat-icon
+  [fontSet]="fontSet"
+  [fontIcon]="name()"
+  [style.font-size.px]="sizePx()"
+  [style.width.px]="sizePx()"
+  [style.height.px]="sizePx()"
+>
+  <!--
+    Rule 7: `name` covers the Material Symbols set, and this covers everything
+    else — an inline SVG, a brand mark — sized and coloured by the same host, so
+    a one-off icon is not a reason to drop out of the component.
+  -->
+  <ng-content />
+</mat-icon>

@@ -5,22 +5,26 @@
 // all of that from the `--mat-sys-*` tokens that `../../styles/_theme.scss`
 // emits, so a palette change there re-skins every card with no help from here.
 //
-// What Material does *not* tokenise is its padding: the 16px/8px below are
+// What Material does *not* tokenise is its padding: the 16px/8px it hardcodes are
 // literals in Material's own card stylesheet. Routing them through custom
 // properties is what gives `padded` and `--ui-card-padding` something to move,
 // and it is why the slots are elements of this component's own template rather
 // than the consumer's projected markup — component styles cannot reach projected
 // content, and reaching it anyway would mean the `::ng-deep` this API exists to
-// spare consumers.
+// spare consumers. The defaults come off the fleet's spacing scale
+// (`--ui-sys-spacing-*` in `../../styles/_tokens.scss`), whose `md`/`sm` steps are
+// the same 16/8 — so a card keeps Material's rhythm today and follows the fleet
+// if that scale is ever retuned, rather than pinning two numbers of its own.
 
 :host {
   display: block;
 
   // The public hooks resolve here, once, so every slot below reads the same
   // value and a consumer overrides all of them from a single declaration.
-  // The defaults are Material's own card padding.
-  --_ui-card-padding: var(--ui-card-padding, 16px);
-  --_ui-card-actions-padding: var(--ui-card-actions-padding, 8px);
+  // The defaults are the fleet's `md`/`sm` spacing steps, which match Material's
+  // own card padding (16/8).
+  --_ui-card-padding: var(--ui-card-padding, var(--ui-sys-spacing-md));
+  --_ui-card-actions-padding: var(--ui-card-actions-padding, var(--ui-sys-spacing-sm));
 }
 
 // `padded="false"` is an explicit instruction, so it wins over a

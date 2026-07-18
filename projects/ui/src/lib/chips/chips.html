@@ -1,0 +1,116 @@
+<!--
+  Material's chips are the whole widget: the chip's shape, outline, ripple and state
+  layers, the remove button, the roving focus and the arrow keys across the set, the
+  Backspace/Delete that removes the focused chip, the grid roles an editable set puts
+  around its rows, and the focus that moves on after a chip is taken away are all
+  `<mat-chip-set>`'s, `<mat-chip>`'s, `<mat-chip-grid>`'s, `<mat-chip-row>`'s and
+  `<input matChipInputFor>`'s own, drawn from the M3 system tokens the shared theme
+  emits. Nothing here re-implements any of it.
+
+  `editable` picks between Material's *two* chip containers rather than toggling one:
+  a static set is a `<mat-chip-set>` of `<mat-chip>`, and an editable one is a
+  `<mat-chip-grid>` of `<mat-chip-row>` with an input — which is a different widget,
+  with a different role, and belongs in a form field. See `chips.ts`.
+-->
+@if (editable()) {
+  <mat-form-field [appearance]="appearance()">
+    @if (label(); as fieldLabel) {
+      <mat-label>{{ fieldLabel }}</mat-label>
+    }
+
+    <!--
+      The grid is the form field's control, so Material renders its `<mat-label>` as a
+      `<label for>` pointing at it — and `for` only names a native form element, which a
+      `role="grid"` div is not. Both it and the input are therefore named here, from the
+      field's own label (or the `aria-label` given instead), rather than left for a
+      screen reader to guess at.
+
+      The grid's name comes and goes with its chips, because Material's own `role` does —
+      see `gridAriaLabel` in `chips.ts`.
+    -->
+    <mat-chip-grid
+      #grid
+      [disabled]="disabled()"
+      [attr.aria-label]="gridAriaLabel()"
+      [attr.aria-labelledby]="gridAriaLabelledby()"
+    >
+      @for (chip of chips(); track chip) {
+        <mat-chip-row [value]="chip.value" [removable]="isRemovable(chip)" (removed)="remove(chip)">
+          <ng-container
+            [ngTemplateOutlet]="chipDef()?.template ?? defaultChip"
+            [ngTemplateOutletContext]="{ $implicit: chip }"
+          />
+          @if (isRemovable(chip)) {
+            <button matChipRemove [attr.aria-label]="removeAriaLabel()(chip)">
+              <mat-icon>cancel</mat-icon>
+            </button>
+          }
+        </mat-chip-row>
+      }
+    </mat-chip-grid>
+
+    <!--
+      Outside the grid, which `matChipInputFor` explicitly allows ("May be placed inside
+      or outside of a `<mat-chip-grid>`") — and unlike Material's own example, which puts
+      it inside. A `role="grid"` may only own rows, so an `<input>` in there is a real
+      violation: axe reports it as `aria-required-children`, and a screen reader in
+      grid-navigation mode has nowhere to put a stray text box.
+
+      Nothing is lost by moving it out. The input is wired to the grid through
+      `matChipInputFor` rather than through the DOM, so Backspace on an empty input still
+      reaches back to the last chip, the field still floats its label from the input's
+      focus, and the two still sit on one line — they are siblings in the same form field
+      infix either way.
+    -->
+    <input
+      [matChipInputFor]="grid"
+      [matChipInputAddOnBlur]="addOnBlur()"
+      [matChipInputSeparatorKeyCodes]="separatorKeys()"
+      [attr.placeholder]="placeholder()"
+      [attr.aria-label]="ariaLabel() ?? label()"
+      (matChipInputTokenEnd)="add($event)"
+    />
+
+    @if (hint(); as hintText) {
+      <mat-hint>{{ hintText }}</mat-hint>
+    }
+  </mat-form-field>
+} @else {
+  <!--
+    `list` / `listitem` rather than Material's own `presentation` default: these chips
+    are content, not controls, and a list is what Material's accessibility guidance
+    prescribes for them — it is also the only role an `aria-label` may name.
+  -->
+  <mat-chip-set
+    role="list"
+    [disabled]="disabled()"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-labelledby]="ariaLabelledby()"
+  >
+    @for (chip of chips(); track chip) {
+      <mat-chip
+        role="listitem"
+        [value]="chip.value"
+        [removable]="isRemovable(chip)"
+        (removed)="remove(chip)"
+      >
+        <ng-container
+          [ngTemplateOutlet]="chipDef()?.template ?? defaultChip"
+          [ngTemplateOutletContext]="{ $implicit: chip }"
+        />
+        @if (isRemovable(chip)) {
+          <button matChipRemove [attr.aria-label]="removeAriaLabel()(chip)">
+            <mat-icon>cancel</mat-icon>
+          </button>
+        }
+      </mat-chip>
+    }
+  </mat-chip-set>
+}
+
+<!--
+  What a chip renders when no `uiChipDef` template is projected: its label, in
+  Material's own text slot. Both branches render through the same outlet, so a
+  projected template applies whichever shape the set is in.
+-->
+<ng-template #defaultChip let-chip>{{ chip.label }}</ng-template>

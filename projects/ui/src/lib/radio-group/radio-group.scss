@@ -62,8 +62,11 @@
 
   // `--ui-radio-group-gap` is the public hook for the rhythm of the whole control
   // (rule 6) — the space under the legend and between the buttons alike, so the
-  // two cannot drift apart. `0.5rem` is Material's own 8dp step.
-  margin-block-end: var(--ui-radio-group-gap, 0.5rem);
+  // two cannot drift apart. Its default is the theme's `sm` spacing step (M3's 8dp),
+  // the same one `--ui-button-toggle-gap` carries — so a label sits the same
+  // distance above every control in the fleet, and the fleet's rhythm is one edit
+  // in `_theme.scss` rather than a literal here. See `--ui-sys-spacing-*` there.
+  margin-block-end: var(--ui-radio-group-gap, var(--ui-sys-spacing-sm));
 }
 
 .ui-radio-group__group {
@@ -73,7 +76,7 @@
   // Material gives each button its own 48px touch target and no margin, so the
   // gap is this component's to set — without it a column of radios is a solid
   // block, which is the layout every Material radio example quietly fixes itself.
-  gap: var(--ui-radio-group-gap, 0.5rem);
+  gap: var(--ui-radio-group-gap, var(--ui-sys-spacing-sm));
 }
 
 .ui-radio-group__group--row {
@@ -87,10 +90,11 @@
 
   // The cross-axis gap wrapped rows need, on the same hook — so a wrapped row
   // breathes exactly like a column.
-  row-gap: var(--ui-radio-group-gap, 0.5rem);
+  row-gap: var(--ui-radio-group-gap, var(--ui-sys-spacing-sm));
 
   // Enough space between two buttons on one line that the labels read as separate
   // options rather than a sentence. The column's gap is vertical and needs no such
-  // help, which is why this is a step up from it rather than the same value.
-  column-gap: var(--ui-radio-group-column-gap, 1rem);
+  // help, which is why this is the theme's `md` step — one up from the `sm` the
+  // column uses — rather than the same value.
+  column-gap: var(--ui-radio-group-column-gap, var(--ui-sys-spacing-md));
 }

@@ -1,6 +1,8 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatTooltip } from '@angular/material/tooltip';
+import { MatTooltipHarness } from '@angular/material/tooltip/testing';
 
 import { Tooltip, UiTooltipPosition, UiTooltipTouchGestures } from './tooltip';
 
@@ -40,6 +42,22 @@ describe('Tooltip', () => {
   /** The tooltip container Material renders into the CDK overlay, if one is attached. */
   const overlay = (): HTMLElement | null => document.querySelector('.mat-mdc-tooltip');
 
+  // `MatTooltipHarness` speaks Material's *public* test surface — `isOpen()`,
+  // `getTooltipText()` — instead of reaching into the overlay markup or the
+  // directive's private `_isTooltipVisible()`. It finds the trigger on the fixture
+  // and its panel in the CDK overlay for us, so whether the tooltip is showing and
+  // what it says are read the way a consumer's own test would. What the harness
+  // cannot see — the `.ui-tooltip` theme class on Material's container, the
+  // `aria-describedby` wiring, native-attribute forwarding — stays a DOM assertion.
+  const tooltipHarness = (): Promise<MatTooltipHarness> =>
+    TestbedHarnessEnvironment.loader(fixture).getHarness(MatTooltipHarness);
+
+  /** Whether Material's tooltip panel is showing, via the harness. */
+  const isOpen = (): Promise<boolean> => tooltipHarness().then((t) => t.isOpen());
+
+  /** The text of the open tooltip panel, via the harness. */
+  const tooltipText = (): Promise<string> => tooltipHarness().then((t) => t.getTooltipText());
+
   /**
    * Lets a binding reach Material, waits out the macrotask it defers every
    * show/hide by, then lets the change detection that follows settle.
@@ -55,13 +73,19 @@ describe('Tooltip', () => {
     await fixture.whenStable();
   };
 
-  /** Opens the tooltip with no delay and lets the overlay render. */
+  /**
+   * Opens the tooltip with no delay and lets the overlay render.
+   *
+   * Still driven through the Material instance rather than the harness's own
+   * `show()`: the harness opens by hovering, which honours the show delay, and this
+   * zoneless suite would then be racing the macrotask that delay defers by — the
+   * very thing `settle()` exists to wait out. Opening with an explicit `0` keeps the
+   * timing deterministic; the harness reads the result (`isOpen()`, `getTooltipText()`).
+   */
   const show = async (): Promise<void> => {
     host.ref().matTooltip.show(0);
     await settle();
   };
-
-  const isVisible = (): boolean => host.ref().matTooltip._isTooltipVisible();
 
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
@@ -77,18 +101,18 @@ describe('Tooltip', () => {
     it('renders the message into the overlay when shown', async () => {
       await show();
 
-      expect(isVisible()).toBe(true);
-      expect(overlay()?.textContent?.trim()).toBe('Save the current draft');
+      expect(await isOpen()).toBe(true);
+      expect(await tooltipText()).toBe('Save the current draft');
     });
 
     it('updates an open tooltip when the binding changes', async () => {
       await show();
-      expect(overlay()?.textContent?.trim()).toBe('Save the current draft');
+      expect(await tooltipText()).toBe('Save the current draft');
 
       host.message.set('Save and close');
       await settle();
 
-      expect(overlay()?.textContent?.trim()).toBe('Save and close');
+      expect(await tooltipText()).toBe('Save and close');
     });
 
     // Material's own `!message` guard. An empty message never opening is what
@@ -99,7 +123,7 @@ describe('Tooltip', () => {
 
       await show();
 
-      expect(isVisible()).toBe(false);
+      expect(await isOpen()).toBe(false);
     });
   });
 
@@ -123,7 +147,7 @@ describe('Tooltip', () => {
         // Opening pins that Material acts on the value rather than merely storing
         // it: an unknown position throws out of `_getOrigin()` on the way up.
         await show();
-        expect(isVisible()).toBe(true);
+        expect(await isOpen()).toBe(true);
       });
     }
 
@@ -135,7 +159,7 @@ describe('Tooltip', () => {
       await settle();
 
       expect(host.ref().matTooltip.position).toBe('above');
-      expect(isVisible()).toBe(true);
+      expect(await isOpen()).toBe(true);
     });
   });
 
@@ -150,17 +174,17 @@ describe('Tooltip', () => {
 
       await show();
 
-      expect(isVisible()).toBe(false);
+      expect(await isOpen()).toBe(false);
     });
 
     it('hides a tooltip that is already open', async () => {
       await show();
-      expect(isVisible()).toBe(true);
+      expect(await isOpen()).toBe(true);
 
       host.tooltipDisabled.set(true);
       await settle();
 
-      expect(isVisible()).toBe(false);
+      expect(await isOpen()).toBe(false);
     });
 
     // A bare attribute has to mean `true`, the way `booleanAttribute` would.
@@ -405,12 +429,12 @@ describe('Tooltip', () => {
       host.ref().matTooltip.toggle();
       await settle();
 
-      expect(isVisible()).toBe(true);
+      expect(await isOpen()).toBe(true);
 
       host.ref().matTooltip.toggle();
       await settle();
 
-      expect(isVisible()).toBe(false);
+      expect(await isOpen()).toBe(false);
     });
   });
 });

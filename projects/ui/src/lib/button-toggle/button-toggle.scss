@@ -1,0 +1,156 @@
+// The layout `ui-button-toggle` owns, the colour hooks, and the tokens Material
+// leaves unset under M3 — nothing else.
+//
+// There is not a literal colour in this file on purpose: `<mat-button-toggle-group>`
+// and `<mat-button-toggle>` already resolve the outline, the fills, the ripples, the
+// state layers, the focus rings, the checkmark and the label typography from the
+// `--mat-sys-*` tokens that `../../styles/_theme.scss` emits, so a palette change
+// there re-skins every group, in light and dark alike, with no help from here.
+//
+// Note this is `mat.button-toggle-overrides()` rather than rules on Material's
+// internals, and rather than a `color` input: `color` is an M2-only API that does
+// nothing under an M3 theme, while the tokens are Material's own supported surface.
+// Custom properties inherit through the encapsulation boundary, so they reach the
+// toggles with no `::ng-deep`.
+
+@use '@angular/material' as mat;
+
+// The public colour hooks (rule 6), each defaulting to the very token Material would
+// have used — so the default group ships no colour decision of its own.
+//
+// M3 marks the chosen toggle with the *secondary* container rather than the primary
+// one: a bar where the selected segment shouted in brand colour would out-weigh the
+// page's actual primary action. Point these at another role rather than a literal, so
+// they survive a palette change and dark mode — and move both, since the second is
+// what stays legible on the first:
+//
+//   ui-button-toggle {
+//     --ui-button-toggle-selected-container-color: var(--mat-sys-tertiary-container);
+//     --ui-button-toggle-on-selected-container-color: var(--mat-sys-on-tertiary-container);
+//   }
+$selected-container: var(
+  --ui-button-toggle-selected-container-color,
+  var(--mat-sys-secondary-container)
+);
+$on-selected-container: var(
+  --ui-button-toggle-on-selected-container-color,
+  var(--mat-sys-on-secondary-container)
+);
+
+// M3 ships the group fully rounded (`corner-extra-large`). That is Material's house
+// style, not ours: `_button.scss` already retunes every `matButton` to a squarer
+// `corner-medium`, and a pill-shaped toggle bar beside those buttons is exactly the
+// drift this library exists to prevent.
+//
+// So the default is `--ui-button-shape` — the same knob `_button.scss` documents —
+// and an app that retunes its buttons in one declaration gets its toggle groups with
+// it. `--ui-button-toggle-shape` is the hook for the group alone.
+$shape: var(--ui-button-toggle-shape, var(--ui-button-shape, var(--mat-sys-corner-medium)));
+
+:host {
+  // The label sits above the group, so the host stacks the two. `inline-flex` rather
+  // than `block`: a toggle group is as wide as its toggles — Material's own group is
+  // `inline-flex` — and a block host would stretch the label's underline of empty
+  // space across whatever row it lands in. `align-items: start` keeps the group at its
+  // own width inside that column.
+  display: inline-flex;
+  flex-direction: column;
+  align-items: start;
+
+  @include mat.button-toggle-overrides(
+    (
+      shape: $shape,
+      selected-state-background-color: $selected-container,
+      // The label *and* the checkmark: Material points the pseudo-checkbox at this
+      // same token, so naming only the label would leave a tick that vanishes into a
+      // re-pointed fill.
+      selected-state-text-color: $on-selected-container,
+      // --- `appearance="legacy"` under an M3 theme ---------------------------
+      //
+      // Material tokenises the two appearances separately and gives every `legacy-*`
+      // token a null value in its M3 theme (see
+      // `@angular/material/button-toggle/_m3-button-toggle.scss`), because M3 has no
+      // elevated toggle bar to describe. Its CSS still reads those tokens though — so
+      // under this library's theme a `legacy` group renders with no text colour, no
+      // fill for the chosen toggle and no type scale: undefined custom properties, and
+      // a selected state that is simply invisible. The `appearance` input would be a
+      // lie without the tokens below.
+      //
+      // These are the same `--mat-sys-*` roles the standard appearance resolves to,
+      // put behind the tokens the legacy CSS actually reads — so `legacy` is the
+      // M2-era *shape* (elevated, on Material's own box-shadow) wearing the M3 theme's
+      // colours, and the hooks above move both appearances at once.
+      //
+      // They are emitted for every group rather than only a legacy one, because that
+      // needs no marker class to be correct: Material's standard rules are the more
+      // specific of the two for every property here (`.mat-button-toggle-appearance-standard.mat-button-toggle-checked`
+      // over `.mat-button-toggle-checked`, and so on down), so a standard group ignores
+      // the lot. Defining a custom property nobody reads costs nothing; getting the
+      // marker wrong on a bound `[appearance]` — which sets no attribute — would cost
+      // the whole appearance.
+      legacy-shape: $shape,
+      // The height Material's *density* already resolved for the standard appearance —
+      // `mat.theme()` emits `--mat-button-toggle-height` from the `density` setting in
+      // `_theme.scss`, and M3 gives the legacy appearance no such token of its own. So
+      // the two appearances are the same height, and both follow a fleet-wide density
+      // change. Deliberately not a `--ui-*` hook: density is a decision `_theme.scss`
+      // owns, exactly as `ui-list` says of its row height.
+      legacy-height: var(--mat-button-toggle-height, 40px),
+      legacy-text-color: var(--mat-sys-on-surface),
+      legacy-state-layer-color: var(--mat-sys-on-surface),
+      legacy-focus-state-layer-opacity: var(--mat-sys-focus-state-layer-opacity),
+      legacy-selected-state-background-color: $selected-container,
+      legacy-selected-state-text-color: $on-selected-container,
+      // M3's own disabled recipe, which Material spells inline for the standard
+      // appearance: the surface's ink at 38%, and its 12% state layer for a fill.
+      legacy-disabled-state-background-color: transparent,
+      legacy-disabled-state-text-color: color-mix(
+          in srgb,
+          var(--mat-sys-on-surface) 38%,
+          transparent
+        ),
+      legacy-disabled-selected-state-background-color: color-mix(
+          in srgb,
+          var(--mat-sys-on-surface) 12%,
+          transparent
+        ),
+      legacy-label-text-font: var(--mat-sys-label-large-font),
+      legacy-label-text-size: var(--mat-sys-label-large-size),
+      legacy-label-text-line-height: var(--mat-sys-label-large-line-height),
+      legacy-label-text-tracking: var(--mat-sys-label-large-tracking),
+      legacy-label-text-weight: var(--mat-sys-label-large-weight),
+    )
+  );
+}
+
+.ui-button-toggle__label {
+  display: block;
+
+  // The label is the group's name, and M3's own role for a form label above a
+  // control: the `body-small` type scale in the neutral `on-surface-variant` role,
+  // which is what `<mat-form-field>` gives `ui-input`'s and `ui-select`'s floating
+  // label, and what `ui-radio-group` gives its legend. Reading it from the theme
+  // rather than picking a size keeps the controls saying "label" in one voice.
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+
+  // `--ui-button-toggle-gap` is the public hook for the space under the label
+  // (rule 6). Its default is the theme's `sm` spacing step (M3's own 8dp), and the
+  // same default `--ui-radio-group-gap` carries — a label sits the same distance
+  // above every control in the fleet, off one shared token rather than a literal
+  // that each control could drift from. See `--ui-sys-spacing-*` in `_theme.scss`.
+  margin-block-end: var(--ui-button-toggle-gap, var(--ui-sys-spacing-sm));
+}
+
+.ui-button-toggle__icon {
+  // Material centres a toggle's content on the text baseline; an icon beside a word
+  // needs the two aligned, and an icon alone needs it centred in the button.
+  vertical-align: middle;
+}
+
+// An icon with a label beside it needs the gap Material does not give it: the toggle's
+// content is inline, so the two would otherwise touch. The theme's `sm` step (8dp),
+// the same rhythm the rest of the fleet's "related things" sit at — not a literal.
+.ui-button-toggle__icon + .ui-button-toggle__text {
+  margin-inline-start: var(--ui-sys-spacing-sm);
+}

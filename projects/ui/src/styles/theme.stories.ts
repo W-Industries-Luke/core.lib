@@ -5,6 +5,8 @@ import { MatIconModule } from '@angular/material/icon';
 import type { Meta, StoryObj } from '@storybook/angular-vite';
 import { moduleMetadata } from '@storybook/angular-vite';
 
+import { TokenSwatches } from './token-swatches';
+
 // A live proof that the shared theme is actually wired into the preview.
 //
 // This is deliberately NOT a library component — nothing here is exported from
@@ -13,7 +15,7 @@ import { moduleMetadata } from '@storybook/angular-vite';
 // Storybook instead of silently degrading every consuming app.
 @Component({
   selector: 'ui-theme-showcase',
-  imports: [MatButtonModule, MatCardModule, MatIconModule],
+  imports: [MatButtonModule, MatCardModule, MatIconModule, TokenSwatches],
   template: `
     <mat-card appearance="outlined" class="showcase">
       <mat-card-header>
@@ -32,17 +34,10 @@ import { moduleMetadata } from '@storybook/angular-vite';
           <mat-icon>check_circle</mat-icon>
         </div>
 
-        <div class="row">
-          @for (swatch of swatches; track swatch.background) {
-            <span
-              class="swatch"
-              [style.background]="'var(' + swatch.background + ')'"
-              [style.color]="'var(' + swatch.foreground + ')'"
-            >
-              {{ swatch.background }}
-            </span>
-          }
-        </div>
+        <!-- The theme's roles, from the list Foundations/Dark mode shows in both
+             schemes — one list, so the two stories cannot disagree about what
+             the theme emits. -->
+        <ui-token-swatches />
       </mat-card-content>
     </mat-card>
   `,
@@ -57,45 +52,14 @@ import { moduleMetadata } from '@storybook/angular-vite';
       align-items: center;
       margin-block: 1rem;
     }
-    .swatch {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.75rem;
-      border-radius: var(--mat-sys-corner-small);
-      border: 1px solid var(--mat-sys-outline-variant);
-      font: var(--mat-sys-label-small);
-      font-family: monospace;
+    /* The swatches lay themselves out; this only spaces them from the row of
+       buttons above, to the same rhythm. */
+    ui-token-swatches {
+      margin-block: 1rem;
     }
   `,
 })
-class ThemeShowcase {
-  // Each swatch pairs an M3 container role with the `on-` role M3 guarantees is
-  // legible against it. Painting every swatch with a single foreground (e.g.
-  // `on-surface`) is what M3 pairing exists to prevent — it drops label contrast
-  // to ~2.7:1 over `primary`/`error`, which the a11y check fails on.
-  protected readonly swatches = [
-    { background: '--mat-sys-primary', foreground: '--mat-sys-on-primary' },
-    { background: '--mat-sys-secondary', foreground: '--mat-sys-on-secondary' },
-    { background: '--mat-sys-tertiary', foreground: '--mat-sys-on-tertiary' },
-    { background: '--mat-sys-error', foreground: '--mat-sys-on-error' },
-    // The two roles this library adds, because M3's colour system has no notion
-    // of success or warning and `tertiary` is whatever the brand happens to be.
-    // They are derived from Material's prebuilt palettes with the same tones M3
-    // gives `error`, so they pair and contrast like every role above.
-    { background: '--ui-sys-success', foreground: '--ui-sys-on-success' },
-    { background: '--ui-sys-warning', foreground: '--ui-sys-on-warning' },
-    { background: '--mat-sys-surface-container', foreground: '--mat-sys-on-surface' },
-    // The quiet half of each role: what an inline banner (`ui-alert`) sits on.
-    // M3's own container roles are here beside the two this library derives, so
-    // that a green that does not belong with them is visible rather than argued
-    // about — which is exactly how `$green-palette`'s chroma-maxed tone 90 was
-    // caught. See the `_status-role` mixin in `_theme.scss`.
-    { background: '--mat-sys-secondary-container', foreground: '--mat-sys-on-secondary-container' },
-    { background: '--ui-sys-success-container', foreground: '--ui-sys-on-success-container' },
-    { background: '--ui-sys-warning-container', foreground: '--ui-sys-on-warning-container' },
-    { background: '--mat-sys-error-container', foreground: '--mat-sys-on-error-container' },
-  ];
-}
+class ThemeShowcase {}
 
 const meta: Meta<ThemeShowcase> = {
   title: 'Foundations/Theme',
@@ -108,8 +72,10 @@ const meta: Meta<ThemeShowcase> = {
           'Smoke test for the shared M3 theme. The theme partial is applied to ' +
           'the preview via the `styles` entry on the `build-storybook` target in ' +
           '`angular.json`; Roboto and Material Symbols are loaded in ' +
-          '`.storybook/preview-head.html`. Toggle your OS light/dark preference to ' +
-          'see `color-scheme: light dark` from the theme take effect.',
+          '`.storybook/preview-head.html`. Use the **Scheme** toolbar to force light ' +
+          'or dark — the default, `System`, is the `color-scheme: light dark` the ' +
+          'theme ships, so it follows your OS preference. `Foundations/Dark mode` ' +
+          'shows these same roles in both schemes at once.',
       },
     },
   },

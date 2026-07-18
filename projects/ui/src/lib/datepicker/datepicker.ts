@@ -7,7 +7,6 @@ import {
   contentChild,
   DestroyRef,
   Directive,
-  effect,
   ElementRef,
   forwardRef,
   inject,
@@ -16,6 +15,7 @@ import {
   signal,
   viewChild,
   type AfterViewInit,
+  type DoCheck,
   type Provider,
 } from '@angular/core';
 import {
@@ -424,7 +424,7 @@ export class DatepickerToggleIcon {}
   ],
 })
 export class Datepicker
-  implements ControlValueAccessor, Validator, ErrorStateMatcher, AfterViewInit
+  implements ControlValueAccessor, Validator, ErrorStateMatcher, AfterViewInit, DoCheck
 {
   /**
    * The field's label — the name of the date being collected, e.g. `Due date`.
@@ -770,17 +770,6 @@ export class Datepicker
   };
 
   constructor() {
-    // `MatInput` re-checks its error state in `ngDoCheck`, but only for an input
-    // that has an `NgControl` of its own (see `@angular/material/input`). Here the
-    // `NgControl` is on `<ui-datepicker>` — that is what makes `[(ngModel)]` bind
-    // the host rather than the input — so the re-check has to be driven from this
-    // side. `error()` is read first so the effect tracks it even though
-    // `updateErrorState()` reaches the same signal through `isErrorState()`.
-    effect(() => {
-      this.error();
-      this.matInput().updateErrorState();
-    });
-
     // Angular re-runs a validator when the *value* changes, not when a bound `min`
     // does, so a range that changed after the value was set would otherwise leave a
     // stale verdict on the control: a date that was valid under the old `max`
@@ -801,6 +790,32 @@ export class Datepicker
       this.dateFilter();
       this.onValidatorChange();
     });
+  }
+
+  /**
+   * Re-checks Material's error state on every change detection pass.
+   *
+   * `MatInput` does this itself in its own `ngDoCheck`, but only for an input that
+   * has an `NgControl` of its own (see `@angular/material/input`). Here the
+   * `NgControl` is on `<ui-datepicker>` — that is what makes `[(ngModel)]` bind the
+   * host rather than the input — so `MatInput` never sees one and the re-check has to
+   * be driven from this side.
+   *
+   * It runs here rather than in an `effect()` so that it is *synchronous with*
+   * change detection: `error()` is read in the template, so a change to it already
+   * schedules the pass this hook runs in, and Material's `errorState` — the field's
+   * red outline, `aria-invalid`, and whether `<mat-form-field>` shows the error
+   * subscript at all — is updated in that same pass. An effect's flush is not tied
+   * to the render, so under a host that drives change detection manually and never
+   * flushes effects (Storybook's own renderer among them) the message would render
+   * but the field would stay valid — issue #122.
+   */
+  ngDoCheck(): void {
+    // `matInput` is a `viewChild.required`, so it must not be read before the view
+    // that holds it exists — the first `ngDoCheck` runs before `ngAfterViewInit`.
+    if (this.viewInitialized()) {
+      this.matInput().updateErrorState();
+    }
   }
 
   ngAfterViewInit(): void {

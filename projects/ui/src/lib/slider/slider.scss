@@ -1,0 +1,82 @@
+// The box `ui-slider` occupies, and the two colour hooks — nothing else.
+//
+// There is not a literal colour in this file on purpose: `<mat-slider>` already
+// resolves its track, handle, ripples, state layers, tick marks and value
+// indicator from the `--mat-sys-*` tokens that `../../styles/_theme.scss` emits,
+// so a palette change there re-skins every slider, in light and dark alike, with
+// no help from here. The overrides below only re-point Material's own tokens at
+// *hooks* whose defaults are the very tokens Material would have used — so the
+// default slider ships no colour decision of its own.
+//
+// Note this is `mat.slider-overrides()` rather than rules on Material's
+// internals, and rather than `<mat-slider color="…">`: `color` is an M2-only API
+// that does nothing under an M3 theme (see @angular/material/slider), while the
+// tokens are Material's own supported surface. Custom properties inherit through
+// the encapsulation boundary, so they reach the slider with no `::ng-deep`.
+
+@use '@angular/material' as mat;
+
+// A state layer is the palette colour at the opacity M3 gives that interaction —
+// the same construction `_button.scss` uses, and the one Material's own M3 slider
+// tokens are built with (see `slider/_m3-slider.scss`, where the focus layer is
+// the primary role at 20% and the hover layer the same at 5%). Overriding the
+// token with a bare colour would drop the opacity baked into it and paint a solid
+// disc around the handle.
+@function _state-layer($color, $opacity) {
+  @return color-mix(in srgb, #{$color} $opacity, transparent);
+}
+
+:host {
+  // A slider is a form row: it takes the width it is given rather than shrinking
+  // to Material's own 112px minimum, which is what keeps a column of them
+  // aligned. `ui-slider { width: 20rem }` is a rule a consumer writes, not a
+  // workaround (rule 2).
+  display: block;
+
+  // The public hooks (rule 6). Two, because M3 tokenises this control as one role
+  // and the tone that stays legible on it: `--ui-slider-color` is what the
+  // control is *made of*, and `--ui-slider-on-color` is everything drawn on top
+  // of it. Point them at another such pair — `--mat-sys-error` /
+  // `--mat-sys-on-error`, or the theme's own `--ui-sys-success` /
+  // `--ui-sys-on-success` — rather than at literals, and they survive a palette
+  // change and dark mode.
+  //
+  // Every handle state is listed because Material tokenises the handle once per
+  // interaction state: naming only `handle-color` would leave an `error` slider
+  // reverting to the theme's primary the moment it was hovered.
+  //
+  // The *inactive* track is deliberately not hooked: M3 keeps it the neutral
+  // `surface-variant` role, so the part of the slider the value has not reached
+  // does not read as brand colour, and only the part it has is coloured.
+  $color: var(--ui-slider-color, var(--mat-sys-primary));
+  $on-color: var(--ui-slider-on-color, var(--mat-sys-on-primary));
+
+  @include mat.slider-overrides(
+    (
+      active-track-color: $color,
+      handle-color: $color,
+      hover-handle-color: $color,
+      focus-handle-color: $color,
+      ripple-color: $color,
+      focus-state-layer-color: _state-layer($color, 20%),
+      hover-state-layer-color: _state-layer($color, 5%),
+      // The discrete value indicator is a filled bubble, so it is the same
+      // role/on-role pair as the handle it sits over.
+      label-container-color: $color,
+      label-label-text-color: $on-color,
+      // The tick marks over the *active* track, and the outline that separates
+      // two overlapping thumbs, are drawn on the colour — so they take the tone
+      // M3 keeps legible against it. The ticks over the inactive track are
+      // Material's neutral `on-surface-variant`, and stay there.
+      with-tick-marks-active-container-color: $on-color,
+      with-overlap-handle-outline-color: $on-color,
+    )
+  );
+}
+
+mat-slider {
+  // Material's slider sizes itself to its content (`width: auto`, with a 112px
+  // floor), so filling the row the host lays out is one rule here rather than a
+  // width every consumer has to remember to set.
+  width: 100%;
+}

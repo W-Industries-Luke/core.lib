@@ -1,0 +1,8 @@
+<!--
+  Material's divider is the whole visual: the rule, its orientation, its inset,
+  and the `role="separator"` / `aria-orientation` a screen reader reads it by are
+  all `<mat-divider>`'s, drawn from the M3 system tokens the shared theme emits.
+  Nothing here re-implements any of it — `divider.scss` adds the space the line
+  sits in, which is the one thing Material leaves at zero.
+-->
+<mat-divider [vertical]="vertical()" [inset]="inset()" />

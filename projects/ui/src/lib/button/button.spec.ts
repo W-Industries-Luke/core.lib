@@ -1,6 +1,9 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButton } from '@angular/material/button';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { provideRouter, Router, RouterLink, RouterOutlet } from '@angular/router';
 
 import { Button, UiButtonColor, UiButtonVariant } from './button';
@@ -26,6 +29,21 @@ class Settings {}
 describe('Button', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
+
+  // The `MatButtonHarness` speaks Material's *public* test surface —
+  // `getAppearance()`, `isDisabled()`, `getText()`, `click()` — instead of the
+  // MDC class names (`mat-mdc-unelevated-button`) the old spec asserted on. Those
+  // classes are Material's internal markup: the harness exists precisely so that
+  // when Material renames one, this spec keeps passing rather than breaking on a
+  // detail no consumer depends on. Everything the harness *cannot* see — this
+  // library's own `ui-button--*` theme classes, `exportAs`, native-attribute
+  // forwarding, `routerLink` — stays a DOM assertion below.
+  const button = (
+    f: ComponentFixture<unknown> = fixture,
+    filter?: Parameters<typeof MatButtonHarness.with>[0],
+  ): Promise<MatButtonHarness> =>
+    TestbedHarnessEnvironment.loader(f).getHarness(MatButtonHarness.with(filter ?? {}));
 
   /** The native element the consumer wrote — the directive's own host. */
   const nativeButton = (): HTMLButtonElement =>
@@ -38,34 +56,34 @@ describe('Button', () => {
 
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
   describe('variant', () => {
-    it('defaults to filled', () => {
+    it('defaults to filled', async () => {
+      const harness = await loader.getHarness(MatButtonHarness);
+
       expect(host.ref().variant()).toBe('filled');
-      expect(host.ref().matButton.appearance).toBe('filled');
+      // The harness reads the appearance off the rendered button, so this is the
+      // same assertion the old `classList` check made — that Material really
+      // restyled for `filled` — without naming an MDC class.
+      expect(await harness.getAppearance()).toBe('filled');
     });
 
     // Every variant must reach MatButton verbatim — these are the appearance
-    // names Material itself understands, so a typo is a silently unstyled button
-    // rather than a compile error. The class assertion pins that Material really
-    // restyles for each one, rather than just accepting the value.
-    const variants: [UiButtonVariant, string][] = [
-      ['filled', 'mat-mdc-unelevated-button'],
-      ['outlined', 'mat-mdc-outlined-button'],
-      ['text', 'mat-mdc-button'],
-      ['elevated', 'mat-mdc-raised-button'],
-      ['tonal', 'mat-tonal-button'],
-    ];
+    // names Material itself understands, so a typo is a silently unstyled button.
+    // `getAppearance()` pins that Material accepted and rendered each one, which is
+    // exactly what the old class-name assertion was standing in for.
+    const variants: UiButtonVariant[] = ['filled', 'outlined', 'text', 'elevated', 'tonal'];
 
-    for (const [variant, appearanceClass] of variants) {
+    for (const variant of variants) {
       it(`passes the ${variant} variant through to MatButton`, async () => {
         host.variant.set(variant);
         await fixture.whenStable();
 
         expect(host.ref().matButton.appearance).toBe(variant);
-        expect(nativeButton().classList).toContain(appearanceClass);
+        expect(await (await loader.getHarness(MatButtonHarness)).getAppearance()).toBe(variant);
       });
     }
 
@@ -82,14 +100,15 @@ describe('Button', () => {
 
       const f = TestBed.createComponent(ConflictHost);
       await f.whenStable();
-      const button = f.nativeElement.querySelector('button') as HTMLButtonElement;
 
-      expect(button.classList).toContain('mat-tonal-button');
-      expect(button.classList).not.toContain('mat-mdc-outlined-button');
+      expect(await (await button(f)).getAppearance()).toBe('tonal');
     });
   });
 
   describe('color', () => {
+    // `color` is this library's M3 theming, not Material's own API, so the harness
+    // has nothing to say about it — the marker class it maps onto is what
+    // `_button.scss` re-points Material's tokens from. These stay DOM assertions.
     it('defaults to primary, which needs no marker class', () => {
       expect(host.ref().color()).toBe('primary');
       expect(nativeButton().className).not.toContain('ui-button--');
@@ -181,6 +200,9 @@ describe('Button', () => {
     })
     class AttrHost {}
 
+    // A harness would abstract the element away, but the whole claim here is that
+    // specific attributes land on the *real* button — so this reads them off the
+    // native element directly.
     it('does not swallow aria-label, id, name, value, tabindex or data-*', async () => {
       const f = TestBed.createComponent(AttrHost);
       await f.whenStable();
@@ -217,43 +239,46 @@ describe('Button', () => {
     }
 
     let f: ComponentFixture<FormHost>;
-    let submit: HTMLButtonElement;
-    let cancel: HTMLButtonElement;
+    let save: MatButtonHarness;
+    let cancel: MatButtonHarness;
 
     beforeEach(async () => {
       f = TestBed.createComponent(FormHost);
       await f.whenStable();
-      [submit, cancel] = Array.from(
-        f.nativeElement.querySelectorAll('button'),
-      ) as HTMLButtonElement[];
+      // Find each button by its label through the harness, rather than indexing a
+      // `querySelectorAll` — the harness is how a reader would locate one too.
+      save = await button(f, { text: 'Save' });
+      cancel = await button(f, { text: 'Cancel' });
     });
 
     // `form="editor"` associates a button with a form it is not nested in — a
     // native feature the old wrapper could not forward at all.
     it('submits the form it is associated with by id', async () => {
-      submit.click();
+      expect(await save.getType()).toBe('submit');
+
+      await save.click();
       await f.whenStable();
 
       expect(f.componentInstance.submits()).toBe(1);
-      expect(submit.type).toBe('submit');
     });
 
     it('emits native click, with no `clicked` output to subscribe to', async () => {
-      submit.click();
+      await save.click();
       await f.whenStable();
 
       expect(f.componentInstance.clicks()).toBe(1);
     });
 
     it('honours the native disabled attribute', async () => {
-      expect(cancel.disabled).toBe(false);
+      expect(await cancel.isDisabled()).toBe(false);
 
       f.componentInstance.disabled.set(true);
       await f.whenStable();
 
-      expect(cancel.disabled).toBe(true);
-      // A disabled native button suppresses clicks with no guard of our own.
-      cancel.click();
+      expect(await cancel.isDisabled()).toBe(true);
+      // A disabled native button suppresses clicks with no guard of our own — the
+      // harness declines to click a disabled button, so nothing is dispatched.
+      await cancel.click();
       await f.whenStable();
       expect(f.componentInstance.clicks()).toBe(0);
     });
@@ -272,14 +297,17 @@ describe('Button', () => {
     it('renders an href and navigates on click', async () => {
       const f = TestBed.createComponent(LinkHost);
       await f.whenStable();
+      const link = await button(f, { text: 'Settings' });
       const anchor = f.nativeElement.querySelector('a') as HTMLAnchorElement;
 
       // routerLink resolving to an href is the proof: the old wrapper put the
-      // attribute on <ui-button>, where RouterLink never saw a real anchor.
+      // attribute on <ui-button>, where RouterLink never saw a real anchor. The
+      // href is a native detail, so it stays a DOM read; the appearance comes off
+      // the harness.
       expect(anchor.getAttribute('href')).toBe('/settings');
-      expect(anchor.classList).toContain('mat-mdc-outlined-button');
+      expect(await link.getAppearance()).toBe('outlined');
 
-      anchor.click();
+      await link.click();
       await f.whenStable();
 
       expect(TestBed.inject(Router).url).toBe('/settings');

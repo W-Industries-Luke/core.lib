@@ -1,8 +1,14 @@
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { DateAdapter, NativeDateAdapter } from '@angular/material/core';
 import { MatDatepicker, MatDatepickerInput } from '@angular/material/datepicker';
+import {
+  MatDatepickerInputHarness,
+  MatDatepickerToggleHarness,
+} from '@angular/material/datepicker/testing';
 import { MatFormField } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
@@ -58,6 +64,15 @@ class TestHost {
 describe('Datepicker', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
+
+  // The datepicker harnesses speak Material's public test surface — the input's
+  // `getValue()`/`setValue()`/`isDisabled()`/`isRequired()` and the toggle's
+  // `openCalendar()`/`isDisabled()` — instead of poking at the rendered `<input>` and
+  // `.mat-datepicker-toggle button`. The MDC subscript markup this component wraps
+  // (`mat-error`, `mat-hint`, the required marker, the form field's classes), the ARIA
+  // associations and the Material instances reached through the escape hatches all stay
+  // DOM/instance assertions.
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
@@ -65,11 +80,20 @@ describe('Datepicker', () => {
   /** The real `<input>` Material renders into. */
   const inputElement = (): HTMLInputElement => query('input') as HTMLInputElement;
 
-  /** Types into the real input the way a user would, then commits it with `change`. */
+  /** Material's datepicker input, through the harness. */
+  const datepickerInput = (l: HarnessLoader = loader): Promise<MatDatepickerInputHarness> =>
+    l.getHarness(MatDatepickerInputHarness);
+
+  /** Material's calendar toggle, through the harness. */
+  const datepickerToggle = (l: HarnessLoader = loader): Promise<MatDatepickerToggleHarness> =>
+    l.getHarness(MatDatepickerToggleHarness);
+
+  /**
+   * Types into the real input the way a user would: the harness sends the keys and
+   * commits with a `change`, exactly the input/change the old spec dispatched by hand.
+   */
   const type = async (text: string): Promise<void> => {
-    inputElement().value = text;
-    inputElement().dispatchEvent(new Event('input'));
-    inputElement().dispatchEvent(new Event('change'));
+    await (await datepickerInput()).setValue(text);
     await fixture.whenStable();
   };
 
@@ -85,6 +109,7 @@ describe('Datepicker', () => {
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -125,8 +150,9 @@ describe('Datepicker', () => {
       host.value.set(JUN_15);
       await fixture.whenStable();
 
-      expect(inputElement().value).not.toBe('');
-      expect(new Date(inputElement().value).getTime()).toBe(JUN_15.getTime());
+      const value = await (await datepickerInput()).getValue();
+      expect(value).not.toBe('');
+      expect(new Date(value).getTime()).toBe(JUN_15.getTime());
     });
   });
 
@@ -172,8 +198,8 @@ describe('Datepicker', () => {
   });
 
   describe('disabled', () => {
-    it('is enabled by default', () => {
-      expect(inputElement().disabled).toBe(false);
+    it('is enabled by default', async () => {
+      expect(await (await datepickerInput()).isDisabled()).toBe(false);
     });
 
     // The toggle has to go with it, or the calendar is a way around a disabled
@@ -182,8 +208,8 @@ describe('Datepicker', () => {
       host.disabled.set(true);
       await fixture.whenStable();
 
-      expect(inputElement().disabled).toBe(true);
-      expect((query('.mat-datepicker-toggle button') as HTMLButtonElement).disabled).toBe(true);
+      expect(await (await datepickerInput()).isDisabled()).toBe(true);
+      expect(await (await datepickerToggle()).isDisabled()).toBe(true);
       expect(host.ref().matDatepicker().disabled).toBe(true);
     });
   });
@@ -238,9 +264,9 @@ describe('Datepicker', () => {
   });
 
   describe('value', () => {
-    it('is empty by default', () => {
+    it('is empty by default', async () => {
       expect(host.ref().value()).toBeNull();
-      expect(inputElement().value).toBe('');
+      expect(await (await datepickerInput()).getValue()).toBe('');
     });
 
     it('shows a date written through the binding', async () => {
@@ -296,7 +322,7 @@ describe('Datepicker', () => {
     });
 
     it('reports back when the toggle opens the calendar', async () => {
-      (query('.mat-datepicker-toggle button') as HTMLButtonElement).click();
+      await (await datepickerToggle()).openCalendar();
       await fixture.whenStable();
 
       expect(host.opened()).toBe(true);
@@ -305,16 +331,16 @@ describe('Datepicker', () => {
   });
 
   describe('toggle', () => {
-    it('shows the calendar toggle by default', () => {
-      expect(query('mat-datepicker-toggle')).not.toBeNull();
+    it('shows the calendar toggle by default', async () => {
+      expect(await loader.getHarnessOrNull(MatDatepickerToggleHarness)).not.toBeNull();
     });
 
     it('hides it when asked, leaving a text-only date field', async () => {
       host.toggle.set(false);
       await fixture.whenStable();
 
-      expect(query('mat-datepicker-toggle')).toBeNull();
-      expect(inputElement()).not.toBeNull();
+      expect(await loader.getHarnessOrNull(MatDatepickerToggleHarness)).toBeNull();
+      expect(await loader.getHarnessOrNull(MatDatepickerInputHarness)).not.toBeNull();
     });
 
     it('falls back to Material’s own translated name for the button', () => {
@@ -350,15 +376,17 @@ describe('Datepicker', () => {
       host.readonly.set(true);
       await fixture.whenStable();
 
+      // `readonly` has no harness method — it stays a DOM read; disabled state, which the
+      // harness does expose, comes off the input and the toggle.
       expect(inputElement().readOnly).toBe(true);
-      expect(inputElement().disabled).toBe(false);
-      expect((query('.mat-datepicker-toggle button') as HTMLButtonElement).disabled).toBe(false);
+      expect(await (await datepickerInput()).isDisabled()).toBe(false);
+      expect(await (await datepickerToggle()).isDisabled()).toBe(false);
     });
   });
 
   describe('required', () => {
-    it('is optional by default', () => {
-      expect(inputElement().required).toBe(false);
+    it('is optional by default', async () => {
+      expect(await (await datepickerInput()).isRequired()).toBe(false);
       expect(query('.mat-mdc-form-field-required-marker')).toBeNull();
     });
 
@@ -366,7 +394,7 @@ describe('Datepicker', () => {
       host.required.set(true);
       await fixture.whenStable();
 
-      expect(inputElement().required).toBe(true);
+      expect(await (await datepickerInput()).isRequired()).toBe(true);
       expect(inputElement().getAttribute('aria-required')).toBe('true');
       expect(query('.mat-mdc-form-field-required-marker')).not.toBeNull();
     });
@@ -409,19 +437,19 @@ describe('Datepicker', () => {
 
     let f: ComponentFixture<FormHost>;
     let formHost: FormHost;
+    let formLoader: HarnessLoader;
 
     const formInput = (): HTMLInputElement => f.nativeElement.querySelector('input');
 
     const typeInForm = async (text: string): Promise<void> => {
-      formInput().value = text;
-      formInput().dispatchEvent(new Event('input'));
-      formInput().dispatchEvent(new Event('change'));
+      await (await datepickerInput(formLoader)).setValue(text);
       await f.whenStable();
     };
 
     beforeEach(async () => {
       f = TestBed.createComponent(FormHost);
       formHost = f.componentInstance;
+      formLoader = TestbedHarnessEnvironment.loader(f);
       await f.whenStable();
     });
 
@@ -430,7 +458,7 @@ describe('Datepicker', () => {
       await f.whenStable();
 
       expect(formHost.ref().value()).toEqual(JUN_15);
-      expect(formInput().value).not.toBe('');
+      expect(await (await datepickerInput(formLoader)).getValue()).not.toBe('');
     });
 
     it('reports a picked date to the control as a Date', async () => {
@@ -465,14 +493,14 @@ describe('Datepicker', () => {
       await f.whenStable();
 
       expect(formHost.ref().value()).toBeNull();
-      expect(formInput().value).toBe('');
+      expect(await (await datepickerInput(formLoader)).getValue()).toBe('');
     });
 
     it('is disabled by the control, with no `disabled` input in sight', async () => {
       formHost.control.disable();
       await f.whenStable();
 
-      expect(formInput().disabled).toBe(true);
+      expect(await (await datepickerInput(formLoader)).isDisabled()).toBe(true);
       expect(formHost.ref().matDatepicker().disabled).toBe(true);
     });
 
@@ -496,10 +524,7 @@ describe('Datepicker', () => {
 
       const mf = TestBed.createComponent(ModelHost);
       await mf.whenStable();
-      const modelInput = mf.nativeElement.querySelector('input') as HTMLInputElement;
-      modelInput.value = '6/15/2024';
-      modelInput.dispatchEvent(new Event('input'));
-      modelInput.dispatchEvent(new Event('change'));
+      await (await datepickerInput(TestbedHarnessEnvironment.loader(mf))).setValue('6/15/2024');
       await mf.whenStable();
 
       expect(mf.componentInstance.due).toEqual(JUN_15);

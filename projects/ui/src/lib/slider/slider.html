@@ -1,0 +1,73 @@
+<!--
+  Everything visible here is Material's. The track and its fill, the handle, the
+  ripple and state layers, the tick marks, the discrete value indicator, the drag
+  and keyboard handling, the RTL flip and every colour are `<mat-slider>`'s own
+  work — this template only hands it the component's signals, and each thumb is a
+  real `<input type="range">` rather than something painted to look like one.
+
+  The two arms are not a copy-paste that should have been one: Material fixes the
+  number of thumbs when the slider initialises (`MatSlider._isRange` is read once,
+  from the inputs it finds at its `ngAfterViewInit`), so `range` cannot be a
+  binding *inside* one slider. `@if` around the whole thing is what makes flipping
+  it rebuild the slider rather than leave a two-thumb component wired for one.
+
+  `(input)` rather than Material's `(valueChange)`: `valueChange` is the input's
+  native `change` event and so only fires once a drag ends, and a form bound to a
+  slider should follow the thumb. `valueChange` drives `changed` — the "the user
+  has finished" signal — instead. Both read the value back off the thumb rather
+  than out of the event, because it is the input that has applied `min`/`max`/
+  `step`, and the sibling thumb's bound.
+-->
+@if (range()) {
+  <mat-slider
+    #slider
+    [min]="min()"
+    [max]="max()"
+    [step]="step()"
+    [disabled]="isDisabled()"
+    [discrete]="discrete()"
+    [showTickMarks]="showTicks()"
+    [disableRipple]="disableRipple()"
+    [displayWith]="matDisplayWith()"
+  >
+    <input
+      #startThumb="matSliderRangeThumb"
+      matSliderStartThumb
+      [value]="startValue()"
+      [attr.aria-label]="startAriaLabel() ?? null"
+      (input)="handleStartInput(startThumb.value)"
+      (valueChange)="handleChanged()"
+    />
+    <input
+      #endThumb="matSliderRangeThumb"
+      matSliderEndThumb
+      [value]="endValue()"
+      [attr.aria-label]="endAriaLabel() ?? null"
+      (input)="handleEndInput(endThumb.value)"
+      (valueChange)="handleChanged()"
+    />
+  </mat-slider>
+} @else {
+  <mat-slider
+    #slider
+    [min]="min()"
+    [max]="max()"
+    [step]="step()"
+    [disabled]="isDisabled()"
+    [discrete]="discrete()"
+    [showTickMarks]="showTicks()"
+    [disableRipple]="disableRipple()"
+    [displayWith]="matDisplayWith()"
+  >
+    <input
+      #thumb="matSliderThumb"
+      matSliderThumb
+      [value]="value()"
+      [attr.name]="name() ?? null"
+      [attr.aria-label]="ariaLabel() ?? null"
+      [attr.aria-labelledby]="ariaLabelledby() ?? null"
+      (input)="handleInput(thumb.value)"
+      (valueChange)="handleChanged()"
+    />
+  </mat-slider>
+}

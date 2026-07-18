@@ -1,0 +1,19 @@
+<!--
+  The trigger slot comes first, so a projected `uiCollapseTrigger` renders above
+  the body it controls — the reading and tab order a disclosure wants. A trigger
+  placed elsewhere on the page (pointed here by reference) simply projects
+  nothing, and this slot collapses to nothing.
+-->
+<ng-content select="[uiCollapseTrigger]" />
+
+<!--
+  The animated region. `inert` when collapsed drops the content from the tab
+  order and the accessibility tree the moment the state flips — so it is properly
+  hidden, not merely clipped — while `collapse.scss` slides it shut and only then
+  sets `visibility: hidden`. The id is what a trigger's `aria-controls` targets.
+-->
+<div class="ui-collapse__region" [id]="regionId" [attr.inert]="expanded() ? null : ''">
+  <div class="ui-collapse__content">
+    <ng-content />
+  </div>
+</div>

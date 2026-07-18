@@ -1,7 +1,10 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatTabGroup } from '@angular/material/tabs';
+import { MatTabGroupHarness, MatTabHarness } from '@angular/material/tabs/testing';
 
 import { Tab, TabLabelDef } from './tab';
 import { Tabs, type UiTabsAlign } from './tabs';
@@ -58,18 +61,41 @@ const noAnimations = { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisab
 describe('Tabs', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
+  // The `MatTabGroupHarness`/`MatTabHarness` speak Material's *public* test
+  // surface — `getTabs()`, `getSelectedTab()`, and each tab's `getLabel()`,
+  // `isSelected()`, `isDisabled()` and `select()` — instead of scraping
+  // `.mat-mdc-tab` text and `aria-selected`/`aria-disabled` off Material's
+  // rendered header, as the old spec did. Those class names and attributes are
+  // Material's internal wiring: the harness exists precisely so that when
+  // Material reworks its header markup, this spec keeps passing rather than
+  // breaking on a detail no consumer depends on. Everything the harness *cannot*
+  // see — which content is projected into the tabpanel, the tab/tabpanel ARIA
+  // wiring, this component's `alignTabs` classes, its `labelClass`/`bodyClass`
+  // forwarding and its `--ui-*` theme hooks — stays a DOM or instance assertion
+  // below.
   const queryAll = (selector: string): HTMLElement[] =>
     Array.from(fixture.nativeElement.querySelectorAll(selector));
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
 
+  /**
+   * The tab group harness — how a reader would locate the group too. Defaults to
+   * the shared `loader`; a secondary fixture gets its own environment.
+   */
+  const tabGroup = (f?: ComponentFixture<unknown>): Promise<MatTabGroupHarness> =>
+    (f ? TestbedHarnessEnvironment.loader(f) : loader).getHarness(MatTabGroupHarness);
+
+  /** Each tab's label, read through the harness rather than off the header markup. */
+  const labels = async (f?: ComponentFixture<unknown>): Promise<string[]> => {
+    const tabs: MatTabHarness[] = await (await tabGroup(f)).getTabs();
+    return Promise.all(tabs.map((tab) => tab.getLabel()));
+  };
+
   /** The `role="tab"` elements Material renders in the header, in order. */
   const tabElements = (): HTMLElement[] => queryAll('.mat-mdc-tab');
-
-  /** The label text of each tab in the header. */
-  const labels = (): string[] => tabElements().map((tab) => tab.textContent?.trim() ?? '');
 
   /** The `role="tabpanel"` bodies, in order. */
   const panels = (): HTMLElement[] => queryAll('mat-tab-body');
@@ -77,8 +103,10 @@ describe('Tabs', () => {
   /** Whatever content is currently rendered into a tab body. */
   const bodyText = (): string => query('.mat-mdc-tab-body-wrapper')?.textContent?.trim() ?? '';
 
-  const click = async (index: number) => {
-    tabElements()[index].click();
+  /** Select a tab by index through the harness, exactly as a user's click would. */
+  const select = async (index: number) => {
+    const tabs = await (await tabGroup()).getTabs();
+    await tabs[index].select();
     await fixture.whenStable();
   };
 
@@ -86,6 +114,7 @@ describe('Tabs', () => {
     TestBed.configureTestingModule({ providers: [noAnimations] });
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -96,8 +125,8 @@ describe('Tabs', () => {
   });
 
   describe('projected tabs', () => {
-    it('renders one Material tab per ui-tab, labelled and in order', () => {
-      expect(labels()).toEqual(['Details', 'Items', 'History']);
+    it('renders one Material tab per ui-tab, labelled and in order', async () => {
+      expect(await labels()).toEqual(['Details', 'Items', 'History']);
       expect(host.ref().tabs().length).toBe(3);
     });
 
@@ -115,7 +144,7 @@ describe('Tabs', () => {
     it('renders only the selected tab’s content', async () => {
       expect(bodyText()).toBe('Order 4213');
 
-      await click(1);
+      await select(1);
 
       expect(bodyText()).toBe('Three items');
     });
@@ -132,8 +161,8 @@ describe('Tabs', () => {
     it('keeps every visited tab’s content in the DOM when preserveContent is set', async () => {
       host.preserveContent.set(true);
       await fixture.whenStable();
-      await click(1);
-      await click(0);
+      await select(1);
+      await select(0);
 
       expect(host.ref().matTabGroup().preserveContent).toBe(true);
       expect(bodyText()).toContain('Order 4213');
@@ -144,28 +173,28 @@ describe('Tabs', () => {
       host.tabs.update((tabs) => [...tabs, { label: 'Notes', body: 'None' }]);
       await fixture.whenStable();
 
-      expect(labels()).toEqual(['Details', 'Items', 'History', 'Notes']);
+      expect(await labels()).toEqual(['Details', 'Items', 'History', 'Notes']);
     });
 
     it('drops a tab that is removed', async () => {
       host.tabs.update((tabs) => tabs.slice(0, 2));
       await fixture.whenStable();
 
-      expect(labels()).toEqual(['Details', 'Items']);
+      expect(await labels()).toEqual(['Details', 'Items']);
     });
   });
 
   describe('selectedIndex', () => {
-    it('defaults to the first tab', () => {
+    it('defaults to the first tab', async () => {
       expect(host.ref().selectedIndex()).toBe(0);
-      expect(tabElements()[0].getAttribute('aria-selected')).toBe('true');
+      expect(await (await (await tabGroup()).getSelectedTab()).getLabel()).toBe('Details');
     });
 
     it('selects the bound index', async () => {
       host.selectedIndex.set(2);
       await fixture.whenStable();
 
-      expect(tabElements()[2].getAttribute('aria-selected')).toBe('true');
+      expect(await (await (await tabGroup()).getSelectedTab()).getLabel()).toBe('History');
       expect(bodyText()).toBe('Created yesterday');
     });
 
@@ -173,11 +202,11 @@ describe('Tabs', () => {
     // signal the template bound, or a consumer's state silently diverges from
     // what is on screen.
     it('writes a user’s click back through the two-way binding', async () => {
-      await click(1);
+      await select(1);
 
       expect(host.selectedIndex()).toBe(1);
       expect(host.ref().selectedIndex()).toBe(1);
-      expect(tabElements()[1].getAttribute('aria-selected')).toBe('true');
+      expect(await (await (await tabGroup()).getSelectedTab()).getLabel()).toBe('Items');
     });
 
     it('emits selectedIndexChange for a user’s click but not for a one-way write', async () => {
@@ -207,7 +236,7 @@ describe('Tabs', () => {
       await f.whenStable();
       expect(emitted).toEqual([]);
 
-      (f.nativeElement.querySelectorAll('.mat-mdc-tab')[1] as HTMLElement).click();
+      await (await (await tabGroup(f)).getTabs())[1].select();
       await f.whenStable();
 
       expect(emitted).toEqual([1]);
@@ -220,7 +249,7 @@ describe('Tabs', () => {
       await fixture.whenStable();
 
       expect(host.selectedIndex()).toBe(2);
-      expect(tabElements()[2].getAttribute('aria-selected')).toBe('true');
+      expect(await (await (await tabGroup()).getSelectedTab()).getLabel()).toBe('History');
     });
 
     it('settles on the first tab when bound below zero', async () => {
@@ -228,7 +257,7 @@ describe('Tabs', () => {
       await fixture.whenStable();
 
       expect(host.selectedIndex()).toBe(0);
-      expect(tabElements()[0].getAttribute('aria-selected')).toBe('true');
+      expect(await (await (await tabGroup()).getSelectedTab()).getLabel()).toBe('Details');
     });
   });
 
@@ -245,28 +274,46 @@ describe('Tabs', () => {
     // Material marks it rather than removing it: the set of tabs a user sees does
     // not change shape when one of them turns off, and a screen reader still
     // announces that it is there.
-    it('marks the tab disabled and keeps it in the header', () => {
-      expect(labels()).toEqual(['Details', 'Items', 'History']);
-      expect(tabElements()[1].getAttribute('aria-disabled')).toBe('true');
-      expect(tabElements()[0].getAttribute('aria-disabled')).toBe('false');
+    it('marks the tab disabled and keeps it in the header', async () => {
+      const tabs = await (await tabGroup()).getTabs();
+
+      expect(await labels()).toEqual(['Details', 'Items', 'History']);
+      expect(await tabs[1].isDisabled()).toBe(true);
+      expect(await tabs[0].isDisabled()).toBe(false);
     });
 
+    // No harness surface for a tab's tabindex, so this stays a DOM read.
     it('takes the disabled tab out of the tab order', () => {
       expect(tabElements()[1].getAttribute('tabIndex')).toBe('-1');
     });
 
     it('ignores a click on it', async () => {
-      await click(1);
+      // `select()` clicks the tab like a user would; Material ignores the click
+      // because the tab is disabled, so the selection does not move.
+      await select(1);
 
       expect(host.selectedIndex()).toBe(0);
       expect(bodyText()).toBe('Order 4213');
+    });
+
+    // A deep link into a tab that has since been turned off: Material shows its
+    // content and leaves the tab unclickable, rather than blanking the group or
+    // moving the selection. Only an *out-of-range* index is clamped, not a
+    // disabled one.
+    it('shows a disabled tab’s content when it is the selected one', async () => {
+      host.selectedIndex.set(1);
+      await fixture.whenStable();
+
+      expect(host.selectedIndex()).toBe(1);
+      expect(bodyText()).toBe('Three items');
+      expect(await (await (await tabGroup()).getTabs())[1].isDisabled()).toBe(true);
     });
 
     it('re-enables it when the input flips back', async () => {
       host.tabs.update((tabs) => tabs.map((tab) => ({ ...tab, disabled: false })));
       await fixture.whenStable();
 
-      await click(1);
+      await select(1);
 
       expect(host.selectedIndex()).toBe(1);
     });
@@ -290,9 +337,7 @@ describe('Tabs', () => {
       await f.whenStable();
 
       expect(f.componentInstance.ref().disabled()).toBe(true);
-      expect(
-        f.nativeElement.querySelectorAll('.mat-mdc-tab')[1].getAttribute('aria-disabled'),
-      ).toBe('true');
+      expect(await (await (await tabGroup(f)).getTabs())[1].isDisabled()).toBe(true);
     });
   });
 
@@ -325,6 +370,47 @@ describe('Tabs', () => {
 
       expect(group().classList).toContain('mat-mdc-tab-group-stretch-tabs');
       expect(group().hasAttribute('mat-align-tabs')).toBe(false);
+    });
+  });
+
+  // These are Material's own layout switches, forwarded verbatim (rule 4). Their
+  // effect is a matter of layout Material owns, so the assertion is that each
+  // reaches `MatTabGroup` — the same thing the `preserveContent` test does.
+  describe('forwarded layout inputs', () => {
+    @Component({
+      imports: [Tabs, Tab],
+      template: `
+        <ui-tabs #ref="uiTabs" [dynamicHeight]="dynamicHeight()" [disableRipple]="disableRipple()">
+          <ui-tab label="One">1</ui-tab>
+          <ui-tab label="Two">2</ui-tab>
+        </ui-tabs>
+      `,
+    })
+    class LayoutHost {
+      readonly dynamicHeight = signal(false);
+      readonly disableRipple = signal(false);
+      readonly ref = viewChild.required<Tabs>('ref');
+    }
+
+    it('leaves dynamicHeight and disableRipple off by default, as Material does', () => {
+      expect(host.ref().matTabGroup().dynamicHeight).toBe(false);
+      expect(host.ref().matTabGroup().disableRipple).toBe(false);
+    });
+
+    it('forwards dynamicHeight to Material when set', async () => {
+      const f = TestBed.createComponent(LayoutHost);
+      f.componentInstance.dynamicHeight.set(true);
+      await f.whenStable();
+
+      expect(f.componentInstance.ref().matTabGroup().dynamicHeight).toBe(true);
+    });
+
+    it('forwards disableRipple to Material when set', async () => {
+      const f = TestBed.createComponent(LayoutHost);
+      f.componentInstance.disableRipple.set(true);
+      await f.whenStable();
+
+      expect(f.componentInstance.ref().matTabGroup().disableRipple).toBe(true);
     });
   });
 
@@ -369,10 +455,10 @@ describe('Tabs', () => {
       );
     });
 
-    it('leaves a tab without one on its label string', () => {
-      const tabs = f.nativeElement.querySelectorAll('.mat-mdc-tab');
+    it('leaves a tab without one on its label string', async () => {
+      const tabs = await (await tabGroup(f)).getTabs();
 
-      expect(tabs[1].textContent.trim()).toBe('Archive');
+      expect(await tabs[1].getLabel()).toBe('Archive');
     });
   });
 
@@ -426,6 +512,23 @@ describe('Tabs', () => {
       expect(panel.getAttribute('aria-labelledby')).toBe(tab.id);
     });
 
+    // Roving focus, Material's own: exactly one tab is in the tab order at a time
+    // — the selected one — so a keyboard user tabs into the header once and then
+    // arrows between tabs, rather than tabbing through every tab in turn. The
+    // arrow-key movement itself is Material's `FocusKeyManager`, exercised by the
+    // built Storybook's axe pass; here the roving tabindex it maintains is the
+    // structural contract asserted.
+    it('keeps a single roving tabindex on the selected tab', async () => {
+      const tabIndices = () => tabElements().map((tab) => tab.getAttribute('tabindex'));
+
+      expect(tabIndices()).toEqual(['0', '-1', '-1']);
+
+      host.selectedIndex.set(2);
+      await fixture.whenStable();
+
+      expect(tabIndices()).toEqual(['-1', '-1', '0']);
+    });
+
     // A tab whose rendered label is not the whole story — an icon, a count — can
     // still be named, and the name has to reach Material's `role="tab"` rather
     // than sit on a `<ui-tab>` host that no assistive tech ever sees.
@@ -443,9 +546,8 @@ describe('Tabs', () => {
       const f = TestBed.createComponent(AriaHost);
       await f.whenStable();
 
-      expect(f.nativeElement.querySelector('.mat-mdc-tab').getAttribute('aria-label')).toBe(
-        'Inbox, 4 unread',
-      );
+      const tab = (await (await tabGroup(f)).getTabs())[0];
+      expect(await tab.getAriaLabel()).toBe('Inbox, 4 unread');
     });
   });
 

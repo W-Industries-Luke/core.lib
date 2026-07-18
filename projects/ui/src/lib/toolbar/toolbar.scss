@@ -106,14 +106,14 @@
 
 mat-toolbar {
   padding-inline: var(--ui-toolbar-padding, 16px);
-  gap: var(--ui-toolbar-gap, 8px);
+  gap: var(--ui-toolbar-gap, var(--ui-sys-spacing-sm));
 }
 
 .ui-toolbar__start,
 .ui-toolbar__end {
   display: flex;
   align-items: center;
-  gap: var(--ui-toolbar-gap, 8px);
+  gap: var(--ui-toolbar-gap, var(--ui-sys-spacing-sm));
   // Natural width: the actions are the size they are, and the title absorbs the
   // rest of the row.
   flex: 0 0 auto;
@@ -122,7 +122,7 @@ mat-toolbar {
 .ui-toolbar__title {
   display: flex;
   align-items: center;
-  gap: var(--ui-toolbar-gap, 8px);
+  gap: var(--ui-toolbar-gap, var(--ui-sys-spacing-sm));
   // The flexible region — this is what holds the trailing slot against the far
   // end, and what an untitled bar leaves as empty space rather than as a gap in
   // the middle of the actions.

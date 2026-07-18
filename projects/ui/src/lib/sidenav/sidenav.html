@@ -1,0 +1,35 @@
+<!--
+  Material's sidenav container is the whole widget: the drawer, the scrim, the
+  slide, the content's margin as the drawer comes and goes, the focus trap, the
+  Escape-to-close and the RTL flip are all `<mat-sidenav-container>`'s, drawn from
+  the M3 system tokens the shared theme emits. Nothing here re-implements any of
+  it — this template only hands Material its inputs and puts the projected content
+  in the two regions.
+-->
+<mat-sidenav-container [hasBackdrop]="hasBackdrop()">
+  <mat-sidenav
+    [mode]="resolvedMode()"
+    [position]="position()"
+    [disableClose]="disableClose()"
+    [fixedInViewport]="fixedInViewport()"
+    [opened]="opened()"
+    (openedChange)="opened.set($event)"
+  >
+    <!--
+      The marked element itself is projected rather than a wrapper of ours around
+      it: it lands inside Material's own drawer, so it is within the focus trap and
+      the scroll container, and a consumer's `<nav aria-label="Main">` is the real
+      element rather than something buried in a box that took its place.
+    -->
+    <ng-content select="[uiSidenavDrawer]" />
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <!--
+      Everything else. The default slot is the main content on purpose: a shell has
+      one drawer and a whole page beside it, so the page is what should need no
+      marker.
+    -->
+    <ng-content />
+  </mat-sidenav-content>
+</mat-sidenav-container>

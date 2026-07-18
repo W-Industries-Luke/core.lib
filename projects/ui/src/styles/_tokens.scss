@@ -1,0 +1,189 @@
+// Foundational design tokens for the fleet: spacing, radii, z-index and
+// breakpoints.
+//
+// `mat.theme()` (in `_theme.scss`) owns colour, typography, shape and elevation
+// and stops there — it emits no token for "how far apart", "how round", "how
+// high in the stack" or "how wide is a phone". Left unanswered, every component
+// invents a magic number of its own and the apps drift; a `16px` gap here and a
+// `1rem` gap there is exactly the divergence this library exists to prevent.
+//
+// This partial is the one shared answer. Every token is emitted as a `--ui-sys-*`
+// custom property alongside Material's own `--mat-sys-*` roles and named to
+// match, so a consumer reaches for `--ui-sys-spacing-md` exactly where they reach
+// for `--mat-sys-corner-medium`, and runtime code (not only SCSS) can read them.
+//
+// It ships as an asset (the `**/*.scss` glob in `ng-package.json` carries it into
+// `dist/ui/styles/`), so an app can pull the tokens in on their own:
+//
+//   @use '@w-industries/ui/styles/tokens';
+//
+// though consuming `styles/theme` already emits them — the theme `@use`s this
+// partial. SCSS consumers additionally get the `$spacing` / `$radius` / `$z-layers`
+// / `$breakpoints` maps and the `breakpoint-up()` mixin.
+
+@use 'sass:map';
+
+// ---------------------------------------------------------------------------
+// Spacing
+// ---------------------------------------------------------------------------
+// M3 lays its components out on a 4dp grid, but that grid is not a token Material
+// emits, so "how far apart" is the one layout decision the fleet has no shared
+// answer to. These steps are that answer: integer multiples of M3's own 4dp unit,
+// which is why they land on the numbers Material's own stylesheets already use —
+// 8px between related things, 16px between blocks, 24px between sections.
+//
+// Unlike a colour role they do not vary by scheme: a gap is a gap in the dark.
+$spacing-unit: 4px;
+$spacing: (
+  xs: 1,
+  sm: 2,
+  md: 4,
+  lg: 6,
+  xl: 8,
+);
+
+// ---------------------------------------------------------------------------
+// Radii
+// ---------------------------------------------------------------------------
+// Corner rounding IS something M3 tokenises — `--mat-sys-corner-*` — so this does
+// not invent a parallel radius scale with pixels of its own, which would be the
+// duplication the theme exists to prevent. It re-exposes M3's corner scale under
+// the `--ui-sys-radius-*` name so radii sit in the same `ui` family as spacing,
+// z-index and breakpoints, and points each alias at the system token rather than
+// a literal — so a shape change in the theme flows straight through. Both names
+// resolve to the same pixels; reach for whichever reads better in context.
+$radius: (
+  xs: --mat-sys-corner-extra-small,
+  sm: --mat-sys-corner-small,
+  md: --mat-sys-corner-medium,
+  lg: --mat-sys-corner-large,
+  xl: --mat-sys-corner-extra-large,
+  full: --mat-sys-corner-full,
+);
+
+// ---------------------------------------------------------------------------
+// Z-index
+// ---------------------------------------------------------------------------
+// A named stacking order, so two components that both want to sit "on top" agree
+// on what that means rather than racing to a bigger number. The ladder is sparse
+// on purpose — the gaps leave room to slot a layer between two without renumbering
+// everything above it.
+//
+// `overlay` is pinned to 1000 to match the CDK overlay container Material renders
+// menus, dialogs, tooltips and snackbars into: a custom layer at `sticky` sits
+// below them and one at `toast` sits above, which is almost always what is meant.
+$z-layers: (
+  base: 0,
+  raised: 1,
+  sticky: 100,
+  dropdown: 200,
+  overlay: 1000,
+  toast: 1100,
+);
+
+// ---------------------------------------------------------------------------
+// Motion
+// ---------------------------------------------------------------------------
+// M3 tokenises motion — a duration scale and a set of easing curves — but
+// Angular's `mat.theme()` does not emit those roles (it stops at colour,
+// typography, shape and elevation), so "how long, on what curve" is the same
+// unanswered layout question as "how far apart": left to each component, a
+// 200ms ease here and a 400ms linear there is exactly the drift this library
+// prevents. A collapsing panel and a sliding drawer should feel like one system.
+//
+// These are M3's own motion values (see Angular Material's
+// `core/tokens/m3/_md-sys-motion.scss`), re-exposed under `--ui-sys-motion-*` so
+// they sit in the same `ui` family as spacing and radii and can be read from
+// SCSS, a style binding, or `getComputedStyle`. A component animating a size
+// change (`ui-collapse`) reaches for `--ui-sys-motion-duration-medium2` on
+// `--ui-sys-motion-easing-emphasized` and every such surface in the fleet moves
+// alike. Like spacing, motion does not vary by colour scheme.
+$motion: (
+  duration-short1: 50ms,
+  duration-short2: 100ms,
+  duration-short3: 150ms,
+  duration-short4: 200ms,
+  duration-medium1: 250ms,
+  duration-medium2: 300ms,
+  duration-medium3: 350ms,
+  duration-medium4: 400ms,
+  duration-long1: 450ms,
+  duration-long2: 500ms,
+  duration-long3: 550ms,
+  duration-long4: 600ms,
+  easing-emphasized: cubic-bezier(0.2, 0, 0, 1),
+  easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15),
+  easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1),
+  easing-standard: cubic-bezier(0.2, 0, 0, 1),
+  easing-standard-accelerate: cubic-bezier(0.3, 0, 1, 1),
+  easing-standard-decelerate: cubic-bezier(0, 0, 0, 1),
+  easing-linear: cubic-bezier(0, 0, 1, 1),
+);
+
+// ---------------------------------------------------------------------------
+// Breakpoints
+// ---------------------------------------------------------------------------
+// Viewport widths for responsive layout. These are M3's window-size-class
+// breakpoints — the same widths CDK's `Breakpoints` (and therefore the
+// `UiBreakpoints` service) partition the viewport on: compact below `sm`, then
+// medium, expanded and large at each step up. Prefer `UiBreakpoints` in TypeScript
+// — a component asks "am I on a phone?", not "am I under 600px?"; reach for these
+// when you need the width itself.
+//
+// A custom property cannot be read inside an `@media` query, so the SCSS map is
+// the source of truth and `breakpoint-up()` is how SCSS consumes it. The emitted
+// `--ui-sys-breakpoint-*` values are for runtime code (`matchMedia`) and the
+// token catalogue.
+$breakpoints: (
+  sm: 600px,
+  md: 840px,
+  lg: 1200px,
+  xl: 1600px,
+);
+
+/// A `min-width` media query at one of the named breakpoints. SCSS-only, because
+/// a custom property does not work in a media condition — which is why the map
+/// above is the source of truth rather than the emitted properties.
+///
+///   @use '@w-industries/ui/styles/tokens';
+///   .layout { display: block; }
+///   @include tokens.breakpoint-up(md) {
+///     .layout { display: flex; }
+///   }
+///
+/// @param {String} $name A key of `$breakpoints`, e.g. `md`.
+@mixin breakpoint-up($name) {
+  $width: map.get($breakpoints, $name);
+  @if $width == null {
+    @error "Unknown breakpoint `#{$name}`. Known: #{map.keys($breakpoints)}.";
+  }
+  @media (min-width: $width) {
+    @content;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Emit
+// ---------------------------------------------------------------------------
+// The custom properties, so consuming apps and runtime code can use the tokens
+// too, not only SCSS. Emitted at the top level (on `:root`) so a bare
+// `@use '.../tokens'` ships them with no mixin to remember; `@use` includes a
+// module's CSS exactly once, so the theme pulling this partial in and an app also
+// using it directly still emit a single copy.
+:root {
+  @each $name, $steps in $spacing {
+    --ui-sys-spacing-#{$name}: #{$steps * $spacing-unit};
+  }
+  @each $name, $token in $radius {
+    --ui-sys-radius-#{$name}: var(#{$token});
+  }
+  @each $name, $value in $z-layers {
+    --ui-sys-z-#{$name}: #{$value};
+  }
+  @each $name, $width in $breakpoints {
+    --ui-sys-breakpoint-#{$name}: #{$width};
+  }
+  @each $name, $value in $motion {
+    --ui-sys-motion-#{$name}: #{$value};
+  }
+}

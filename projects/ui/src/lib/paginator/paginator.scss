@@ -1,0 +1,54 @@
+// Box metrics and the styling hooks for `ui-paginator`.
+//
+// There is not a literal colour in this file on purpose: `<mat-paginator>`
+// already resolves its surface, its labels and its arrows from the `--mat-sys-*`
+// tokens that `../../styles/_theme.scss` emits, so a palette change there
+// re-colours every paginator with no help from here. The overrides below only
+// re-point those tokens at *hooks* whose defaults are the very tokens Material
+// would have used, so the default paginator ships no colour decision of its own.
+
+@use '@angular/material' as mat;
+
+:host {
+  // Material's paginator is `display: block` and fills its container, which is what
+  // a paginator wants — it spans whatever it is paging through. The host gets out
+  // of the way rather than imposing a size of its own.
+  display: block;
+
+  // The public hooks (rule 6), each defaulting to the token Material itself
+  // resolves to under the shared M3 theme — so an untouched `ui-paginator` is a
+  // stock Material paginator, and a consumer who sets one is re-pointing a role
+  // rather than picking a colour.
+  //
+  // These go through `mat.paginator-overrides()` rather than a rule on Material's
+  // internals: the tokens are Material's own API, so the structure, the density and
+  // the type stay Material's. Custom properties inherit through the encapsulation
+  // boundary, so a hook set on `ui-paginator` reaches the elements inside
+  // Material's template with no `::ng-deep`.
+  @include mat.paginator-overrides(
+    (
+      container-background-color: var(--ui-paginator-background, var(--mat-sys-surface)),
+      container-text-color: var(--ui-paginator-text-color, var(--mat-sys-on-surface)),
+      // The arrows. M3 puts them on the quieter `on-surface-variant` role rather
+      // than on `on-surface`: they are controls beside the label, not the label.
+      enabled-icon-color: var(--ui-paginator-icon-color, var(--mat-sys-on-surface-variant)),
+      // An arrow with nowhere left to go — the first page's `previous`, the last
+      // page's `next`. The default is Material's own construction for it: the text
+      // colour at M3's 38% disabled opacity, mixed rather than picked, so it tracks
+      // the palette and dark mode like everything else here.
+      disabled-icon-color: var(
+          --ui-paginator-disabled-icon-color,
+          color-mix(in srgb, var(--mat-sys-on-surface) 38%, transparent)
+        ),
+      // Wide enough for Material's own two-digit options; a fleet paging by
+      // thousands needs more room, and that is a declaration rather than a reach
+      // into the select's internals.
+      page-size-select-width: var(--ui-paginator-page-size-width, 84px)
+    )
+  );
+
+  // Note there is no height hook: `--mat-paginator-container-size` is Material's
+  // density token, and density is a fleet-wide decision `_theme.scss` owns. A
+  // paginator that is 56px in one app and 40px in the next is exactly the drift
+  // this library exists to prevent.
+}

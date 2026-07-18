@@ -1,0 +1,69 @@
+// Box metrics and the styling hooks for `ui-sidenav`.
+//
+// There is not a literal colour in this file on purpose: `<mat-sidenav-container>`
+// already resolves its drawer, its content and its scrim from the `--mat-sys-*`
+// tokens that `../../styles/_theme.scss` emits, so a palette change there
+// re-colours every sidenav with no help from here. The overrides below only
+// re-point those tokens at *hooks* whose defaults are the very tokens Material
+// would have used, so an untouched `ui-sidenav` ships no colour decision of its
+// own.
+
+@use '@angular/material' as mat;
+
+:host {
+  // Material's container is `display: block` and takes the height it is given.
+  // The host gets out of the way rather than imposing a size: what a shell wants
+  // (`height: 100dvh`) and what a sidenav inside a card wants are different, and
+  // only the consumer knows which this is.
+  display: block;
+
+  // Every hook goes through `mat.sidenav-overrides()` rather than a rule on
+  // Material's internals: the tokens are Material's own API, so the geometry, the
+  // slide and the scrim stay Material's. Custom properties inherit through the
+  // encapsulation boundary, so a hook set on `ui-sidenav` reaches the elements
+  // inside Material's template with no `::ng-deep`.
+  @include mat.sidenav-overrides(
+    (
+      // The drawer's width — the one measurement a shell is most likely to retune,
+      // since M3's 360px is a phone-sized sheet rather than a desktop rail.
+      container-width: var(--ui-sidenav-width, 360px),
+      // The drawer, on M3's `surface` / `on-surface-variant` pair.
+      container-background-color: var(--ui-sidenav-background-color, var(--mat-sys-surface)),
+      container-text-color: var(--ui-sidenav-text-color, var(--mat-sys-on-surface-variant)),
+      // The main area beside it, on the `background` / `on-background` pair — the
+      // page's own roles, which is what the region holding the page should be.
+      content-background-color: var(
+          --ui-sidenav-content-background-color,
+          var(--mat-sys-background)
+        ),
+      content-text-color: var(--ui-sidenav-content-text-color, var(--mat-sys-on-background)),
+      // The scrim behind an `over` drawer. The default is what M3 itself dims with
+      // — a neutral-variant at 40% — rather than a literal.
+      scrim-color: var(
+          --ui-sidenav-scrim-color,
+          color-mix(in srgb, var(--mat-sys-neutral-variant20) 40%, transparent)
+        ),
+      // The drawer's outer corners and its shadow. M3's own values stay the
+      // defaults: unlike `uiButton`'s capsule, a drawer's shape is not a house-style
+      // decision the fleet needs re-taken. The hooks are here so a squared-off rail
+      // or a lifted drawer is a declaration rather than a reach into Material's
+      // internals.
+      container-shape: var(--ui-sidenav-shape, var(--mat-sys-corner-large)),
+      container-elevation-shadow: var(--ui-sidenav-elevation, none),
+      // The rule between a `side`/`push` drawer and the content. Transparent by
+      // default, as in M3, which leans on the two surfaces differing instead.
+      container-divider-color: var(--ui-sidenav-divider-color, transparent)
+    )
+  );
+
+  // Note there is no typography hook: the drawer's type comes from whatever a
+  // consumer projects into it, and the type scale is a fleet-wide decision
+  // `_theme.scss` owns rather than one a single sidenav should re-take.
+}
+
+mat-sidenav-container {
+  // Fill the host, so `ui-sidenav { height: 100dvh; }` is all a shell needs. On an
+  // auto-height host this computes to auto and changes nothing, so it costs the
+  // unsized case nothing.
+  height: 100%;
+}

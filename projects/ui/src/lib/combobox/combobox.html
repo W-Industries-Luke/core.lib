@@ -1,0 +1,190 @@
+<!--
+  Everything visible here is Material's. The container, the floating label and the
+  `aria-labelledby` that names the combobox with it, the outline, the arrow, the
+  overlay panel, the options and their ripples and checkboxes, the `combobox`/`listbox`
+  roles, the roving `aria-activedescendant`, the arrow keys, Enter and Escape, the
+  subscript that swaps a hint for an error, and the ids that tie a message to the
+  control are all `<mat-form-field>`'s and `<mat-select>`'s own — this template only
+  assembles them, drops a search field into the panel, and hands them the component's
+  signals.
+
+  The search field and the options are projected into `<mat-select>`, which renders
+  them inside its overlay panel (`<ng-content>` in Material's own template). The options
+  are an `options` input rather than projected `<mat-option>`s because `<mat-select>`
+  finds them with a content query — which is also what lets this component filter them.
+-->
+<mat-form-field
+  class="ui-combobox__field"
+  [appearance]="appearance()"
+  [floatLabel]="floatLabel()"
+  [subscriptSizing]="subscriptSizing()"
+  [hideRequiredMarker]="hideRequiredMarker()"
+>
+  @if (label()) {
+    <mat-label>{{ label() }}</mat-label>
+  }
+
+  @if (prefixSlot()) {
+    <span matIconPrefix class="ui-combobox__prefix"><ng-content select="[uiComboboxPrefix]" /></span>
+  }
+
+  <!--
+    `id` and the `aria-*` inputs are empty strings rather than `undefined` when unset:
+    Material's setters read `''` as "nothing given" and fall back to the id it generated
+    and the label it found, while `undefined` would not type-check against them.
+  -->
+  <mat-select
+    #select
+    [id]="id() ?? ''"
+    [placeholder]="placeholder() ?? ''"
+    [value]="value()"
+    [multiple]="multiple()"
+    [disabled]="isDisabled()"
+    [required]="required()"
+    [compareWith]="compareWith()"
+    [panelClass]="panelClass()"
+    [errorStateMatcher]="errorStateMatcher"
+    [tabIndex]="tabindex()"
+    [aria-label]="ariaLabel() ?? ''"
+    [aria-labelledby]="ariaLabelledby() ?? ''"
+    [aria-describedby]="ariaDescribedby() ?? ''"
+    (selectionChange)="handleSelectionChange($event)"
+    (openedChange)="handleOpenedChange($event)"
+    (blur)="handleBlur()"
+  >
+    <!--
+      The closed field's value. In `multiple` mode the chosen options are shown as
+      `ui-chips` — `stopClick` keeps a click on the chips from toggling the panel, so a
+      chip's remove button deselects without reopening. A single combobox keeps
+      Material's own text trigger.
+    -->
+    @if (multiple()) {
+      <mat-select-trigger>
+        <ui-chips
+          class="ui-combobox__chips"
+          aria-label="Selected"
+          [chips]="selectedChips()"
+          removable
+          [disabled]="isDisabled()"
+          (removed)="removeChip($event)"
+          (click)="stopClick($event)"
+        />
+      </mat-select-trigger>
+    }
+
+    <!--
+      The search field, at the top of the panel. It is a plain `<input>` rather than a
+      `<mat-option>`, so it is not one of the options `<mat-select>` navigates — the
+      arrow keys move past it to the list below. `handleSearchKeydown` keeps a keystroke
+      meant for the search box from reaching `<mat-select>`'s own type-ahead while still
+      letting the navigation keys through; `stopClick` keeps a click inside it from
+      choosing an option.
+    -->
+    <div class="ui-combobox__search">
+      <mat-icon class="ui-combobox__search-icon">search</mat-icon>
+      <input
+        #searchInput
+        type="text"
+        class="ui-combobox__search-input"
+        autocomplete="off"
+        [attr.aria-label]="searchPlaceholder()"
+        [placeholder]="searchPlaceholder()"
+        [value]="search()"
+        (input)="handleSearch($event)"
+        (keydown)="handleSearchKeydown($event)"
+        (click)="stopClick($event)"
+      />
+    </div>
+
+    <!--
+      Grouped in first-appearance order, ungrouped options first (a `null` heading
+      renders no `<mat-optgroup>`). Each option is tracked by its `value` — what
+      identifies it to the form, so two options sharing one is already a bug.
+    -->
+    @for (group of groups(); track group.label) {
+      @if (group.label !== null) {
+        <mat-optgroup [label]="group.label">
+          @for (option of group.options; track option.value) {
+            <mat-option [value]="option.value" [disabled]="!!option.disabled">
+              <ng-container
+                [ngTemplateOutlet]="optionInner"
+                [ngTemplateOutletContext]="{ $implicit: option }"
+              />
+            </mat-option>
+          }
+        </mat-optgroup>
+      } @else {
+        @for (option of group.options; track option.value) {
+          <mat-option [value]="option.value" [disabled]="!!option.disabled">
+            <ng-container
+              [ngTemplateOutlet]="optionInner"
+              [ngTemplateOutletContext]="{ $implicit: option }"
+            />
+          </mat-option>
+        }
+      }
+    }
+
+    <!--
+      The empty state, when the search matches nothing. A plain element rather than a
+      `<mat-option>`, so it is announced as text but is not a choice the keyboard can
+      land on. `<mat-select>` shows an empty panel rather than hiding it, so the search
+      box above this is always there to type another query into.
+    -->
+    @if (hasNoResults()) {
+      <p class="ui-combobox__no-results" role="status">{{ noResultsText() }}</p>
+    }
+  </mat-select>
+
+  <!--
+    Clears the whole selection. It shows only while there is something to clear, and
+    `clear` stops the click reaching `<mat-select>`, which would otherwise open the
+    panel the user is emptying.
+  -->
+  @if (clearable() && hasValue() && !isDisabled()) {
+    <button
+      matIconButton
+      matIconSuffix
+      type="button"
+      class="ui-combobox__clear"
+      aria-label="Clear selection"
+      (click)="clear($event)"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+  }
+
+  @if (suffixSlot()) {
+    <span matIconSuffix class="ui-combobox__suffix"><ng-content select="[uiComboboxSuffix]" /></span>
+  }
+
+  <!--
+    Material renders at most one subscript message: the error when the control is in an
+    error state, the hint otherwise — so both can be here and an error never stacks on
+    the hint it replaces.
+  -->
+  @if (hasError()) {
+    <mat-error>{{ error() }}</mat-error>
+  }
+
+  @if (hintSlot()) {
+    <mat-hint><ng-content select="[uiComboboxHint]" /></mat-hint>
+  } @else if (hint()) {
+    <mat-hint>{{ hint() }}</mat-hint>
+  }
+</mat-form-field>
+
+<!--
+  What an option renders: a projected `uiComboboxOption` template, or its label. Shared
+  by the grouped and ungrouped branches so both render an option the same way.
+-->
+<ng-template #optionInner let-option>
+  @if (optionDef(); as def) {
+    <ng-container
+      [ngTemplateOutlet]="def.template"
+      [ngTemplateOutletContext]="{ $implicit: option, search: search() }"
+    />
+  } @else {
+    {{ option.label }}
+  }
+</ng-template>

@@ -1,7 +1,10 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatAutocomplete, MatAutocompleteTrigger } from '@angular/material/autocomplete';
+import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
 import { MatFormField } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
@@ -64,6 +67,7 @@ class TestHost {
 describe('Autocomplete', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
@@ -72,11 +76,31 @@ describe('Autocomplete', () => {
   const inputElement = (f: ComponentFixture<unknown> = fixture): HTMLInputElement =>
     f.nativeElement.querySelector('input');
 
-  /** The panel lives in an overlay at the document root, not inside the fixture. */
+  // The `MatAutocompleteHarness` speaks Material's *public* test surface —
+  // `getOptions()`, `selectOption()`, `isOpen()`, `blur()` — instead of the overlay
+  // markup (`mat-option`, `.mat-mdc-autocomplete-panel`) the old spec reached into
+  // the document root for. Those class names are Material's internal markup: the
+  // harness exists so that when Material renames one, this spec keeps passing rather
+  // than breaking on a detail no consumer depends on. Opening and typing still drive
+  // the *real* `<input>` (a native focus/input a user performs, which is what this
+  // component leaves untouched); everything the harness cannot see — id/aria wiring,
+  // native input state, attribute forwarding, theme classes and escape-hatch
+  // instances — stays a DOM or instance assertion below.
+  const autocomplete = (
+    f: ComponentFixture<unknown> = fixture,
+    filter?: Parameters<typeof MatAutocompleteHarness.with>[0],
+  ): Promise<MatAutocompleteHarness> =>
+    (f === fixture ? loader : TestbedHarnessEnvironment.loader(f)).getHarness(
+      MatAutocompleteHarness.with(filter ?? {}),
+    );
+
+  /** The labels Material renders in the open panel, in order. */
+  const optionLabels = async (f: ComponentFixture<unknown> = fixture): Promise<string[]> =>
+    Promise.all((await (await autocomplete(f)).getOptions()).map((o) => o.getText()));
+
+  /** The `mat-option` elements, kept for the few reads the harness abstracts away. */
   const panelOptions = (): HTMLElement[] =>
     Array.from(document.querySelectorAll<HTMLElement>('mat-option'));
-
-  const optionLabels = (): string[] => panelOptions().map((o) => o.textContent!.trim());
 
   /** Opens the panel the way a user does: by focusing the field. */
   const open = async (f: ComponentFixture<unknown> = fixture): Promise<void> => {
@@ -101,18 +125,17 @@ describe('Autocomplete', () => {
   };
 
   /** Chooses a suggestion the way a user would: click it in the panel. */
-  const choose = async (label: string, f: ComponentFixture<unknown> = fixture): Promise<void> => {
-    const option = panelOptions().find((o) => o.textContent?.trim() === label);
-    if (!option) {
-      throw new Error(`No option labelled "${label}" in the panel. Have: ${optionLabels()}`);
-    }
-    option.click();
-    await f.whenStable();
+  const choose = async (
+    label: string | RegExp,
+    f: ComponentFixture<unknown> = fixture,
+  ): Promise<void> => {
+    await (await autocomplete(f)).selectOption({ text: label });
   };
 
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -149,12 +172,11 @@ describe('Autocomplete', () => {
     it('renders one Material option per option, in order, when the panel opens', async () => {
       await open();
 
-      expect(optionLabels()).toEqual(['United Kingdom', 'France', 'Germany', 'Spain']);
+      expect(await optionLabels()).toEqual(['United Kingdom', 'France', 'Germany', 'Spain']);
     });
 
-    it('shows no panel until the field is focused', () => {
-      expect(panelOptions()).toEqual([]);
-      expect(host.ref().matAutocompleteTrigger().panelOpen).toBe(false);
+    it('shows no panel until the field is focused', async () => {
+      expect(await (await autocomplete()).isOpen()).toBe(false);
     });
 
     it('renders no options for an empty list', async () => {
@@ -162,7 +184,7 @@ describe('Autocomplete', () => {
       await fixture.whenStable();
       await open();
 
-      expect(panelOptions()).toEqual([]);
+      expect(await (await autocomplete()).isOpen()).toBe(false);
     });
 
     it('re-renders when the list changes', async () => {
@@ -170,17 +192,17 @@ describe('Autocomplete', () => {
       await fixture.whenStable();
       await open();
 
-      expect(optionLabels()).toEqual(['Italy']);
+      expect(await optionLabels()).toEqual(['Italy']);
     });
 
     // A disabled option is one suggestion being unavailable — the rest still work,
     // which is what separates it from a disabled field.
     it('disables the option marked disabled, and only it', async () => {
       await open();
-      const [uk, , , spain] = panelOptions();
+      const [uk, , , spain] = await (await autocomplete()).getOptions();
 
-      expect(spain.getAttribute('aria-disabled')).toBe('true');
-      expect(uk.getAttribute('aria-disabled')).toBe('false');
+      expect(await spain.isDisabled()).toBe(true);
+      expect(await uk.isDisabled()).toBe(false);
     });
 
     it('does not choose a disabled option that is clicked', async () => {
@@ -219,42 +241,42 @@ describe('Autocomplete', () => {
     it('filters the panel to the options containing what was typed', async () => {
       await type('an');
 
-      expect(optionLabels()).toEqual(['France', 'Germany']);
+      expect(await optionLabels()).toEqual(['France', 'Germany']);
     });
 
     it('is case-insensitive', async () => {
       await type('FRANCE');
 
-      expect(optionLabels()).toEqual(['France']);
+      expect(await optionLabels()).toEqual(['France']);
     });
 
     // "Contains", not "starts with": someone typing `kingdom` means the UK.
     it('matches anywhere in the label, not just the start', async () => {
       await type('kingdom');
 
-      expect(optionLabels()).toEqual(['United Kingdom']);
+      expect(await optionLabels()).toEqual(['United Kingdom']);
     });
 
     it('ignores the whitespace around what was typed', async () => {
       await type('  france  ');
 
-      expect(optionLabels()).toEqual(['France']);
+      expect(await optionLabels()).toEqual(['France']);
     });
 
     it('narrows as the user keeps typing', async () => {
       await type('g');
-      expect(optionLabels()).toEqual(['United Kingdom', 'Germany']);
+      expect(await optionLabels()).toEqual(['United Kingdom', 'Germany']);
 
       await type('ge');
-      expect(optionLabels()).toEqual(['Germany']);
+      expect(await optionLabels()).toEqual(['Germany']);
     });
 
     it('widens again as the user deletes', async () => {
       await type('germ');
-      expect(optionLabels()).toEqual(['Germany']);
+      expect(await optionLabels()).toEqual(['Germany']);
 
       await type('');
-      expect(optionLabels()).toEqual(['United Kingdom', 'France', 'Germany', 'Spain']);
+      expect(await optionLabels()).toEqual(['United Kingdom', 'France', 'Germany', 'Spain']);
     });
 
     it('exposes the filtered list, and the text it was filtered by', async () => {
@@ -268,15 +290,16 @@ describe('Autocomplete', () => {
     it('filters a disabled option in like any other, and it stays disabled', async () => {
       await type('spain');
 
-      expect(optionLabels()).toEqual(['Spain']);
-      expect(panelOptions()[0].getAttribute('aria-disabled')).toBe('true');
+      const options = await (await autocomplete()).getOptions();
+      expect(await Promise.all(options.map((o) => o.getText()))).toEqual(['Spain']);
+      expect(await options[0].isDisabled()).toBe(true);
     });
 
     describe('when nothing matches', () => {
       it('leaves nothing in the panel', async () => {
         await type('zzz');
 
-        expect(panelOptions()).toEqual([]);
+        expect(await (await autocomplete()).isOpen()).toBe(false);
         expect(host.ref().hasNoResults()).toBe(true);
       });
 
@@ -285,7 +308,7 @@ describe('Autocomplete', () => {
       it('shows no panel, by Material’s own rule', async () => {
         await type('zzz');
 
-        expect(host.ref().matAutocompleteTrigger().panelOpen).toBe(false);
+        expect(await (await autocomplete()).isOpen()).toBe(false);
       });
     });
 
@@ -301,13 +324,13 @@ describe('Autocomplete', () => {
         await open();
 
         expect(inputElement().value).toBe('France');
-        expect(optionLabels()).toEqual(['United Kingdom', 'France', 'Germany', 'Spain']);
+        expect(await optionLabels()).toEqual(['United Kingdom', 'France', 'Germany', 'Spain']);
       });
 
       it('filters again from the next keystroke', async () => {
         await type('Franc');
 
-        expect(optionLabels()).toEqual(['France']);
+        expect(await optionLabels()).toEqual(['France']);
       });
     });
 
@@ -318,7 +341,7 @@ describe('Autocomplete', () => {
       await open();
 
       expect(inputElement().value).toBe('Germany');
-      expect(optionLabels()).toEqual(['United Kingdom', 'France', 'Germany', 'Spain']);
+      expect(await optionLabels()).toEqual(['United Kingdom', 'France', 'Germany', 'Spain']);
     });
 
     describe('filterWith', () => {
@@ -338,11 +361,14 @@ describe('Autocomplete', () => {
         await f.whenStable();
 
         await type('ger', f);
-        expect(optionLabels()).toEqual(['Germany']);
+        expect(await optionLabels(f)).toEqual(['Germany']);
 
-        // The default would have matched `United Kingdom` on "contains".
+        // The default would have matched `United Kingdom` on "contains" — here
+        // nothing starts with `kingdom`, so the panel offers no suggestions.
+        // `getOptions()` reads `[]` whether Material has closed the panel or is
+        // holding it open but empty, which is the claim either way.
         await type('kingdom', f);
-        expect(optionLabels()).toEqual([]);
+        expect(await optionLabels(f)).toEqual([]);
       });
 
       // The shape a server-filtered list takes: the options are already the answer.
@@ -353,7 +379,7 @@ describe('Autocomplete', () => {
 
         await type('zzz', f);
 
-        expect(optionLabels()).toEqual(['United Kingdom', 'France', 'Germany', 'Spain']);
+        expect(await optionLabels(f)).toEqual(['United Kingdom', 'France', 'Germany', 'Spain']);
       });
 
       it('is handed the option and the text exactly as typed', async () => {
@@ -520,7 +546,7 @@ describe('Autocomplete', () => {
     it('renders nothing by default, which is Material’s own behaviour', async () => {
       await type('zzz');
 
-      expect(panelOptions()).toEqual([]);
+      expect(await (await autocomplete()).isOpen()).toBe(false);
     });
 
     it('shows noResultsText in the panel when the filter matches nothing', async () => {
@@ -528,8 +554,8 @@ describe('Autocomplete', () => {
       await fixture.whenStable();
       await type('zzz');
 
-      expect(optionLabels()).toEqual(['No country matches.']);
-      expect(host.ref().matAutocompleteTrigger().panelOpen).toBe(true);
+      expect(await optionLabels()).toEqual(['No country matches.']);
+      expect(await (await autocomplete()).isOpen()).toBe(true);
     });
 
     it('is not choosable, and stays out of the value', async () => {
@@ -537,10 +563,10 @@ describe('Autocomplete', () => {
       await fixture.whenStable();
       await type('zzz');
 
-      const empty = panelOptions()[0];
-      expect(empty.getAttribute('aria-disabled')).toBe('true');
+      const [empty] = await (await autocomplete()).getOptions();
+      expect(await empty.isDisabled()).toBe(true);
 
-      empty.click();
+      await empty.click();
       await fixture.whenStable();
 
       expect(host.value()).toBe('zzz');
@@ -552,10 +578,10 @@ describe('Autocomplete', () => {
       await fixture.whenStable();
 
       await type('zzz');
-      expect(optionLabels()).toEqual(['No country matches.']);
+      expect(await optionLabels()).toEqual(['No country matches.']);
 
       await type('fra');
-      expect(optionLabels()).toEqual(['France']);
+      expect(await optionLabels()).toEqual(['France']);
     });
 
     it('carries a hook a panelClass rule can reach', async () => {
@@ -817,8 +843,7 @@ describe('Autocomplete', () => {
       it('marks the control touched on blur', async () => {
         expect(modelHost.model().touched).toBe(false);
 
-        inputElement(f).dispatchEvent(new Event('blur'));
-        await f.whenStable();
+        await (await autocomplete(f)).blur();
 
         expect(modelHost.model().touched).toBe(true);
       });
@@ -952,8 +977,7 @@ describe('Autocomplete', () => {
       await fixture.whenStable();
       await open();
 
-      expect(host.ref().matAutocompleteTrigger().panelOpen).toBe(false);
-      expect(panelOptions()).toEqual([]);
+      expect(await (await autocomplete()).isOpen()).toBe(false);
     });
 
     it('reads the bare attribute as true', async () => {
@@ -1017,7 +1041,7 @@ describe('Autocomplete', () => {
 
       expect(inputElement(f).readOnly).toBe(true);
       expect(inputElement(f).disabled).toBe(false);
-      expect(panelOptions()).toEqual([]);
+      expect(await (await autocomplete(f)).isOpen()).toBe(false);
     });
   });
 
@@ -1327,11 +1351,7 @@ describe('Autocomplete', () => {
 
       // The point of rendering *inside* `<mat-option>`: selection is untouched.
       it('leaves Material’s own option working', async () => {
-        (
-          Array.from(document.querySelectorAll<HTMLElement>('mat-option')).find((o) =>
-            o.textContent?.includes('France'),
-          ) as HTMLElement
-        ).click();
+        await choose(/France/, f);
         await f.whenStable();
 
         expect(f.componentInstance.value()).toBe('fr');
@@ -1384,7 +1404,7 @@ describe('Autocomplete', () => {
         await type('fra', f);
 
         expect(document.querySelector('.empty')).toBeNull();
-        expect(optionLabels()).toEqual(['France']);
+        expect(await optionLabels(f)).toEqual(['France']);
       });
     });
   });
@@ -1451,7 +1471,7 @@ describe('Autocomplete', () => {
     // `onTouched` is a no-op until a form registers one: a field with no forms
     // directive must not break on blur or on choosing.
     it('survives a blur, a type and a choice', async () => {
-      inputElement().dispatchEvent(new Event('blur'));
+      await (await autocomplete()).blur();
       await type('fra');
       await choose('France');
 

@@ -1,0 +1,73 @@
+// The styling hooks for the sheets `BottomSheet` opens.
+//
+// A bottom sheet renders into the CDK overlay at the end of `<body>`, not into
+// the template of whoever opened it — so there is no component stylesheet that
+// could reach it, and a service has no `styleUrl` to put one on. Like
+// `_button.scss`, `_snackbar.scss` and `_dialog.scss`, this is theming that has
+// to land on an element this library does not own the template of, so it lives
+// with the theme and is emitted by `_theme.scss`.
+//
+// `BottomSheet` puts `.ui-bottom-sheet-panel` on Material's own overlay pane
+// (`MatBottomSheetConfig.panelClass`, merged with the consumer's), and everything
+// below hangs off it. The colour and shape below select no Material internal: the
+// class carries tokens, and the tokens are Material's own, re-pointed through
+// `mat.bottom-sheet-overrides()` — the same reason `color` is resolved this way
+// for `uiButton`, since Material's `color` input is an M2-only API that does
+// nothing under an M3 theme.
+//
+// Every default below is Material's own resolved value, so a sheet that uses no
+// hook ships no colour, radius or padding decision of this library's at all — the
+// hooks exist because each of these is a reasonable thing to want to change, and
+// none of them must need `::ng-deep` to get (rule 2).
+
+@use '@angular/material' as mat;
+
+.ui-bottom-sheet-panel {
+  @include mat.bottom-sheet-overrides(
+    (
+      // Colour. The defaults are M3's own bottom sheet roles, and the
+      // `--mat-sys-*` roles `_theme.scss` emits — so there is not a literal
+      // colour here, and swapping a palette there re-skins every sheet in light
+      // and dark alike. Point an override at another role rather than at a hex,
+      // for the same reason.
+      //
+      // `surface-container-low` rather than `surface`: a sheet slides over the
+      // page and stays there, so M3 gives it a container tone that separates it
+      // from the content behind — which a dialog gets from its scrim instead.
+      container-background-color: var(--ui-bottom-sheet-container-color, var(--mat-sys-surface-container-low)),
+      container-text-color: var(--ui-bottom-sheet-text-color, var(--mat-sys-on-surface)),
+      // Shape. M3's `corner-extra-large` (28px), the same radius the dialog
+      // takes, and applied by Material to the top two corners only — a sheet is
+      // anchored to the bottom edge, so its bottom corners are off-screen.
+      //
+      // Material only draws it once the viewport is wide enough for the sheet to
+      // inset from the edges (its `-medium` / `-large` / `-xlarge` breakpoint
+      // classes); a full-bleed sheet on a phone stays square. That is Material's
+      // decision and this hook does not second-guess it — it moves the radius
+      // wherever Material draws one.
+      container-shape: var(--ui-bottom-sheet-radius, var(--mat-sys-corner-extra-large)),
+      // Typography. M3's `body-large`, which is Material's own — restated so the
+      // hook exists, since a sheet holding a list wants the list's type rather
+      // than the container's.
+      container-text-font: var(--ui-bottom-sheet-text-font, var(--mat-sys-body-large-font)),
+      container-text-line-height: var(--ui-bottom-sheet-text-line-height, var(--mat-sys-body-large-line-height)),
+      container-text-size: var(--ui-bottom-sheet-text-size, var(--mat-sys-body-large-size)),
+      container-text-tracking: var(--ui-bottom-sheet-text-tracking, var(--mat-sys-body-large-tracking)),
+      container-text-weight: var(--ui-bottom-sheet-text-weight, var(--mat-sys-body-large-weight))
+    )
+  );
+
+  // Padding is the one hook that cannot be a token re-point: Material writes
+  // `padding: 8px 16px` on the container as a plain declaration, so there is
+  // nothing to re-point and this has to select the container itself.
+  //
+  // It earns the exception. The everyday bottom sheet is a list of actions, and a
+  // `<ui-list>` brings its own padding and wants to run edge to edge — so
+  // "remove the container's padding" is the first thing a consumer asks for, and
+  // without a hook the only way to get it is to reach into `.mat-bottom-sheet-container`
+  // themselves, which is exactly the hack rule 2 exists to prevent. The default
+  // is Material's own value, so a sheet that does not set it is unchanged.
+  .mat-bottom-sheet-container {
+    padding: var(--ui-bottom-sheet-padding, 8px 16px);
+  }
+}

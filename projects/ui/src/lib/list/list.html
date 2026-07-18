@@ -1,0 +1,163 @@
+<!--
+  Material's list is the whole widget: the row and its height, the ripple and state
+  layers, the roving tabindex and the arrow keys, the typeahead, the checkbox and radio
+  indicators, the `listbox`/`option` roles a selection list takes and the
+  `list`/`listitem` ones a plain list takes, and the lines' own type scale are all
+  `<mat-list>`'s, `<mat-selection-list>`'s, `<mat-list-item>`'s and
+  `<mat-list-option>`'s own, drawn from the M3 system tokens the shared theme emits.
+  Nothing here re-implements any of it.
+
+  `selectable` picks between Material's *two* list containers rather than toggling one:
+  a static list is a `<mat-list>` of `<mat-list-item>`, and a selectable one is a
+  `<mat-selection-list>` of `<mat-list-option>` — which is a different widget, with a
+  different role, a keyboard of its own, and a value. See `list.ts`.
+
+  That is also why the row's content is written out twice rather than shared through an
+  `ng-template`: Material finds a row's parts by projecting `[matListItemTitle]`,
+  `[matListItemLine]` and `[matListItemAvatar],[matListItemIcon]` out of the content it
+  is given, and projection is matched against the nodes declared *here*. Content handed
+  to an outlet arrives as one `<ng-container>` and would land in the unscoped slot
+  wholesale — the title would stop being the title. `ui-chips` duplicates its chip for
+  the same reason.
+-->
+@if (selectable()) {
+  <mat-selection-list
+    [multiple]="multiple()"
+    [disabled]="isDisabled()"
+    [compareWith]="compareWith()"
+    [hideSingleSelectionIndicator]="hideSingleSelectionIndicator()"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-labelledby]="ariaLabelledby()"
+    (selectionChange)="handleSelectionChange($event)"
+    (focusout)="handleFocusout()"
+  >
+    @for (item of items(); track item.value; let index = $index) {
+      <!--
+        No `[selected]` binding: the selection is pushed into the list wholesale
+        through Material's own `writeValue`, and taken back through its `onChange` —
+        see `list.ts`. A per-row binding would apply the value one row at a time, and
+        every intermediate state would be reported back as a selection the user never
+        made.
+      -->
+      <mat-list-option
+        [value]="item.value"
+        [disabled]="!!item.disabled"
+        [togglePosition]="togglePosition()"
+      >
+        <!--
+          One leading slot, three ways to fill it — an avatar template, else an icon
+          template, else the item's icon name. `matListItemAvatar` and `matListItemIcon`
+          are the same projection slot in Material; the order here is what makes that a
+          documented precedence rather than a race.
+        -->
+        @if (avatarDef(); as def) {
+          <span matListItemAvatar>
+            <ng-container
+              [ngTemplateOutlet]="def.template"
+              [ngTemplateOutletContext]="contextFor(item, index)"
+            />
+          </span>
+        } @else if (iconDef(); as def) {
+          <span matListItemIcon>
+            <ng-container
+              [ngTemplateOutlet]="def.template"
+              [ngTemplateOutletContext]="contextFor(item, index)"
+            />
+          </span>
+        } @else if (item.icon; as icon) {
+          <mat-icon matListItemIcon>{{ icon }}</mat-icon>
+        }
+
+        <span matListItemTitle>
+          @if (titleDef(); as def) {
+            <ng-container
+              [ngTemplateOutlet]="def.template"
+              [ngTemplateOutletContext]="contextFor(item, index)"
+            />
+          } @else {
+            {{ item.label }}
+          }
+        </span>
+
+        <!--
+          The second line exists only for a row that has one: Material infers the row's
+          height from the lines it finds, so rendering an empty one would make every row
+          two-line to no purpose. See `ListItemLineDef` in `list.ts`.
+        -->
+        @if (item.sublabel !== undefined) {
+          <span matListItemLine>
+            @if (lineDef(); as def) {
+              <ng-container
+                [ngTemplateOutlet]="def.template"
+                [ngTemplateOutletContext]="contextFor(item, index)"
+              />
+            } @else {
+              {{ item.sublabel }}
+            }
+          </span>
+        }
+      </mat-list-option>
+    }
+  </mat-selection-list>
+} @else {
+  <!--
+    `list` / `listitem` are spelled out because Material's plain list ships no role at
+    all — `<mat-selection-list>` declares `listbox` and `<mat-list-option>` declares
+    `option`, but `<mat-list>` and `<mat-list-item>` are left to their container to
+    describe. Unnamed, these rows would be anonymous divs, and the `aria-label` below
+    would be a name on an element with no role, which axe reports as
+    `aria-prohibited-attr` and is right to. `ui-chips` names its static set the same way.
+  -->
+  <mat-list
+    role="list"
+    [disabled]="isDisabled()"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-labelledby]="ariaLabelledby()"
+  >
+    @for (item of items(); track item.value; let index = $index) {
+      <mat-list-item role="listitem" [disabled]="!!item.disabled">
+        @if (avatarDef(); as def) {
+          <span matListItemAvatar>
+            <ng-container
+              [ngTemplateOutlet]="def.template"
+              [ngTemplateOutletContext]="contextFor(item, index)"
+            />
+          </span>
+        } @else if (iconDef(); as def) {
+          <span matListItemIcon>
+            <ng-container
+              [ngTemplateOutlet]="def.template"
+              [ngTemplateOutletContext]="contextFor(item, index)"
+            />
+          </span>
+        } @else if (item.icon; as icon) {
+          <mat-icon matListItemIcon>{{ icon }}</mat-icon>
+        }
+
+        <span matListItemTitle>
+          @if (titleDef(); as def) {
+            <ng-container
+              [ngTemplateOutlet]="def.template"
+              [ngTemplateOutletContext]="contextFor(item, index)"
+            />
+          } @else {
+            {{ item.label }}
+          }
+        </span>
+
+        @if (item.sublabel !== undefined) {
+          <span matListItemLine>
+            @if (lineDef(); as def) {
+              <ng-container
+                [ngTemplateOutlet]="def.template"
+                [ngTemplateOutletContext]="contextFor(item, index)"
+              />
+            } @else {
+              {{ item.sublabel }}
+            }
+          </span>
+        }
+      </mat-list-item>
+    }
+  </mat-list>
+}

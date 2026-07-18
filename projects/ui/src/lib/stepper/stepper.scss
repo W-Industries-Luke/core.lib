@@ -1,0 +1,66 @@
+// Box metrics and the styling hooks for `ui-stepper`.
+//
+// There is not a literal colour in this file on purpose: `<mat-stepper>` already
+// resolves its state icons, its labels and its connecting lines from the
+// `--mat-sys-*` tokens that `../../styles/_theme.scss` emits, so a palette change
+// there re-colours every stepper with no help from here. The overrides below only
+// re-point those tokens at *hooks* whose defaults are the very tokens Material
+// would have used, so the default stepper ships no colour decision of its own.
+
+@use '@angular/material' as mat;
+
+// The public hooks (rule 6), each defaulting to the token Material itself resolves
+// to under the shared M3 theme — so an untouched `ui-stepper` is a stock Material
+// stepper, and a consumer who sets one is re-pointing a role rather than picking a
+// colour. Named here because each is spent on several of Material's tokens: a
+// stepper whose "done" icon is a different colour from its "selected" icon would
+// be a bug rather than a design, so the states cannot be separately settable.
+$icon: var(--ui-stepper-color, var(--mat-sys-primary));
+$on-icon: var(--ui-stepper-on-color, var(--mat-sys-on-primary));
+$label: var(--ui-stepper-label-text-color, var(--mat-sys-on-surface-variant));
+$selected-label: var(--ui-stepper-selected-label-text-color, var(--mat-sys-on-surface-variant));
+$error: var(--ui-stepper-error-color, var(--mat-sys-error));
+
+:host {
+  // Material's stepper is `display: block` and fills its container's width, which
+  // is what a stepper wants — the header spans the content it switches. The host
+  // gets out of the way rather than imposing a size of its own.
+  display: block;
+
+  // Every hook goes through `mat.stepper-overrides()` rather than a rule on
+  // Material's internals: the tokens are Material's own API, so the geometry and
+  // the animations stay Material's. Custom properties inherit through the
+  // encapsulation boundary, so a hook set on `ui-stepper` reaches the elements
+  // inside Material's template with no `::ng-deep`.
+  @include mat.stepper-overrides(
+    (
+      container-color: var(--ui-stepper-container-color, var(--mat-sys-surface)),
+      // The rule joining one header to the next.
+      line-color: var(--ui-stepper-line-color, var(--mat-sys-outline)),
+      // The state icons. M3 puts selected, done and editable on the same `primary`
+      // pair — the glyph inside carries the difference between them — so all three
+      // default there and move together.
+      header-selected-state-icon-background-color: $icon,
+      header-selected-state-icon-foreground-color: $on-icon,
+      header-done-state-icon-background-color: $icon,
+      header-done-state-icon-foreground-color: $on-icon,
+      header-edit-state-icon-background-color: $icon,
+      header-edit-state-icon-foreground-color: $on-icon,
+      // Header text. M3 puts the selected and unselected labels on the same
+      // `on-surface-variant` role — the state icon carries the emphasis — so both
+      // hooks default there.
+      header-label-text-color: $label,
+      header-optional-label-text-color: $label,
+      header-selected-state-label-text-color: $selected-label,
+      // The error state, which this component turns on by default (see
+      // `stepper.ts`), so it is a colour the fleet will actually see.
+      header-error-state-icon-foreground-color: $error,
+      header-error-state-label-text-color: $error
+    )
+  );
+
+  // Note there is no height hook: `--mat-stepper-header-height` is Material's
+  // density token, and density is a fleet-wide decision `_theme.scss` owns. A
+  // stepper header that is 72px in one app and 42px in the next is exactly the
+  // drift this library exists to prevent.
+}

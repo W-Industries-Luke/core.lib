@@ -397,8 +397,15 @@ async function openOnLoad({ canvasElement }: { canvasElement: HTMLElement }): Pr
   canvasElement.querySelector('button')!.click();
 
   // The overlay lands at the end of <body>, outside the story's own canvas — so
-  // this waits on the document rather than on the canvas.
-  await waitFor(() => expect(document.querySelector('.mat-mdc-dialog-container')).toBeTruthy());
+  // this waits on the document rather than on the canvas. Asserting the container
+  // has *content* rather than merely existing is what makes this more than a
+  // "the trigger rendered" check: an overlay that opened empty would still be
+  // truthy.
+  await waitFor(() => {
+    const container = document.querySelector('.mat-mdc-dialog-container');
+    expect(container).toBeTruthy();
+    expect(container!.textContent?.trim()).toBeTruthy();
+  });
 }
 
 const meta: Meta<DialogDemo> = {
@@ -754,4 +761,51 @@ export const StylingHooks: Story = {
   name: 'Styling hooks: --ui-dialog-*',
   parameters: { controls: { disable: true } },
   render: () => ({ template: `<ui-dialog-styled-demo />` }),
+};
+
+// --- Interaction -----------------------------------------------------------
+
+/**
+ * The whole lifecycle, asserted in a real browser: press the trigger, the
+ * dialog opens into the CDK overlay with its question and consequence in it, and
+ * a click on the backdrop dismisses it — the dismissal Material owns rather than
+ * one of the buttons.
+ *
+ * This is the one story whose `play` overrides the page's `openOnLoad` and runs
+ * the overlay all the way back to closed, so that "opens → content present →
+ * dismisses" is a check that fails loudly rather than a claim in the prose. The
+ * jsdom spec next door asserts the same shape, but jsdom has no overlay layout
+ * and no backdrop to click — this is where the real thing is exercised.
+ */
+export const OpenContentDismiss: Story = {
+  name: 'Interaction: open → content → dismiss',
+  parameters: { controls: { disable: true } },
+  play: async ({ canvasElement }) => {
+    const doc = canvasElement.ownerDocument;
+    const newest = <T extends Element>(selector: string): T | undefined =>
+      [...doc.querySelectorAll<T>(selector)].at(-1);
+
+    (canvasElement.querySelector('button') as HTMLButtonElement).click();
+
+    // The container's `role` is a binding rather than a static attribute, so it
+    // lands a tick after the element does — hence the whole assertion retries.
+    // A confirm interrupts and demands a response, so it is an `alertdialog`, and
+    // its title and message are what the story is really documenting.
+    const container = await waitFor(() => {
+      const el = newest<HTMLElement>('.mat-mdc-dialog-container');
+      expect(el).toBeTruthy();
+      expect(el!.getAttribute('role')).toBe('alertdialog');
+      expect(el!.textContent).toContain('Discard draft?');
+      expect(el!.textContent).toContain('Everything you have written');
+      return el!;
+    });
+
+    // The backdrop is Material's own dismissal — a confirm dismissed this way
+    // reports `undefined` rather than `true`, which is the point of the result.
+    newest<HTMLElement>('.cdk-overlay-backdrop')!.click();
+
+    // Assert *this* dialog left the DOM rather than that none is open, so the
+    // check is unaffected by any dialog the page's `openOnLoad` left up.
+    await waitFor(() => expect(container.isConnected).toBe(false));
+  },
 };
