@@ -1,0 +1,60 @@
+<!--
+  Material's stepper is the whole widget: the header, the state icons, the
+  connecting lines, the ripples, the animated body, the roving focus and the
+  tablist/tab/region roles are all `<mat-stepper>`'s, drawn from the M3 system
+  tokens the shared theme emits. Nothing here re-implements any of it.
+
+  Each `<ui-step>` a consumer projected becomes one `<mat-step>`. `<ui-step>`
+  renders nothing itself — it captures its content in a template, which is
+  rendered below inside Material's own step body, so the consumer's content ends
+  up in the element Material labels from the header rather than in a box of ours
+  beside it.
+
+  `selectedIndex` is deliberately not bound here: Material's setter throws on an
+  out-of-range index and silently refuses a move a linear stepper disallows, so it
+  is written through the effect in `stepper.ts`, which reconciles both against the
+  `[(selectedIndex)]` model. Selecting from the template as well would be a second
+  writer racing that one.
+-->
+<mat-stepper
+  [orientation]="orientation()"
+  [linear]="linear()"
+  [labelPosition]="labelPosition()"
+  [disableRipple]="disableRipple()"
+  [aria-label]="ariaLabel() ?? null"
+  (selectedIndexChange)="selectedIndex.set($event)"
+  (selectionChange)="onSelectionChange($event)"
+>
+  @for (step of steps(); track step) {
+    <!--
+      `completed` is deliberately not bound here. Material declares it with a
+      `booleanAttribute` transform, so a bound `undefined` arrives as `false` —
+      which is not "you work it out" but "this step is never done", and would leave
+      a linear stepper unable to advance. It is written straight to the `MatStep`
+      instead, from an effect in `stepper.ts`, where the transform does not apply.
+    -->
+    <mat-step
+      [label]="step.label()"
+      [stepControl]="step.stepControl()!"
+      [editable]="step.editable()"
+      [optional]="step.optional()"
+      [errorMessage]="step.errorMessage() ?? ''"
+      [aria-label]="step.ariaLabel() ?? ''"
+      [aria-labelledby]="step.ariaLabelledby() ?? ''"
+    >
+      <!--
+        A projected `uiStepLabel` replaces the `label` string in the header. It is
+        handed to Material's own `matStepLabel`, so it renders inside the real
+        header element and leaves the ripple, the state icon and the keyboard
+        untouched.
+      -->
+      @if (step.labelDef(); as labelDef) {
+        <ng-template matStepLabel>
+          <ng-container [ngTemplateOutlet]="labelDef.template" />
+        </ng-template>
+      }
+
+      <ng-container [ngTemplateOutlet]="step.content()" />
+    </mat-step>
+  }
+</mat-stepper>
