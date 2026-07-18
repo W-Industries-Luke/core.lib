@@ -3,6 +3,7 @@ import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { MatIconButton } from '@angular/material/button';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, userEvent, waitFor } from 'storybook/test';
 import { NEVER, of, throwError, timer } from 'rxjs';
 import { delay, switchMap } from 'rxjs/operators';
 
@@ -409,6 +410,18 @@ export const NgModel: Story = {
         repo: <strong>{{ repo ?? 'null' }}</strong>
       </p>`),
   }),
+  // Proves the round-trip the description claims: while the user types, the model
+  // *is* the text — reaching `[(ngModel)]` with no adapter. (The result-value half
+  // of the round-trip is proven in the spec, where the fake API is deterministic.)
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const input = canvasElement.querySelector<HTMLInputElement>('input')!;
+    const repo = () => [...canvasElement.querySelectorAll('p')].find((p) => p.textContent!.includes('repo:'))!;
+    expect(repo().textContent).toContain('null');
+
+    await userEvent.type(input, 'ang');
+
+    await waitFor(() => expect(repo().textContent).toContain('ang'));
+  },
 };
 
 /**

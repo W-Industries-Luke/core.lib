@@ -16,6 +16,7 @@ import {
   type Meta,
   type StoryObj,
 } from '@storybook/angular-vite';
+import { expect, waitFor } from 'storybook/test';
 
 import { Button } from '../button/button';
 import {
@@ -415,4 +416,44 @@ export const StylingHooks: Story = {
 export const CustomContent: Story = {
   parameters: { controls: { disable: true } },
   render: () => ({ template: `<ui-snackbar-template-demo />` }),
+};
+
+// --- Interaction -----------------------------------------------------------
+
+/**
+ * The whole lifecycle, asserted in a real browser: press the `success` button,
+ * the toast opens into the CDK overlay with its message in a `polite` live
+ * region, and the `Dismiss` button closes it.
+ *
+ * A snackbar is the one overlay this page can only *describe* until something
+ * presses a button — it is opened from code, into an overlay outside the story's
+ * canvas. This runs that button, reads the live message back out of the overlay,
+ * and asserts it is gone again, so "opens → content present → dismisses" fails
+ * loudly rather than sitting in the prose.
+ */
+export const OpenContentDismiss: Story = {
+  name: 'Interaction: open → content → dismiss',
+  args: { variants: ['success'] },
+  parameters: { controls: { disable: true } },
+  play: async ({ canvasElement }) => {
+    const doc = canvasElement.ownerDocument;
+    const buttons = Array.from(canvasElement.querySelectorAll('button'));
+
+    // The success variant's own button, not the trailing `Dismiss` control.
+    buttons.find((b) => b.textContent?.trim() === 'success')!.click();
+
+    // The message is what a success toast reports, and it is announced politely
+    // — nothing failed, so nothing interrupts a screen reader mid-sentence.
+    const container = await waitFor(() => {
+      const el = doc.querySelector<HTMLElement>('.mat-mdc-snack-bar-container');
+      expect(el).toBeTruthy();
+      expect(el!.textContent).toContain('Draft saved');
+      expect(el!.querySelector('[aria-live="polite"]')).toBeTruthy();
+      return el!;
+    });
+
+    buttons.find((b) => b.textContent?.trim() === 'Dismiss')!.click();
+
+    await waitFor(() => expect(container.isConnected).toBe(false));
+  },
 };

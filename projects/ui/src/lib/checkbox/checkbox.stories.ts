@@ -1,9 +1,14 @@
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, userEvent, waitFor } from 'storybook/test';
 
 import { Button } from '../button/button';
 import { Checkbox, type UiCheckboxLabelPosition } from './checkbox';
+
+/** The readout `<p>` a Forms story renders under its control, found by its text. */
+const readout = (canvas: HTMLElement, contains: string): HTMLElement =>
+  [...canvas.querySelectorAll('p')].find((p) => p.textContent!.includes(contains))!;
 
 const LABEL_POSITIONS: UiCheckboxLabelPosition[] = ['after', 'before'];
 
@@ -268,6 +273,17 @@ export const NgModel: Story = {
         subscribed: <strong>{{ subscribed }}</strong>
       </p>`),
   }),
+  // Proves the round-trip the description claims: a user click reaches `[(ngModel)]`.
+  // A smoke-render shows the box but never proves the binding is wired.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const box = canvasElement.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(readout(canvasElement, 'subscribed:').textContent).toContain('false');
+
+    await userEvent.click(canvasElement.querySelector('label')!);
+
+    await waitFor(() => expect(box.checked).toBe(true));
+    expect(readout(canvasElement, 'subscribed:').textContent).toContain('true');
+  },
 };
 
 /**
@@ -322,6 +338,18 @@ export const RequiredValidation: Story = {
         valid: <strong>{{ terms.valid }}</strong> · touched: <strong>{{ terms.touched }}</strong>
       </p>`),
   }),
+  // Proves the checkbox-specific validation the description claims: `required`
+  // means *ticked*, so the control is invalid until the box is on — which
+  // `Validators.required` alone would not enforce, since `false` is not empty.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    expect(readout(canvasElement, 'valid:').textContent).toContain('valid: false');
+
+    await userEvent.click(canvasElement.querySelector('label')!);
+
+    await waitFor(() =>
+      expect(readout(canvasElement, 'valid:').textContent).toContain('valid: true'),
+    );
+  },
 };
 
 /**
@@ -342,6 +370,17 @@ export const FormDisabled: Story = {
         Toggle
       </button>`),
   }),
+  // Proves `setDisabledState` round-trips both ways: a control that starts
+  // disabled by the form renders disabled, and enabling the form re-enables it —
+  // with nothing in the template driving the box's `disabled`.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const box = canvasElement.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(box.disabled).toBe(true);
+
+    await userEvent.click(canvasElement.querySelector('button')!);
+
+    await waitFor(() => expect(box.disabled).toBe(false));
+  },
 };
 
 /**

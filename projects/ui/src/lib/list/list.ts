@@ -104,9 +104,10 @@ export interface UiListSelectionChange<T = unknown> {
    * Only the rows whose selected state changed in *this* interaction — Material's own
    * `MatSelectionListChange.options`, mapped back to items.
    *
-   * This is what "the row the user just touched" is, and what an undo toast names. Note
-   * that a single-select change reports the row that was deselected alongside the one
-   * that was chosen.
+   * This is what "the row the user just touched" is, and what an undo toast names. On a
+   * single-select list that is the newly-chosen row on its own: Material reports the
+   * option that was clicked, not the one its selection replaced. Read {@link selected}
+   * for the whole selection after the change.
    */
   changed: readonly UiListItem<T>[];
 }

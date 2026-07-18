@@ -611,7 +611,12 @@ export class Combobox<T = unknown>
 
   /** The options that survive the current search, in `options` order. @docs-private */
   private readonly filteredOptions = computed<readonly UiComboboxOption<T>[]>(() => {
-    const text = this.search().trim();
+    // The text is passed to the filter *exactly as typed* — the contract
+    // {@link UiComboboxFilter} documents, and the same text the option template's
+    // `search` context is handed (`combobox.html`), so a custom filter and a
+    // highlight can never disagree about what was searched. The default filter
+    // trims for itself; a whitespace-sensitive custom one is free not to.
+    const text = this.search();
     const options = this.options();
     if (!text) {
       return options;

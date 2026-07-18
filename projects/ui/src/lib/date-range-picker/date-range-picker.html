@@ -1,0 +1,82 @@
+<!--
+  Everything visible here is Material's: the chip listbox and its keyboard
+  handling, the form field, the range input's two parts and the separator drawn
+  between them, the toggle, and the calendar overlay. This template only assembles
+  them, hands them the component's signals, and drives them from one private
+  `FormGroup` — so every colour, radius, outline and font resolves from the
+  `--mat-sys-*` tokens the shared theme emits, and there is not a literal colour in
+  `date-range-picker.scss`.
+
+  The presets sit *beside* the field, as a `mat-chip-listbox`, rather than inside
+  the calendar panel: `mat-date-range-picker` only projects
+  `mat-date-range-picker-actions`, and registering that portal switches the panel
+  to *pending* selection — the calendar stops writing through to the input until an
+  explicit Apply. Chips beside the field keep Material's native commit behaviour.
+-->
+@if (presets().length) {
+  <!--
+    Single-select, and driven by binding rather than by the listbox's own model:
+    `[selected]` is derived from the current value, so typing a range that happens
+    to equal a preset selects that chip too. The listbox emits `(change)` on both
+    mouse and keyboard selection, which is the one seam `onPresetSelected` needs.
+  -->
+  <mat-chip-listbox
+    class="ui-date-range-picker__presets"
+    [multiple]="false"
+    [disabled]="isDisabled()"
+    [attr.aria-label]="presetsAriaLabel()"
+    (change)="onPresetSelected($event)"
+  >
+    @for (preset of presets(); track preset.label) {
+      <mat-chip-option
+        [value]="preset"
+        [selected]="isPresetSelected(preset)"
+        [disabled]="isDisabled()"
+      >
+        {{ preset.label }}
+      </mat-chip-option>
+    }
+  </mat-chip-listbox>
+}
+
+<mat-form-field class="ui-date-range-picker__field" [appearance]="appearance()">
+  <mat-label>{{ label() }}</mat-label>
+
+  <!--
+    `[formGroup]` on the range input is Material's own documented reactive shape:
+    `matStartDate`/`matEndDate` are `ControlValueAccessor`s, so `formControlName`
+    binds each to one control of the group, and the group's `valueChanges` is the
+    single source the component reads. `[separator]` is Material's own default.
+
+    The `mat-form-field` wires `aria-labelledby` onto both inputs through
+    `MatDateRangeInput`, so no competing `aria-label` is added here.
+  -->
+  <mat-date-range-input
+    [formGroup]="range"
+    [rangePicker]="picker"
+    [min]="min()"
+    [max]="max()"
+    [dateFilter]="dateFilter() ?? undefined"
+    [separator]="separator()"
+    [required]="required()"
+  >
+    <input matStartDate formControlName="start" [placeholder]="startPlaceholder()" />
+    <input matEndDate formControlName="end" [placeholder]="endPlaceholder()" />
+  </mat-date-range-input>
+
+  <mat-datepicker-toggle matIconSuffix [for]="picker" [disabled]="isDisabled()" />
+
+  <mat-date-range-picker #picker [touchUi]="touchUi()" (closed)="handleClosed()" />
+
+  <!--
+    A consumer's `<mat-hint>` / `<mat-error>` project straight through into the
+    field, so a hint or an error never needs `::ng-deep` (rule 2). This is a *bare*
+    pass-through `<ng-content>` on purpose: a `select="mat-error"` here would make
+    this the insertion point and strip the node's tag identity, so Material's own
+    `@ContentChildren(MatError)` and its error-gated subscript slot would never
+    claim it — it would leak into the field's infix instead of the subscript. A
+    transparent pass-through leaves Material to match `mat-error` / `mat-hint`
+    itself and to show the error only in an error state, as it does natively.
+  -->
+  <ng-content />
+</mat-form-field>

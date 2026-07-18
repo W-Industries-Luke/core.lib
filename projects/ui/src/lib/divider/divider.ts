@@ -13,7 +13,7 @@ import { MatDivider } from '@angular/material/divider';
  * A rule with nothing around it reads as a border on the thing above it rather
  * than as a break between two things, so the space is part of the divider — not
  * a margin every caller remembers to add. The steps resolve to the theme's
- * spacing scale (`--ui-sys-spacing-*` in `src/styles/_theme.scss`), so the whole
+ * spacing scale (`--ui-sys-spacing-*` in `src/styles/_tokens.scss`), so the whole
  * fleet breaks its content at the same distances:
  *
  *   - `none` — no space at all. For a divider whose neighbours already own the

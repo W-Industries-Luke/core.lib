@@ -1,0 +1,32 @@
+// Layout only — the chip row's spacing and the field's width. There is not a
+// literal colour in this file on purpose: `<mat-chip-listbox>`,
+// `<mat-form-field>`, the range input, the toggle and the calendar all resolve
+// every colour, radius, outline and font from the `--mat-sys-*` tokens that
+// `../../styles/_theme.scss` emits, so a palette change there re-skins every
+// date range picker, in light and dark alike, with no help from here.
+
+:host {
+  // The control stacks its preset row above a field that has a label above it and
+  // a subscript below it — a block, which is also what the width hook needs to
+  // have anything to fill.
+  display: block;
+}
+
+.ui-date-range-picker__presets {
+  // A little air between the chips and the field they drive. Purely layout;
+  // `mat-chip-listbox` handles its own inter-chip spacing.
+  margin-block-end: 0.5rem;
+}
+
+.ui-date-range-picker__field {
+  // `.mat-mdc-form-field` is an `inline-flex` sized from its inputs' intrinsic
+  // width, so a consumer who writes `ui-date-range-picker { width: 24rem; }` — the
+  // obvious gesture — would widen the host and watch the field sit at its default
+  // width inside it. Rule 2 says that means the API is wrong, so the field fills
+  // the host by default and the host is what a consumer sizes.
+  //
+  // `--ui-date-range-picker-width` is the public hook (rule 6) for the case the
+  // default is wrong: a field that should shrink to its content (`max-content`),
+  // or a pair sharing a row.
+  width: var(--ui-date-range-picker-width, 100%);
+}

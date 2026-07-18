@@ -367,8 +367,14 @@ async function openOnLoad({ canvasElement }: { canvasElement: HTMLElement }): Pr
   canvasElement.querySelector('button')!.click();
 
   // The overlay lands at the end of <body>, outside the story's own canvas — so
-  // this waits on the document rather than on the canvas.
-  await waitFor(() => expect(document.querySelector('.mat-bottom-sheet-container')).toBeTruthy());
+  // this waits on the document rather than on the canvas. Asserting the container
+  // has *content* rather than merely existing is what makes this more than a
+  // "the trigger rendered" check: a sheet that opened empty would still be truthy.
+  await waitFor(() => {
+    const container = document.querySelector('.mat-bottom-sheet-container');
+    expect(container).toBeTruthy();
+    expect(container!.textContent?.trim()).toBeTruthy();
+  });
 }
 
 const meta: Meta<BottomSheetDemo> = {
@@ -602,4 +608,47 @@ export const FullBleed: Story = {
         title="Painted from --ui-bottom-sheet-padding"
       />`,
   }),
+};
+
+// --- Interaction -----------------------------------------------------------
+
+/**
+ * The whole lifecycle, asserted in a real browser: press the trigger, the sheet
+ * opens into the CDK overlay with the post's title in it, and a click on the
+ * backdrop dismisses it — the dismissal Material owns rather than one of the
+ * share actions.
+ *
+ * This is the one story whose `play` overrides the page's `openOnLoad` and runs
+ * the overlay all the way back to closed, so that "opens → content present →
+ * dismisses" is a check that fails loudly rather than a claim in the prose. The
+ * jsdom spec asserts `autoFocus` on the config and leaves the real question —
+ * does it open, render and dismiss — to this.
+ */
+export const OpenContentDismiss: Story = {
+  name: 'Interaction: open → content → dismiss',
+  parameters: { controls: { disable: true } },
+  play: async ({ canvasElement }) => {
+    const doc = canvasElement.ownerDocument;
+    const newest = <T extends Element>(selector: string): T | undefined =>
+      [...doc.querySelectorAll<T>(selector)].at(-1);
+
+    (canvasElement.querySelector('button') as HTMLButtonElement).click();
+
+    // The share sheet's own heading names the post, which is the content the
+    // story is documenting.
+    const container = await waitFor(() => {
+      const el = newest<HTMLElement>('.mat-bottom-sheet-container');
+      expect(el).toBeTruthy();
+      expect(el!.textContent).toContain('The state of the fleet');
+      return el!;
+    });
+
+    // The backdrop is Material's own dismissal — a sheet dismissed this way
+    // reports `undefined` rather than a chosen target.
+    newest<HTMLElement>('.cdk-overlay-backdrop')!.click();
+
+    // Assert *this* sheet left the DOM rather than that none is open, so the
+    // check is unaffected by any sheet the page's `openOnLoad` left up.
+    await waitFor(() => expect(container.isConnected).toBe(false));
+  },
 };
