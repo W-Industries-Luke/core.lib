@@ -1,7 +1,7 @@
-# Publishes dist/ui to GitHub Packages as @w-industries/ui when a release is
-# published. NOT ACTIVE until a human moves this file to .github/workflows/ —
-# the agent that wrote it is not permitted to edit .github/workflows.
-# See "Releasing" in the root README.md for the prerequisites.
+# Publishes dist/ui to GitHub Packages as @w-industries-luke/ui when a GitHub
+# Release tagged vX.Y.Z is published. See "Releasing" in the root README.md.
+# Prerequisite: repo Settings -> Actions -> General -> Workflow permissions must
+# be "Read and write", or the packages:write requested below is capped to a 403.
 name: release
 
 on:
@@ -21,10 +21,10 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          # Writes an .npmrc pointing @w-industries at GitHub Packages and
+          # Writes an .npmrc pointing @w-industries-luke at GitHub Packages and
           # wiring it to NODE_AUTH_TOKEN, so no token is ever committed.
           registry-url: "https://npm.pkg.github.com"
-          scope: "@w-industries"
+          scope: "@w-industries-luke"
       - run: npm ci
 
       # The same gate as ci.yml: never publish an artefact that would fail a PR.

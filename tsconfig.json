@@ -15,7 +15,7 @@
     "target": "ES2022",
     "module": "preserve",
     "paths": {
-      "@w-industries/ui": ["./dist/ui"]
+      "@w-industries-luke/ui": ["./dist/ui"]
     }
   },
   "angularCompilerOptions": {

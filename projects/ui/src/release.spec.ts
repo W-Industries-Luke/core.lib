@@ -15,10 +15,10 @@ describe('release contract', () => {
   const read = (...segments: string[]) => readFileSync(join(root, ...segments), 'utf8');
 
   const pkg = JSON.parse(read('projects', 'ui', 'package.json'));
-  const workflow = read('.github', 'pending-workflows', 'release.yml');
+  const workflow = read('.github', 'workflows', 'release.yml');
   const tsconfig = read('tsconfig.json');
 
-  const NAME = '@w-industries/ui';
+  const NAME = '@w-industries-luke/ui';
   const SCOPE = NAME.split('/')[0];
   const REGISTRY = 'https://npm.pkg.github.com';
 
