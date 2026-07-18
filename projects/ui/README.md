@@ -1,4 +1,4 @@
-# @w-industries/ui
+# @w-industries-luke/ui
 
 Shared Angular Material component library and M3 theme for the `*.web` apps.
 
@@ -10,7 +10,7 @@ The package lives in GitHub Packages, so npm has to be told where the scope
 resolves. Add to the app's `.npmrc`:
 
 ```ini
-@w-industries:registry=https://npm.pkg.github.com
+@w-industries-luke:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
 ```
 
@@ -18,7 +18,7 @@ resolves. Add to the app's `.npmrc`:
 CI. Commit the `.npmrc`; never the token.
 
 ```bash
-npm i @w-industries/ui
+npm i @w-industries-luke/ui
 ```
 
 Angular, CDK and Material are peer dependencies — the app supplies them. Keep
@@ -29,7 +29,7 @@ Material and CDK on **v21** to match the fleet.
 Apply the theme once, at the app's style entry point:
 
 ```scss
-@use '@w-industries/ui/styles/theme';
+@use '@w-industries-luke/ui/styles/theme';
 ```
 
 It is the single source of truth for palette, typography and density, and it
@@ -39,7 +39,7 @@ Apps should not define their own Material theme.
 Then import what you need — everything is standalone:
 
 ```ts
-import { Button } from '@w-industries/ui';
+import { Button } from '@w-industries-luke/ui';
 ```
 
 ```html
@@ -119,7 +119,7 @@ ligature's literal name (the word "info") instead of the glyph. Add it once to
 your bootstrap so every `<mat-icon>` agrees with `ui-icon` on Material Symbols:
 
 ```ts
-import { provideUiIcons } from '@w-industries/ui';
+import { provideUiIcons } from '@w-industries-luke/ui';
 
 bootstrapApplication(App, {
   providers: [provideUiIcons()],
