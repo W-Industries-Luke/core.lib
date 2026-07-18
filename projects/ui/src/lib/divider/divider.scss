@@ -11,7 +11,7 @@
 // Nor is there a magic pixel value for the spacing. The steps below are the
 // theme's `--ui-sys-spacing-*` scale, so `spacing="md"` here and `spacing="md"`
 // in the next app are the same distance, and retuning the fleet's rhythm is one
-// edit in `_theme.scss` rather than a sweep through every component.
+// edit in `_tokens.scss` rather than a sweep through every component.
 
 @use '@angular/material' as mat;
 

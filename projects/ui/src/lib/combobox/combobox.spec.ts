@@ -221,6 +221,44 @@ describe('Combobox', () => {
         'Germany',
       ]);
     });
+
+    // The `UiComboboxFilter` contract: the text arrives *exactly as typed*, so a
+    // whitespace-sensitive filter can see the spaces — and it is the same text the
+    // option template's `search` context is handed, so a custom filter and a match
+    // highlight can never disagree about what was searched.
+    it('passes the filter the search text exactly as typed, untrimmed', async () => {
+      const seen: string[] = [];
+
+      @Component({
+        imports: [Combobox],
+        template: `<ui-combobox label="Country" [options]="options" [filterWith]="capture" />`,
+      })
+      class FilterHost {
+        readonly options = OPTIONS;
+        readonly capture = (o: UiComboboxOption<string>, text: string) => {
+          seen.push(text);
+          return o.label.toLowerCase().includes(text.trim().toLowerCase());
+        };
+      }
+
+      const f = TestBed.createComponent(FilterHost);
+      await f.whenStable();
+      const harness = await select(f);
+      await harness.open();
+      const input = document.querySelector('.ui-combobox__search-input') as HTMLInputElement;
+      input.value = '  an  ';
+      input.dispatchEvent(new Event('input'));
+      await f.whenStable();
+
+      // The filter saw the untrimmed text, not `'  an  '.trim()`.
+      expect(seen).toContain('  an  ');
+      expect(seen).not.toContain('an');
+      // And it still narrowed correctly, because this filter trims for itself.
+      expect(await Promise.all((await harness.getOptions()).map((o) => o.getText()))).toEqual([
+        'France',
+        'Germany',
+      ]);
+    });
   });
 
   describe('groups', () => {

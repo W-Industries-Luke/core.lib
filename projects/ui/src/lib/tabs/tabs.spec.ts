@@ -296,6 +296,19 @@ describe('Tabs', () => {
       expect(bodyText()).toBe('Order 4213');
     });
 
+    // A deep link into a tab that has since been turned off: Material shows its
+    // content and leaves the tab unclickable, rather than blanking the group or
+    // moving the selection. Only an *out-of-range* index is clamped, not a
+    // disabled one.
+    it('shows a disabled tab’s content when it is the selected one', async () => {
+      host.selectedIndex.set(1);
+      await fixture.whenStable();
+
+      expect(host.selectedIndex()).toBe(1);
+      expect(bodyText()).toBe('Three items');
+      expect(await (await (await tabGroup()).getTabs())[1].isDisabled()).toBe(true);
+    });
+
     it('re-enables it when the input flips back', async () => {
       host.tabs.update((tabs) => tabs.map((tab) => ({ ...tab, disabled: false })));
       await fixture.whenStable();
@@ -357,6 +370,47 @@ describe('Tabs', () => {
 
       expect(group().classList).toContain('mat-mdc-tab-group-stretch-tabs');
       expect(group().hasAttribute('mat-align-tabs')).toBe(false);
+    });
+  });
+
+  // These are Material's own layout switches, forwarded verbatim (rule 4). Their
+  // effect is a matter of layout Material owns, so the assertion is that each
+  // reaches `MatTabGroup` — the same thing the `preserveContent` test does.
+  describe('forwarded layout inputs', () => {
+    @Component({
+      imports: [Tabs, Tab],
+      template: `
+        <ui-tabs #ref="uiTabs" [dynamicHeight]="dynamicHeight()" [disableRipple]="disableRipple()">
+          <ui-tab label="One">1</ui-tab>
+          <ui-tab label="Two">2</ui-tab>
+        </ui-tabs>
+      `,
+    })
+    class LayoutHost {
+      readonly dynamicHeight = signal(false);
+      readonly disableRipple = signal(false);
+      readonly ref = viewChild.required<Tabs>('ref');
+    }
+
+    it('leaves dynamicHeight and disableRipple off by default, as Material does', () => {
+      expect(host.ref().matTabGroup().dynamicHeight).toBe(false);
+      expect(host.ref().matTabGroup().disableRipple).toBe(false);
+    });
+
+    it('forwards dynamicHeight to Material when set', async () => {
+      const f = TestBed.createComponent(LayoutHost);
+      f.componentInstance.dynamicHeight.set(true);
+      await f.whenStable();
+
+      expect(f.componentInstance.ref().matTabGroup().dynamicHeight).toBe(true);
+    });
+
+    it('forwards disableRipple to Material when set', async () => {
+      const f = TestBed.createComponent(LayoutHost);
+      f.componentInstance.disableRipple.set(true);
+      await f.whenStable();
+
+      expect(f.componentInstance.ref().matTabGroup().disableRipple).toBe(true);
     });
   });
 
@@ -456,6 +510,23 @@ describe('Tabs', () => {
       expect(panel.getAttribute('role')).toBe('tabpanel');
       expect(tab.getAttribute('aria-controls')).toBe(panel.id);
       expect(panel.getAttribute('aria-labelledby')).toBe(tab.id);
+    });
+
+    // Roving focus, Material's own: exactly one tab is in the tab order at a time
+    // — the selected one — so a keyboard user tabs into the header once and then
+    // arrows between tabs, rather than tabbing through every tab in turn. The
+    // arrow-key movement itself is Material's `FocusKeyManager`, exercised by the
+    // built Storybook's axe pass; here the roving tabindex it maintains is the
+    // structural contract asserted.
+    it('keeps a single roving tabindex on the selected tab', async () => {
+      const tabIndices = () => tabElements().map((tab) => tab.getAttribute('tabindex'));
+
+      expect(tabIndices()).toEqual(['0', '-1', '-1']);
+
+      host.selectedIndex.set(2);
+      await fixture.whenStable();
+
+      expect(tabIndices()).toEqual(['-1', '-1', '0']);
     });
 
     // A tab whose rendered label is not the whole story — an icon, a count — can

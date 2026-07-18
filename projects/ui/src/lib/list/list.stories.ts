@@ -248,8 +248,8 @@ export const TwoLine: Story = {
  * holds that row's `value` — unwrapped, not in an array.
  *
  * `(selectionChange)` is the event beside it: it carries the whole selection *and* just
- * the rows that changed, which for a single-select list is the one chosen and the one
- * dropped.
+ * the rows that changed, which for a single-select list is the row the user chose —
+ * Material reports the clicked option, not the one it replaced.
  */
 export const Selectable: Story = {
   parameters: { controls: { disable: true } },

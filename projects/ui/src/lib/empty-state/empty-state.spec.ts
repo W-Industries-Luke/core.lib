@@ -74,6 +74,20 @@ describe('EmptyState', () => {
       expect(iconElement()).toBeNull();
     });
 
+    // #121: empty-state is the other component where the icon-as-text bug surfaced.
+    // jsdom applies no icon font, so this pins the structural half a regression in
+    // this family would break — the icon is a real Material <mat-icon> drawing the
+    // `search_off` ligature (not a <span> of prose the font never reaches), and it
+    // is hidden from assistive tech so the name is never read as the words.
+    it('renders the named icon as a Material glyph, not ligature text', () => {
+      const icon = iconElement()!;
+
+      expect(icon.tagName.toLowerCase()).toBe('mat-icon');
+      expect(icon.classList).toContain('mat-icon');
+      expect(icon.textContent?.trim()).toBe('search_off');
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+    });
+
     it('renders any Material Symbols ligature', async () => {
       host.icon.set('folder_off');
       await fixture.whenStable();

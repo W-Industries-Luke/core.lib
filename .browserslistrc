@@ -1,0 +1,21 @@
+# The browsers this library — and the Storybook that documents it — support.
+#
+# This floor is deliberately at or above native CSS `light-dark()` (Baseline
+# widely available since 2024: Chrome/Edge 123, Firefox 120, Safari 17.5). That
+# is the contract the shared M3 theme is built on: it emits every `--mat-sys-*` /
+# `--ui-sys-*` role as a `light-dark()` pair and flips the whole fleet between
+# schemes with a single `color-scheme` (see `src/styles/_theme.scss`). Declaring
+# a floor below `light-dark()` would make that mechanism unsafe to rely on.
+#
+# Without any config, browserslist falls back to its default query, which still
+# includes engines that predate `light-dark()` (op_mini, old Chrome, …).
+#
+# Note this file governs browserslist-driven tooling; it does NOT by itself set
+# the Storybook preview's CSS-lowering target. Vite's Lightning CSS derives that
+# from `build.cssTarget`, pinned to the same floor in `.storybook/main.ts` — see
+# the comment there for why a stale target silently breaks dark mode.
+last 2 Chrome versions
+last 2 Edge versions
+last 2 Firefox versions
+last 2 Safari versions
+last 2 iOS versions

@@ -7,7 +7,6 @@ import {
   contentChild,
   DestroyRef,
   Directive,
-  effect,
   ElementRef,
   forwardRef,
   inject,
@@ -17,6 +16,7 @@ import {
   signal,
   viewChild,
   type AfterViewInit,
+  type DoCheck,
 } from '@angular/core';
 import { NG_VALUE_ACCESSOR, type ControlValueAccessor } from '@angular/forms';
 import { ErrorStateMatcher } from '@angular/material/core';
@@ -290,7 +290,7 @@ export class TextareaHint {}
     { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => Textarea), multi: true },
   ],
 })
-export class Textarea implements ControlValueAccessor, ErrorStateMatcher, AfterViewInit {
+export class Textarea implements ControlValueAccessor, ErrorStateMatcher, AfterViewInit, DoCheck {
   /**
    * The field's label — the name of the thing being collected, e.g. `Bio`.
    *
@@ -562,21 +562,37 @@ export class Textarea implements ControlValueAccessor, ErrorStateMatcher, AfterV
     // Replaced by `registerOnTouched`, for the same reason as `onChange`.
   };
 
-  constructor() {
-    // `MatInput` re-checks its error state in `ngDoCheck`, but only for a control
-    // that has an `NgControl` of its own (see `@angular/material/input`). Here
-    // the `NgControl` is on `<ui-textarea>` — that is what makes
-    // `<ui-textarea [(ngModel)]>` bind the host rather than the textarea inside
-    // it — so the re-check has to be driven from this side. `error()` is read
-    // first so the effect tracks it even though `updateErrorState()` reaches the
-    // same signal through `isErrorState()`.
-    effect(() => {
-      this.error();
+  /** Whether the view — and therefore {@link matInput} — has been created. */
+  private viewReady = false;
+
+  /**
+   * Re-checks Material's error state on every change detection pass.
+   *
+   * `MatInput` does this itself in its own `ngDoCheck`, but only for a control that
+   * has an `NgControl` of its own (see `@angular/material/input`). Here the
+   * `NgControl` is on `<ui-textarea>` — that is what makes `<ui-textarea [(ngModel)]>`
+   * bind the host rather than the textarea inside it — so `MatInput` never sees one
+   * and the re-check has to be driven from this side.
+   *
+   * It runs here rather than in an `effect()` so that it is *synchronous with*
+   * change detection: `error()` is read in the template, so a change to it already
+   * schedules the pass this hook runs in, and Material's `errorState` — the field's
+   * red outline, `aria-invalid`, and whether `<mat-form-field>` shows the error
+   * subscript at all — is updated in that same pass. An effect's flush is not tied
+   * to the render, so under a host that drives change detection manually and never
+   * flushes effects (Storybook's own renderer among them) the message would render
+   * but the field would stay valid — issue #122.
+   */
+  ngDoCheck(): void {
+    // `matInput` is a `viewChild.required`, so it must not be read before the view
+    // that holds it exists — the first `ngDoCheck` runs before `ngAfterViewInit`.
+    if (this.viewReady) {
       this.matInput().updateErrorState();
-    });
+    }
   }
 
   ngAfterViewInit(): void {
+    this.viewReady = true;
     this.forwardAttributes();
 
     // Static attributes are on the host before this runs, but a bound one

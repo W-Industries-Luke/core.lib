@@ -206,6 +206,37 @@ describe('Divider', () => {
     expect(element.classList).toContain('ui-divider--spacing-md');
   });
 
+  // The colour and width are Material's, resolved from the shared theme's tokens.
+  // This component only re-points those tokens at hooks whose defaults are the
+  // very tokens Material would have used anyway.
+  describe('theming', () => {
+    // These read the *declaration* rather than a painted colour, on purpose: `ng
+    // test` runs in jsdom, which does not substitute `var()` at all. What a divider
+    // resolves to under the real theme is asserted by the Storybook stories, which
+    // run in Chromium.
+    const declaration = (token: string) =>
+      getComputedStyle(hostElement()).getPropertyValue(token);
+
+    it('resolves the line’s colour from the theme, not a literal', () => {
+      expect(declaration('--mat-divider-color')).toContain('var(--ui-divider-color');
+      expect(declaration('--mat-divider-color')).toContain('var(--mat-sys-outline-variant)');
+      expect(declaration('--mat-divider-color')).not.toMatch(/#[0-9a-f]{3,8}\b|\brgba?\(/i);
+    });
+
+    it('exposes the line’s width as a hook, defaulting to 1px', () => {
+      expect(declaration('--mat-divider-width')).toContain('var(--ui-divider-width');
+      expect(declaration('--mat-divider-width')).toContain('1px');
+    });
+
+    // The hooks are emitted on the host, which is what keeps a consumer off
+    // `::ng-deep`: `--ui-divider-color` set by an ordinary rule on `ui-divider`
+    // reaches `<mat-divider>` inside by CSS's own inheritance.
+    it('exposes the hooks on the host, not on Material’s internals', () => {
+      expect(declaration('--mat-divider-color')).not.toBe('');
+      expect(getComputedStyle(matElement()).getPropertyValue('--mat-divider-color')).toBe('');
+    });
+  });
+
   /**
    * The spacing is only shared if it comes from the theme's scale. A literal
    * here builds, renders and passes every assertion above — and is a divider

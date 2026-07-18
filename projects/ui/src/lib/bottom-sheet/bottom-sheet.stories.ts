@@ -196,18 +196,50 @@ class BottomSheetTemplateDemo {
   }
 }
 
-/** A sheet with more content than fits, to show the `maxHeight` default doing its job. */
+/**
+ * A sheet with more content than fits, to show the `maxHeight` default doing its
+ * job — and, with `sticky` in its data, to keep the header pinned while the body
+ * scrolls under it.
+ *
+ * The scroll container is the panel body (`.mat-bottom-sheet-container`) this
+ * content renders into, so a `position: sticky; top: 0` header pins to that same
+ * region. The header stays the sheet's visible title while the terms scroll.
+ */
 @Component({
   selector: 'ui-terms-sheet',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: `
+    h2 {
+      font: var(--mat-sys-title-medium);
+      margin: 0.5rem 0;
+    }
+
+    /* Pin the header to the top of the panel body while the paragraphs scroll
+       under it. The negative margins pull the band out over the container's own
+       8px 16px inset (the --ui-bottom-sheet-padding default) so scrolling content
+       cannot peek above or beside it, and the fill follows the exact token the
+       sheet's container resolves — so it stays opaque and tracks the palette in
+       light and dark alike, with no colour literal (house rule). */
+    h2.sticky {
+      position: sticky;
+      top: 0;
+      margin: -8px -16px 0.5rem;
+      padding: 8px 16px;
+      background: var(--ui-bottom-sheet-container-color, var(--mat-sys-surface-container-low));
+    }
+  `,
   template: `
-    <h2 style="font: var(--mat-sys-title-medium); margin: 0.5rem 0;">Terms of service</h2>
+    <h2 [class.sticky]="sticky">Terms of service</h2>
     @for (paragraph of paragraphs; track $index) {
       <p>{{ paragraph }}</p>
     }
   `,
 })
 class TermsSheet {
+  /** Pin the header while the body scrolls, from `config.data.sticky`. */
+  protected readonly sticky =
+    inject<{ sticky?: boolean } | null>(MAT_BOTTOM_SHEET_DATA)?.sticky ?? false;
+
   protected readonly paragraphs = Array.from(
     { length: 12 },
     (_, i) =>
@@ -223,15 +255,24 @@ class TermsSheet {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
-      <button matButton uiButton variant="filled" (click)="show()">Read the terms</button>
+      <button matButton uiButton variant="filled" (click)="show()">{{ trigger() }}</button>
     </div>
   `,
 })
 class BottomSheetScrollDemo {
   private readonly bottomSheet = inject(BottomSheet);
 
+  /** The label of the button that opens the sheet. */
+  readonly trigger = input('Read the terms');
+
+  /** Whether the opened sheet pins its header — passed on to `TermsSheet` as data. */
+  readonly sticky = input(false);
+
   protected show(): void {
-    this.bottomSheet.open(TermsSheet, { ariaLabel: 'Terms of service' });
+    this.bottomSheet.open(TermsSheet, {
+      ariaLabel: 'Terms of service',
+      data: { sticky: this.sticky() },
+    });
   }
 }
 
@@ -260,9 +301,18 @@ class BottomSheetScrollDemo {
     }
 
     /* The everyday reason to reach for the padding hook: content that runs edge
-       to edge, where the rows bring their own padding. */
+       to edge, where the rows bring their own padding.
+
+       The horizontal and bottom inset is 0 — that is the whole point, so a row's
+       hover and focus state can span the full width and the rows own their
+       padding. The top keeps a corner's worth of clearance, because the panel's
+       rounded top corners clip anything flush to its top edge and would shave the
+       title's first glyphs. It tracks the sheet's own radius hook (the same value
+       _bottom-sheet.scss rounds the corners by), so it follows any restyle and
+       carries no colour or size literal, and the header clears the curve while
+       the content below still runs full bleed. */
     .demo-full-bleed {
-      --ui-bottom-sheet-padding: 0;
+      --ui-bottom-sheet-padding: var(--ui-bottom-sheet-radius, var(--mat-sys-corner-extra-large)) 0 0;
     }
   `,
   template: `
@@ -317,8 +367,14 @@ async function openOnLoad({ canvasElement }: { canvasElement: HTMLElement }): Pr
   canvasElement.querySelector('button')!.click();
 
   // The overlay lands at the end of <body>, outside the story's own canvas — so
-  // this waits on the document rather than on the canvas.
-  await waitFor(() => expect(document.querySelector('.mat-bottom-sheet-container')).toBeTruthy());
+  // this waits on the document rather than on the canvas. Asserting the container
+  // has *content* rather than merely existing is what makes this more than a
+  // "the trigger rendered" check: a sheet that opened empty would still be truthy.
+  await waitFor(() => {
+    const container = document.querySelector('.mat-bottom-sheet-container');
+    expect(container).toBeTruthy();
+    expect(container!.textContent?.trim()).toBeTruthy();
+  });
 }
 
 const meta: Meta<BottomSheetDemo> = {
@@ -461,6 +517,34 @@ export const ScrollingContent: Story = {
 };
 
 /**
+ * The same scrolling sheet, but with its header **pinned** — the common pattern
+ * for a long terms/consent sheet, where the title has to stay visible however far
+ * the body scrolls.
+ *
+ * The scroll container is the panel body itself, so the header is `position:
+ * sticky; top: 0` *inside* that region:
+ *
+ * ```scss
+ * h2 {
+ *   position: sticky;
+ *   top: 0;
+ *   // The sheet's own container role, so the header stays opaque over the
+ *   // content scrolling under it and follows the palette in light and dark.
+ *   background: var(--mat-sys-surface-container-low);
+ * }
+ * ```
+ *
+ * No `::ng-deep`, no `!important` and no colour literal — the fill is a theme
+ * surface token, and the header stays the sheet's visible title throughout.
+ */
+export const ScrollingContentWithStickyHeader: Story = {
+  parameters: { controls: { disable: true } },
+  render: () => ({
+    template: `<ui-bottom-sheet-scroll-demo trigger="Read the terms (sticky header)" [sticky]="true" />`,
+  }),
+};
+
+/**
  * `disableClose` — a sheet the backdrop and Escape cannot dismiss, for a choice
  * that has to be made.
  *
@@ -505,8 +589,14 @@ export const Restyled: Story = {
  * prevent.
  *
  * The rows here keep their own padding, so the sheet is still legible — it is the
- * *container’s* inset that is gone, which is what lets a row's hover and focus
- * state span the full width.
+ * container’s *horizontal* inset that is gone, which is what lets a row’s hover
+ * and focus state span the full width.
+ *
+ * The top keeps a corner’s worth of clearance, tracked to the sheet’s own radius
+ * hook: the panel’s rounded top corners clip anything flush to its top edge, so
+ * without it the title’s first glyphs would be shaved. Reserving that space — and
+ * nothing horizontal — is what lets the header clear the curve while the content
+ * below still runs edge to edge.
  */
 export const FullBleed: Story = {
   parameters: { controls: { disable: true } },
@@ -518,4 +608,47 @@ export const FullBleed: Story = {
         title="Painted from --ui-bottom-sheet-padding"
       />`,
   }),
+};
+
+// --- Interaction -----------------------------------------------------------
+
+/**
+ * The whole lifecycle, asserted in a real browser: press the trigger, the sheet
+ * opens into the CDK overlay with the post's title in it, and a click on the
+ * backdrop dismisses it — the dismissal Material owns rather than one of the
+ * share actions.
+ *
+ * This is the one story whose `play` overrides the page's `openOnLoad` and runs
+ * the overlay all the way back to closed, so that "opens → content present →
+ * dismisses" is a check that fails loudly rather than a claim in the prose. The
+ * jsdom spec asserts `autoFocus` on the config and leaves the real question —
+ * does it open, render and dismiss — to this.
+ */
+export const OpenContentDismiss: Story = {
+  name: 'Interaction: open → content → dismiss',
+  parameters: { controls: { disable: true } },
+  play: async ({ canvasElement }) => {
+    const doc = canvasElement.ownerDocument;
+    const newest = <T extends Element>(selector: string): T | undefined =>
+      [...doc.querySelectorAll<T>(selector)].at(-1);
+
+    (canvasElement.querySelector('button') as HTMLButtonElement).click();
+
+    // The share sheet's own heading names the post, which is the content the
+    // story is documenting.
+    const container = await waitFor(() => {
+      const el = newest<HTMLElement>('.mat-bottom-sheet-container');
+      expect(el).toBeTruthy();
+      expect(el!.textContent).toContain('The state of the fleet');
+      return el!;
+    });
+
+    // The backdrop is Material's own dismissal — a sheet dismissed this way
+    // reports `undefined` rather than a chosen target.
+    newest<HTMLElement>('.cdk-overlay-backdrop')!.click();
+
+    // Assert *this* sheet left the DOM rather than that none is open, so the
+    // check is unaffected by any sheet the page's `openOnLoad` left up.
+    await waitFor(() => expect(container.isConnected).toBe(false));
+  },
 };
