@@ -1,0 +1,132 @@
+// Box metrics and the styling hooks for `ui-expansion-panel`.
+//
+// There is not a literal colour in this file on purpose: `<mat-expansion-panel>`
+// already resolves its surface, its text, its chevron and its divider from the
+// `--mat-sys-*` tokens that `../../styles/_theme.scss` emits, so a palette change
+// there re-colours every panel with no help from here. The overrides below only
+// re-point those tokens at *hooks* whose defaults are the very tokens Material
+// would have used, so the default panel ships no colour decision of its own.
+
+@use '@angular/material' as mat;
+
+// The corner the panel draws. Named because the rules at the bottom of this file
+// have to agree with the token below: the ends of a stack are rounded by hand, and
+// they have to land on the same measurement the panel itself is using.
+$shape: var(--ui-expansion-panel-shape, var(--mat-sys-corner-medium));
+
+:host {
+  // Material's panel is `display: block` and fills its container's width, which is
+  // what a panel wants — a header spans the content it hides. The host gets out of
+  // the way rather than imposing a size of its own.
+  display: block;
+
+  // Every hook goes through `mat.expansion-overrides()` rather than a rule on
+  // Material's internals: the tokens are Material's own API, so the geometry and
+  // the animations stay Material's. Custom properties inherit through the
+  // encapsulation boundary, so a hook set on `ui-expansion-panel` reaches the
+  // elements inside Material's template with no `::ng-deep`.
+  @include mat.expansion-overrides(
+    (
+      // M3 ships the panel at a 12px corner. That is the same measurement as the
+      // theme's `corner-medium` role — and the same corner `uiButton` and
+      // `ui-alert` default to — so pointing the token at the role rather than
+      // leaving it on Material's literal changes nothing today and keeps the panel
+      // agreeing with the rest of the library if the role moves.
+      container-shape: $shape,
+      // The container and its body text.
+      container-background-color:
+        var(--ui-expansion-panel-background-color, var(--mat-sys-surface)),
+      container-text-color: var(--ui-expansion-panel-text-color, var(--mat-sys-on-surface)),
+      // The header. M3 puts the title on `on-surface` and drops the description and
+      // the chevron to `on-surface-variant` — the title carries the emphasis — so
+      // each hook defaults where Material already had it.
+      header-text-color: var(--ui-expansion-panel-header-text-color, var(--mat-sys-on-surface)),
+      header-description-color:
+        var(--ui-expansion-panel-description-color, var(--mat-sys-on-surface-variant)),
+      header-indicator-color:
+        var(--ui-expansion-panel-indicator-color, var(--mat-sys-on-surface-variant)),
+      // The rule above the action row.
+      actions-divider-color: var(--ui-expansion-panel-divider-color, var(--mat-sys-outline))
+    )
+  );
+
+  // Note there is no header-height hook: the collapsed and expanded header heights
+  // are Material's density tokens, and density is a fleet-wide decision
+  // `_theme.scss` owns. A panel whose header is 48px in one app and 36px in the
+  // next is exactly the drift this library exists to prevent.
+  //
+  // The disabled header's text colour is deliberately left alone too: Material
+  // derives it from `on-surface` at M3's own disabled opacity, and a hook for it
+  // would be an invitation to break that contrast ratio.
+}
+
+// ---------------------------------------------------------------------------
+// Corners inside an accordion
+// ---------------------------------------------------------------------------
+// Material rounds a stack of panels at its ends and squares the joins between
+// them, so an accordion reads as one surface rather than a pile of separate cards.
+// It does that with `:first-of-type` / `:last-of-type` on the panel itself:
+//
+//   .mat-accordion .mat-expansion-panel:not(.mat-expanded),
+//   .mat-accordion .mat-expansion-panel:not(.mat-expansion-panel-spacing) {
+//     border-radius: 0;
+//   }
+//   .mat-accordion .mat-expansion-panel:first-of-type { /* the top corners */ }
+//   .mat-accordion .mat-expansion-panel:last-of-type  { /* the bottom corners */ }
+//
+// That assumes the panels are siblings. This component renders Material's panel
+// inside its own view, so each `.mat-expansion-panel` is an only child of its
+// host — which makes every one of them both `:first-of-type` and `:last-of-type`,
+// and the whole stack comes out fully rounded.
+//
+// The rules below are Material's own, re-anchored to the host: the position is read
+// off `<ui-expansion-panel>`, which *is* a sibling of the other panels, and applied
+// to the Material panel inside it. `:host-context()` rather than a class this
+// component sets for itself, because the accordion is the consumer's markup, not
+// ours — and `.mat-accordion` is already on it, put there by `MatAccordion`.
+//
+// Note these have to live in this component's stylesheet rather than with the theme
+// in `../../styles/`: Material's rules are its own component's, so they are
+// encapsulated and carry an extra attribute selector that global CSS cannot outrank.
+// Emulated encapsulation gives these the same, and the host's position on top.
+//
+// Material's `.mat-accordion > *:first-child:not(.mat-expansion-panel)` spacing
+// rules already anticipate a wrapper exactly like this one, so the gutter around an
+// open panel needs no help here.
+
+// Square every join in the stack. The `:not()`s are Material's: a panel that is open
+// *and* has a gutter around it has left the stack, so it keeps all four of its own
+// corners.
+:host-context(.mat-accordion) {
+  .mat-expansion-panel:not(.mat-expanded),
+  .mat-expansion-panel:not(.mat-expansion-panel-spacing) {
+    border-radius: 0;
+  }
+}
+
+// ...then give the two ends of the stack their outer corners back.
+//
+// Three things are load-bearing about these selectors, all of them specificity:
+//
+//   - `.ui-expansion-panel__panel` is carried only to add a class's worth of weight.
+//     These have to outrank the rule above — which is this file's own, and already
+//     had to outrank Material's — and matching the panel by two classes rather than
+//     one is what buys that. They tie with it and win on source order.
+//   - the position is `:host(:first-of-type)` rather than `:host-context(.mat-accordion):first-of-type`,
+//     because Angular does not compile a pseudo-class hung off `:host-context()` into
+//     anything that matches.
+//   - so these apply to a lone panel too, outside any accordion. That is harmless:
+//     they set the same corner the container-shape token above already gave it, so
+//     nothing moves.
+//
+// Logical properties rather than `border-top-left-radius`, so the corners follow the
+// writing direction the way the rest of the theme does.
+:host(:first-of-type) .ui-expansion-panel__panel.mat-expansion-panel {
+  border-start-start-radius: $shape;
+  border-start-end-radius: $shape;
+}
+
+:host(:last-of-type) .ui-expansion-panel__panel.mat-expansion-panel {
+  border-end-start-radius: $shape;
+  border-end-end-radius: $shape;
+}
