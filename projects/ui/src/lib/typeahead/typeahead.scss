@@ -1,0 +1,46 @@
+// The box `ui-typeahead` occupies — and nothing else.
+//
+// There is not a colour, radius, outline or font in this file on purpose: the field,
+// the panel and the options resolve all of it from the `--mat-sys-*` tokens that
+// `../../styles/_theme.scss` emits, exactly as `ui-autocomplete` does. `<ui-spinner>`
+// and `<ui-empty-state>` in the panel bring their own theming for the same reason, so a
+// palette change re-skins every part of this in light and dark alike, with no help here.
+//
+// The panel itself renders in an overlay at the document root, outside this stylesheet's
+// encapsulation — `panelClass` is Material's own answer for reaching it, and it is
+// forwarded, so the compact-status rules below are scoped to the option classes the
+// template sets rather than needing a `::ng-deep`.
+
+:host {
+  // A field is a block: it has a label above it and a subscript below it.
+  display: block;
+}
+
+.ui-typeahead__field {
+  // `--ui-typeahead-width` is the public hook (rule 6), for a field that should shrink
+  // to its content, or a pair sharing a row.
+  width: var(--ui-typeahead-width, 100%);
+}
+
+// The status options (loading, empty, error) are not choices, so they drop the option's
+// interactive affordances: no pointer, and the default empty state's generous padding is
+// pulled in to a panel-sized inset so the row does not tower over the results it stands
+// in for. These target classes the template puts on Material's own `<mat-option>`, which
+// is what keeps them a scoped rule and not a reach into the overlay.
+.ui-typeahead__status {
+  cursor: default;
+}
+
+.ui-typeahead__loading {
+  // Centre the spinner in the row it holds open.
+  display: flex;
+  justify-content: center;
+}
+
+.ui-typeahead__empty-state {
+  // The panel is narrow; the empty state's route-sized padding would look lost in it.
+  --ui-empty-state-padding: 12px 16px;
+  --ui-empty-state-icon-size: 32px;
+  display: block;
+  width: 100%;
+}

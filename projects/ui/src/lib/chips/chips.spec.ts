@@ -1,8 +1,11 @@
 import { COMMA, ENTER } from '@angular/cdk/keycodes';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatChip, MatChipGrid, MatChipInput, MatChipSet } from '@angular/material/chips';
+import { MatChipHarness } from '@angular/material/chips/testing';
 import { By } from '@angular/platform-browser';
 
 import { ChipDef, Chips, type UiChip } from './chips';
@@ -62,6 +65,15 @@ function keydown(keyCode: number, key: string): KeyboardEvent {
 describe('Chips', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
+
+  // `MatChipHarness` speaks Material's public test surface — `getText()` for a chip's
+  // label, `remove()` for its trailing button — instead of the MDC class names
+  // (`.mat-mdc-chip-action-label`, `button[matChipRemove]`) the old spec reached into.
+  // `getAllHarnesses(MatChipHarness)` matches both a static set's `mat-chip`s and an
+  // editable set's `mat-chip-row`s, so one helper serves both containers. The ARIA
+  // roles/names, the theme tokens and the keyboard-separator mechanics — none of which
+  // the harness exposes — stay DOM assertions below.
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
@@ -69,9 +81,13 @@ describe('Chips', () => {
   const queryAll = (selector: string): HTMLElement[] =>
     Array.from(fixture.nativeElement.querySelectorAll(selector));
 
+  /** Material's chips on screen, whichever container is rendered, through the harness. */
+  const chips = (l: HarnessLoader = loader): Promise<MatChipHarness[]> =>
+    l.getAllHarnesses(MatChipHarness);
+
   /** The chips on screen, whichever container is rendered, by their text. */
-  const labels = (): string[] =>
-    queryAll('.mat-mdc-chip-action-label').map((chip) => chip.textContent!.trim());
+  const labels = async (l: HarnessLoader = loader): Promise<string[]> =>
+    Promise.all((await chips(l)).map((chip) => chip.getText()));
 
   /** The remove buttons Material renders, in chip order. */
   const removeButtons = (): HTMLButtonElement[] =>
@@ -103,6 +119,7 @@ describe('Chips', () => {
     TestBed.configureTestingModule({ providers: [noAnimations] });
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -115,9 +132,9 @@ describe('Chips', () => {
       expect(host.ref().matChipSet()).toBeInstanceOf(MatChipSet);
     });
 
-    it('renders one Material chip per chip, in order', () => {
+    it('renders one Material chip per chip, in order', async () => {
       expect(queryAll('mat-chip').length).toBe(2);
-      expect(labels()).toEqual(['design', 'urgent']);
+      expect(await labels()).toEqual(['design', 'urgent']);
     });
 
     it('renders Material’s chip grid and input once editable', async () => {
@@ -148,7 +165,7 @@ describe('Chips', () => {
       host.chips.set([{ label: 'blocked', value: 'blocked' }]);
       await fixture.whenStable();
 
-      expect(labels()).toEqual(['blocked']);
+      expect(await labels()).toEqual(['blocked']);
     });
 
     it('renders an empty set as an empty list rather than nothing at all', async () => {
@@ -159,8 +176,8 @@ describe('Chips', () => {
       expect(queryAll('mat-chip').length).toBe(0);
     });
 
-    it('renders a chip’s label as its text', () => {
-      expect(labels()).toContain('design');
+    it('renders a chip’s label as its text', async () => {
+      expect(await labels()).toContain('design');
     });
   });
 
@@ -180,18 +197,18 @@ describe('Chips', () => {
       host.removable.set(true);
       await fixture.whenStable();
 
-      removeButtons()[0].click();
+      await (await chips())[0].remove();
       await fixture.whenStable();
 
       expect(host.chips().map((chip) => chip.label)).toEqual(['urgent']);
-      expect(labels()).toEqual(['urgent']);
+      expect(await labels()).toEqual(['urgent']);
     });
 
     it('emits the removed chip, whole', async () => {
       host.removable.set(true);
       await fixture.whenStable();
 
-      removeButtons()[1].click();
+      await (await chips())[1].remove();
       await fixture.whenStable();
 
       expect(host.removals).toEqual([{ label: 'urgent', value: 'urgent' }]);
@@ -220,7 +237,7 @@ describe('Chips', () => {
 
       const f = TestBed.createComponent(ReadHost);
       await f.whenStable();
-      (f.nativeElement.querySelector('button[matChipRemove]') as HTMLElement).click();
+      await (await chips(TestbedHarnessEnvironment.loader(f)))[0].remove();
       await f.whenStable();
 
       expect(seen).toEqual([['urgent']]);
@@ -235,7 +252,7 @@ describe('Chips', () => {
       host.removable.set(true);
       await fixture.whenStable();
 
-      removeButtons()[0].click();
+      await (await chips())[0].remove();
       await fixture.whenStable();
 
       expect(host.chips().map((chip) => chip.value)).toEqual(['b']);
@@ -279,7 +296,7 @@ describe('Chips', () => {
       await editable();
 
       expect(queryAll('mat-chip-row').length).toBe(2);
-      removeButtons()[0].click();
+      await (await chips())[0].remove();
       await fixture.whenStable();
 
       expect(host.chips().map((chip) => chip.label)).toEqual(['urgent']);
@@ -314,7 +331,7 @@ describe('Chips', () => {
       await type('backend');
 
       expect(host.chips().map((chip) => chip.label)).toEqual(['design', 'urgent', 'backend']);
-      expect(labels()).toContain('backend');
+      expect(await labels()).toContain('backend');
     });
 
     it('emits the chip it added', async () => {
@@ -508,7 +525,7 @@ describe('Chips', () => {
       host.disabled.set(true);
       await fixture.whenStable();
 
-      expect(labels()).toEqual(['design', 'urgent']);
+      expect(await labels()).toEqual(['design', 'urgent']);
     });
 
     it('ignores a click on a remove button', async () => {
@@ -608,8 +625,53 @@ describe('Chips', () => {
       expect(f.nativeElement.querySelector('mat-chip-row .custom')).not.toBeNull();
     });
 
-    it('falls back to the label when no template is given', () => {
-      expect(labels()).toEqual(['design', 'urgent']);
+    it('falls back to the label when no template is given', async () => {
+      expect(await labels()).toEqual(['design', 'urgent']);
+    });
+  });
+
+  // #121: the remove affordance is a Material Symbols glyph, not the literal word
+  // "cancel". jsdom applies no icon font, so what a regression in this family would
+  // break — and what these pin — is the structural half: the affordance is a real
+  // <mat-icon> drawing the `cancel` ligature (not a <span> of prose), and it is
+  // hidden from assistive tech so the button announces its `aria-label` alone,
+  // never "Remove design cancel".
+  describe('remove button glyph', () => {
+    const removeIcons = (): HTMLElement[] => queryAll('button[matChipRemove] mat-icon');
+
+    it('draws the remove affordance as a Material cancel glyph', async () => {
+      host.removable.set(true);
+      await fixture.whenStable();
+
+      const icons = removeIcons();
+      expect(icons.length).toBe(2);
+      for (const icon of icons) {
+        expect(icon.tagName.toLowerCase()).toBe('mat-icon');
+        expect(icon.classList).toContain('mat-icon');
+        // The ligature name Material draws the glyph from — the thing the icon font
+        // renders, rather than selectable, translatable prose.
+        expect(icon.textContent?.trim()).toBe('cancel');
+      }
+    });
+
+    it('hides the glyph from assistive tech, so the button reads as its label alone', async () => {
+      host.removable.set(true);
+      await fixture.whenStable();
+
+      for (const icon of removeIcons()) {
+        expect(icon.getAttribute('aria-hidden')).toBe('true');
+      }
+      // The name a screen reader gets is the button's, not the glyph's.
+      expect(removeButtons()[0].getAttribute('aria-label')).toBe('Remove design');
+    });
+
+    it('draws the same glyph on an editable set’s rows', async () => {
+      host.removable.set(true);
+      await editable();
+
+      const icons = removeIcons();
+      expect(icons.length).toBe(2);
+      expect(icons.every((icon) => icon.textContent?.trim() === 'cancel')).toBe(true);
     });
   });
 

@@ -1,6 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatToolbar } from '@angular/material/toolbar';
+import { MatToolbarHarness } from '@angular/material/toolbar/testing';
 
 import { Toolbar, ToolbarEnd, ToolbarStart, ToolbarTitle, type UiToolbarColor } from './toolbar';
 
@@ -23,6 +29,7 @@ class TestHost {
 describe('Toolbar', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
@@ -32,6 +39,7 @@ describe('Toolbar', () => {
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -43,8 +51,15 @@ describe('Toolbar', () => {
 
   // The default slot is what makes it a single-row toolbar. A `mat-toolbar-row`
   // in there as well is an error Material throws on, so the two cannot be mixed.
-  it('renders it as a single-row toolbar', () => {
-    expect(query('mat-toolbar')!.classList).toContain('mat-toolbar-single-row');
+  // `hasMultipleRows()` is the harness's reading of the same thing the old
+  // `mat-toolbar-single-row` class check stood for — one row, not many — without
+  // naming that class; the explicit `mat-toolbar-row` element check stays a DOM
+  // read, since it is the structural detail the harness has no method for.
+  it('renders it as a single-row toolbar', async () => {
+    const bar = await loader.getHarness(MatToolbarHarness);
+
+    expect(await bar.hasMultipleRows()).toBe(false);
+    expect(await bar.getRowsAsText()).toHaveLength(1);
     expect(query('mat-toolbar-row')).toBeNull();
   });
 
@@ -427,6 +442,26 @@ describe('Toolbar', () => {
           '--mat-toolbar-container-background-color',
         ),
       ).toBe('');
+    });
+  });
+
+  /**
+   * The gap between the elements within a slot is on the theme's `sm` step, so a
+   * toolbar keeps the fleet's rhythm rather than a `8px` of its own — the drift
+   * `--ui-sys-spacing-*` exists to prevent. The `16px` inline padding is
+   * Material's own container metric and stays a literal, as its comment says.
+   * jsdom does not resolve `var()`, so this is a source-level assertion, in the
+   * spirit of `ui-divider`'s.
+   */
+  describe('spacing comes from the theme, not from literals', () => {
+    const styles = readFileSync(
+      join(process.cwd(), 'projects', 'ui', 'src', 'lib', 'toolbar', 'toolbar.scss'),
+      'utf8',
+    );
+
+    it('resolves the slot gap from the theme’s `sm` step', () => {
+      expect(styles).toContain('var(--ui-toolbar-gap, var(--ui-sys-spacing-sm))');
+      expect(styles).not.toMatch(/--ui-toolbar-gap,\s*8px/);
     });
   });
 });

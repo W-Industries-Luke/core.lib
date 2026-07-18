@@ -1,9 +1,12 @@
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatFormField } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatInputHarness } from '@angular/material/input/testing';
 
 import { Textarea, TextareaHint, type UiTextareaAppearance } from './textarea';
 
@@ -52,11 +55,25 @@ const APPEARANCES: readonly UiTextareaAppearance[] = ['fill', 'outline'];
 describe('Textarea', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
+
+  // The textarea is a `matInput` too, so the `MatInputHarness` speaks for it —
+  // `getValue()`, `setValue()`, `isDisabled()`, `isRequired()`, `isReadonly()`,
+  // `getPlaceholder()` — instead of reaching into the native `<textarea>` Material
+  // renders into. Reading state and value through it means Material can rework its
+  // own markup without breaking this spec on a detail no consumer depends on.
+  // Everything the harness *cannot* see — this component's own additions (`rows`,
+  // autosize, the character counter), label/hint/error rendering, `id`/`for`/
+  // `aria-*` association, native-attribute forwarding, the CVA wiring proven
+  // through the host `FormControl`, the `ui-*` styling hooks — stays a DOM or
+  // instance assertion below.
+  const input = (f: ComponentFixture<unknown> = fixture): Promise<MatInputHarness> =>
+    TestbedHarnessEnvironment.loader(f).getHarness(MatInputHarness);
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
 
-  /** The real `<textarea>` Material renders into. */
+  /** The real `<textarea>` Material renders into, for the assertions the harness cannot make. */
   const control = (): HTMLTextAreaElement => query('textarea') as HTMLTextAreaElement;
 
   /**
@@ -69,16 +86,10 @@ describe('Textarea', () => {
    */
   const counter = (): HTMLElement | null => query('.mat-mdc-form-field-hint-end');
 
-  /** Types into the real textarea the way a user would. */
-  const type = async (text: string): Promise<void> => {
-    control().value = text;
-    control().dispatchEvent(new Event('input'));
-    await fixture.whenStable();
-  };
-
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -148,11 +159,13 @@ describe('Textarea', () => {
       host.placeholder.set('A sentence or two about yourself.');
       await fixture.whenStable();
 
-      expect(control().placeholder).toBe('A sentence or two about yourself.');
+      expect(await (await loader.getHarness(MatInputHarness)).getPlaceholder()).toBe(
+        'A sentence or two about yourself.',
+      );
     });
 
-    it('has none by default', () => {
-      expect(control().placeholder).toBe('');
+    it('has none by default', async () => {
+      expect(await (await loader.getHarness(MatInputHarness)).getPlaceholder()).toBe('');
     });
   });
 
@@ -305,7 +318,8 @@ describe('Textarea', () => {
       host.maxLength.set(280);
       await fixture.whenStable();
 
-      await type('Hello');
+      await (await loader.getHarness(MatInputHarness)).setValue('Hello');
+      await fixture.whenStable();
 
       expect(host.ref().length()).toBe(5);
       expect(counter()!.textContent!.trim()).toBe('5 / 280');
@@ -566,8 +580,6 @@ describe('Textarea', () => {
       let f: ComponentFixture<ModelHost>;
       let modelHost: ModelHost;
 
-      const modelControl = (): HTMLTextAreaElement => f.nativeElement.querySelector('textarea');
-
       beforeEach(async () => {
         f = TestBed.createComponent(ModelHost);
         modelHost = f.componentInstance;
@@ -575,8 +587,8 @@ describe('Textarea', () => {
       });
 
       // writeValue
-      it('shows the model’s initial value', () => {
-        expect(modelControl().value).toBe('Mathematician.');
+      it('shows the model’s initial value', async () => {
+        expect(await (await input(f)).getValue()).toBe('Mathematician.');
       });
 
       // writeValue, after the fact
@@ -584,13 +596,12 @@ describe('Textarea', () => {
         modelHost.bio.set('Countess of Lovelace.');
         await f.whenStable();
 
-        expect(modelControl().value).toBe('Countess of Lovelace.');
+        expect(await (await input(f)).getValue()).toBe('Countess of Lovelace.');
       });
 
       // registerOnChange
       it('writes what the user types back to the model', async () => {
-        modelControl().value = 'Wrote the first program.';
-        modelControl().dispatchEvent(new Event('input'));
+        await (await input(f)).setValue('Wrote the first program.');
         await f.whenStable();
 
         expect(modelHost.bio()).toBe('Wrote the first program.');
@@ -600,7 +611,7 @@ describe('Textarea', () => {
       it('marks the control touched on blur, not before', async () => {
         expect(modelHost.model().touched).toBe(false);
 
-        modelControl().dispatchEvent(new Event('blur'));
+        await (await input(f)).blur();
         await f.whenStable();
 
         expect(modelHost.model().touched).toBe(true);
@@ -609,8 +620,7 @@ describe('Textarea', () => {
       it('marks the control dirty once the user types', async () => {
         expect(modelHost.model().dirty).toBe(false);
 
-        modelControl().value = 'x';
-        modelControl().dispatchEvent(new Event('input'));
+        await (await input(f)).setValue('x');
         await f.whenStable();
 
         expect(modelHost.model().dirty).toBe(true);
@@ -629,8 +639,6 @@ describe('Textarea', () => {
       let f: ComponentFixture<ReactiveHost>;
       let reactiveHost: ReactiveHost;
 
-      const reactiveControl = (): HTMLTextAreaElement => f.nativeElement.querySelector('textarea');
-
       beforeEach(async () => {
         f = TestBed.createComponent(ReactiveHost);
         reactiveHost = f.componentInstance;
@@ -641,12 +649,11 @@ describe('Textarea', () => {
         reactiveHost.control.setValue('Set by the form.');
         await f.whenStable();
 
-        expect(reactiveControl().value).toBe('Set by the form.');
+        expect(await (await input(f)).getValue()).toBe('Set by the form.');
       });
 
       it('reports what the user types to the control', async () => {
-        reactiveControl().value = 'Typed.';
-        reactiveControl().dispatchEvent(new Event('input'));
+        await (await input(f)).setValue('Typed.');
         await f.whenStable();
 
         expect(reactiveHost.control.value).toBe('Typed.');
@@ -661,7 +668,7 @@ describe('Textarea', () => {
 
         // `null` is a form's empty value, and `String(null)` would put the word
         // "null" in the field.
-        expect(reactiveControl().value).toBe('');
+        expect(await (await input(f)).getValue()).toBe('');
       });
 
       // setDisabledState — a control disabled by the form has no `disabled`
@@ -670,7 +677,7 @@ describe('Textarea', () => {
         reactiveHost.control.disable();
         await f.whenStable();
 
-        expect(reactiveControl().disabled).toBe(true);
+        expect(await (await input(f)).isDisabled()).toBe(true);
         expect(f.nativeElement.querySelector('mat-form-field').classList).toContain(
           'mat-form-field-disabled',
         );
@@ -678,7 +685,7 @@ describe('Textarea', () => {
         reactiveHost.control.enable();
         await f.whenStable();
 
-        expect(reactiveControl().disabled).toBe(false);
+        expect(await (await input(f)).isDisabled()).toBe(false);
       });
 
       it('starts disabled for a control that starts disabled', async () => {
@@ -693,23 +700,21 @@ describe('Textarea', () => {
         const df = TestBed.createComponent(DisabledHost);
         await df.whenStable();
 
-        expect((df.nativeElement.querySelector('textarea') as HTMLTextAreaElement).disabled).toBe(
-          true,
-        );
+        expect(await (await input(df)).isDisabled()).toBe(true);
       });
     });
   });
 
   describe('disabled', () => {
-    it('is enabled by default', () => {
-      expect(control().disabled).toBe(false);
+    it('is enabled by default', async () => {
+      expect(await (await loader.getHarness(MatInputHarness)).isDisabled()).toBe(false);
     });
 
     it('disables Material’s control', async () => {
       host.disabled.set(true);
       await fixture.whenStable();
 
-      expect(control().disabled).toBe(true);
+      expect(await (await loader.getHarness(MatInputHarness)).isDisabled()).toBe(true);
       expect(host.ref().matInput().disabled).toBe(true);
       expect(query('mat-form-field')!.classList).toContain('mat-form-field-disabled');
     });
@@ -721,7 +726,7 @@ describe('Textarea', () => {
       const f = TestBed.createComponent(AttrHost);
       await f.whenStable();
 
-      expect((f.nativeElement.querySelector('textarea') as HTMLTextAreaElement).disabled).toBe(true);
+      expect(await (await input(f)).isDisabled()).toBe(true);
     });
 
     // The two routes are independent: a form enabling its control — which is a
@@ -734,40 +739,41 @@ describe('Textarea', () => {
       host.ref().setDisabledState(false);
       await fixture.whenStable();
 
-      expect(control().disabled).toBe(true);
+      expect(await (await loader.getHarness(MatInputHarness)).isDisabled()).toBe(true);
     });
 
     it('is disabled by either route on its own', async () => {
       host.ref().setDisabledState(true);
       await fixture.whenStable();
-      expect(control().disabled).toBe(true);
+      expect(await (await loader.getHarness(MatInputHarness)).isDisabled()).toBe(true);
 
       host.ref().setDisabledState(false);
       await fixture.whenStable();
-      expect(control().disabled).toBe(false);
+      expect(await (await loader.getHarness(MatInputHarness)).isDisabled()).toBe(false);
 
       host.disabled.set(true);
       await fixture.whenStable();
-      expect(control().disabled).toBe(true);
+      expect(await (await loader.getHarness(MatInputHarness)).isDisabled()).toBe(true);
     });
   });
 
   // Rule 5: two-way state is a model(), for the field that is not part of a form.
   describe('[(value)]', () => {
-    it('starts empty', () => {
+    it('starts empty', async () => {
       expect(host.ref().value()).toBe('');
-      expect(control().value).toBe('');
+      expect(await (await loader.getHarness(MatInputHarness)).getValue()).toBe('');
     });
 
     it('shows a value written by the consumer', async () => {
       host.value.set('written');
       await fixture.whenStable();
 
-      expect(control().value).toBe('written');
+      expect(await (await loader.getHarness(MatInputHarness)).getValue()).toBe('written');
     });
 
     it('writes what the user types back through the binding', async () => {
-      await type('typed');
+      await (await loader.getHarness(MatInputHarness)).setValue('typed');
+      await fixture.whenStable();
 
       expect(host.value()).toBe('typed');
       expect(host.ref().value()).toBe('typed');
@@ -776,7 +782,8 @@ describe('Textarea', () => {
     // A textarea's value is multi-line — the one thing it has that an input does
     // not.
     it('keeps newlines', async () => {
-      await type('one\ntwo\nthree');
+      await (await loader.getHarness(MatInputHarness)).setValue('one\ntwo\nthree');
+      await fixture.whenStable();
 
       expect(host.value()).toBe('one\ntwo\nthree');
       expect(host.ref().length()).toBe(13);
@@ -784,8 +791,8 @@ describe('Textarea', () => {
   });
 
   describe('readonly', () => {
-    it('is editable by default', () => {
-      expect(control().readOnly).toBe(false);
+    it('is editable by default', async () => {
+      expect(await (await loader.getHarness(MatInputHarness)).isReadonly()).toBe(false);
     });
 
     // Unlike `disabled`, a readonly field stays focusable and is still submitted.
@@ -793,14 +800,15 @@ describe('Textarea', () => {
       host.readonly.set(true);
       await fixture.whenStable();
 
-      expect(control().readOnly).toBe(true);
-      expect(control().disabled).toBe(false);
+      const harness = await loader.getHarness(MatInputHarness);
+      expect(await harness.isReadonly()).toBe(true);
+      expect(await harness.isDisabled()).toBe(false);
     });
   });
 
   describe('required', () => {
-    it('is optional by default', () => {
-      expect(control().required).toBe(false);
+    it('is optional by default', async () => {
+      expect(await (await loader.getHarness(MatInputHarness)).isRequired()).toBe(false);
       expect(query('.mat-mdc-form-field-required-marker')).toBeNull();
     });
 
@@ -808,7 +816,7 @@ describe('Textarea', () => {
       host.required.set(true);
       await fixture.whenStable();
 
-      expect(control().required).toBe(true);
+      expect(await (await loader.getHarness(MatInputHarness)).isRequired()).toBe(true);
       expect(control().getAttribute('aria-required')).toBe('true');
       expect(query('.mat-mdc-form-field-required-marker')).not.toBeNull();
     });
@@ -823,7 +831,7 @@ describe('Textarea', () => {
       const f = TestBed.createComponent(MarkerHost);
       await f.whenStable();
 
-      expect((f.nativeElement.querySelector('textarea') as HTMLTextAreaElement).required).toBe(true);
+      expect(await (await input(f)).isRequired()).toBe(true);
       expect(f.nativeElement.querySelector('.mat-mdc-form-field-required-marker')).toBeNull();
     });
   });
@@ -1059,7 +1067,7 @@ describe('Textarea', () => {
     // `onTouched` is a no-op until a form registers one: a field with no forms
     // directive must not break on blur.
     it('survives a blur', async () => {
-      control().dispatchEvent(new Event('blur'));
+      await (await loader.getHarness(MatInputHarness)).blur();
       await fixture.whenStable();
 
       expect(control()).not.toBeNull();

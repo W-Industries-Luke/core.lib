@@ -1,6 +1,7 @@
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
+import { expect, userEvent, waitFor } from 'storybook/test';
 
 import { Button } from '../button/button';
 import {
@@ -9,6 +10,18 @@ import {
   type UiRadioGroupDirection,
   type UiRadioOption,
 } from './radio-group';
+
+/** The readout `<p>` a Forms story renders under its group, found by its text. */
+const readout = (canvas: HTMLElement, contains: string): HTMLElement =>
+  [...canvas.querySelectorAll('p')].find((p) => p.textContent!.includes(contains))!;
+
+/** Chooses an option by clicking its label, e.g. `Express`. */
+const chooseOption = (canvas: HTMLElement, text: string): Promise<void> =>
+  userEvent.click([...canvas.querySelectorAll('label')].find((l) => l.textContent!.trim() === text)!);
+
+/** Clicks the action `<button>` whose text matches, e.g. `Clear`. */
+const clickAction = (canvas: HTMLElement, text: string): Promise<void> =>
+  userEvent.click([...canvas.querySelectorAll('button')].find((b) => b.textContent!.trim() === text)!);
 
 const DIRECTIONS: UiRadioGroupDirection[] = ['column', 'row'];
 
@@ -350,6 +363,17 @@ export const NgModel: Story = {
         method: <strong>{{ method }}</strong>
       </p>`),
   }),
+  // Proves the round-trip the description claims: choosing an option reaches
+  // `[(ngModel)]`, and the value is the option's own `value`, not its label.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    expect(readout(canvasElement, 'method:').textContent).toContain('standard');
+
+    await chooseOption(canvasElement, 'Express');
+
+    await waitFor(() =>
+      expect(readout(canvasElement, 'method:').textContent).toContain('express'),
+    );
+  },
 };
 
 /**
@@ -400,6 +424,17 @@ export const RequiredValidation: Story = {
         valid: <strong>{{ control.valid }}</strong> · touched: <strong>{{ control.touched }}</strong>
       </p>`),
   }),
+  // Proves `required` reaches the control: the group is invalid with nothing
+  // chosen and valid once a choice is made.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    expect(readout(canvasElement, 'valid:').textContent).toContain('valid: false');
+
+    await chooseOption(canvasElement, 'Standard');
+
+    await waitFor(() =>
+      expect(readout(canvasElement, 'valid:').textContent).toContain('valid: true'),
+    );
+  },
 };
 
 /**
@@ -424,6 +459,17 @@ export const FormDisabled: Story = {
         Toggle
       </button>`),
   }),
+  // Proves `setDisabledState` round-trips both ways: a group that starts disabled
+  // by the form renders every button disabled, and enabling the form re-enables
+  // them — with nothing in the template driving `disabled`.
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const first = canvasElement.querySelector<HTMLInputElement>('input[type="radio"]')!;
+    expect(first.disabled).toBe(true);
+
+    await clickAction(canvasElement, 'Toggle');
+
+    await waitFor(() => expect(first.disabled).toBe(false));
+  },
 };
 
 /**

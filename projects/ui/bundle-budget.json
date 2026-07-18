@@ -1,0 +1,6 @@
+{
+  "description": "Size budget for the built dist/ui FESM2022 bundle — the JS every consuming app bundles. Raised deliberately when the library legitimately grows; a failing check means something (often a stray dependency) bloated the shared library. Enforced by src/bundle-size.spec.ts (which fails `ng test`, and therefore CI, when exceeded) and reportable locally via `npm run check:size`.",
+  "bundle": "fesm2022/w-industries-ui.mjs",
+  "maxRawBytes": 1114112,
+  "maxGzipBytes": 262144
+}

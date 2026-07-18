@@ -1,0 +1,36 @@
+// The layout `ui-address-form` adds around the primitives — and nothing else.
+//
+// There is not a colour, radius, outline or font in this file on purpose: every
+// field is a `ui-input` or a `ui-select`, and each already resolves all of that
+// from the `--mat-sys-*` tokens `../../styles/_theme.scss` emits. A palette
+// change there re-skins this form too, in light and dark alike, with no help from
+// here. What is left is where the fields sit relative to each other.
+
+:host {
+  display: block;
+}
+
+.ui-address-form {
+  // A simple two-column grid. A field's `span` decides whether it fills the row
+  // (`--full`) or shares it with the next `--half`, which is how `State` and
+  // `ZIP code` sit side by side. Drop `--ui-address-form-columns` to `1` and
+  // every field stacks — the spans still resolve, they just have one column to
+  // land in.
+  display: grid;
+  grid-template-columns: repeat(var(--ui-address-form-columns, 2), minmax(0, 1fr));
+
+  // `column-gap` only: the fields' own fixed subscript line already carries the
+  // vertical rhythm between rows, so a `row-gap` would double it. `--mat-sys`
+  // spacing is the default, so the gap tracks the fleet's scale.
+  column-gap: var(--ui-address-form-gap, var(--ui-sys-spacing-md, 16px));
+}
+
+.ui-address-form__field--full {
+  // Spans every column, whatever the count.
+  grid-column: 1 / -1;
+}
+
+.ui-address-form__field--half {
+  // One column of the grid — paired with the next half on the same row.
+  grid-column: span 1;
+}

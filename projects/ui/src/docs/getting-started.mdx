@@ -1,0 +1,149 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Docs/Getting Started" />
+
+# Getting Started
+
+How an app team adopts **`@w-industries/ui`** — the shared Angular Material
+component library and M3 theme for the `*.web` fleet.
+
+Every step below is verified against what the built package in `dist/ui`
+actually exposes. This is the same guidance as the package's own README, kept
+here so it is discoverable from the catalogue itself.
+
+> **Storybook is not the app.** The catalogue you are reading wires up the theme,
+> Roboto and Material Symbols for you (in `angular.json` and
+> `.storybook/preview-head.html`), and **none of that ships to a consuming app**.
+> The theme is a `@use`, and the fonts are `<link>`s _you_ add — steps 2 and 3.
+> Skipping them is why "it works in Storybook but not in my app" happens.
+
+## 1. Install
+
+The package lives in **GitHub Packages**, so npm has to be told where the
+`@w-industries` scope resolves. Add to the app's `.npmrc`:
+
+```ini
+@w-industries:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+```
+
+`NODE_AUTH_TOKEN` is a PAT with `read:packages` locally, or `GITHUB_TOKEN` in
+that app's CI. The `${...}` form is expanded by npm at read time — **commit the
+`.npmrc`, never the token itself.** Then:
+
+```bash
+npm i @w-industries/ui
+```
+
+Angular, CDK and Material are **peer** dependencies — the app supplies them.
+Keep Material and CDK on **v21** to match the fleet (npm's latest is v22 and
+needs Angular 22).
+
+## 2. Apply the theme
+
+Apply the theme **once**, at the app's style entry point (`styles.scss`):
+
+```scss
+@use '@w-industries/ui/styles/theme';
+```
+
+That single `@use` is the whole theme — it emits every Material `--mat-sys-*`
+role plus this library's own `--ui-sys-success` / `--ui-sys-warning` roles that
+M3 itself lacks. It is the single source of truth for palette, typography and
+density across the fleet, so **an app should not define its own
+`mat.theme()`** — consuming this one is the point of the library existing.
+
+### Dark mode comes for free
+
+The theme emits every role as a CSS `light-dark()` pair under
+`color-scheme: light dark`, so there is no second stylesheet to load and nothing
+to toggle at runtime — by default the app follows the user's OS preference. To
+pin a scheme instead:
+
+```scss
+:root {
+  color-scheme: dark; // or `light`
+}
+```
+
+One thing the theme cannot do for you: it emits tokens onto `html`, but it does
+not paint your page. Set the page surface from the same tokens, or dark mode is
+dark text on a white page:
+
+```scss
+html,
+body {
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+```
+
+## 3. Load the fonts
+
+Fonts are webfonts the **app** loads — a library cannot put a `<link>` in your
+`index.html`. Storybook's `preview-head.html` declares these for the catalogue,
+but **that file is not shipped to consumers**, so add both to your app's
+`index.html`:
+
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+<!-- The theme's typography (`typography: Roboto`). -->
+<link
+  href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+  rel="stylesheet"
+/>
+
+<!-- Material Symbols, for `ui-icon` and every Material component that shows an
+     icon (the datepicker toggle, the paginator arrows, `ui-alert`, …). -->
+<link
+  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+  rel="stylesheet"
+/>
+```
+
+Without Roboto, `typography: Roboto` in the theme silently falls back to a
+system font. Without Material Symbols, every icon renders as an empty box (or the
+raw ligature text, e.g. the word `menu`).
+
+The axis ranges on the Symbols URL are **load-bearing**: they ask for the
+_variable_ font. `<ui-icon filled>` moves that font's `FILL` axis, and the
+`--ui-icon-weight` / `--ui-icon-grade` / `--ui-icon-optical-size` hooks move
+`wght` / `GRAD` / `opsz`. The shorter, axis-less
+`https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined` form loads
+a static font under which all four silently do nothing.
+
+## 4. Import a component
+
+Everything is **standalone** and exported from the package root — import the
+class and add it to a component's `imports`:
+
+```ts
+import { Component } from '@angular/core';
+import { Button } from '@w-industries/ui';
+
+@Component({
+  selector: 'app-example',
+  imports: [Button],
+  template: `<button matButton uiButton variant="filled">Save changes</button>`,
+})
+export class Example {}
+```
+
+Anything that _decorates_ an existing element is a **directive on the native
+element** (like Material's own `matButton`), so `routerLink`, `aria-*`, `id`,
+`form`, `name` and friends keep working exactly as they normally would — nothing
+is wrapped away from you.
+
+```html
+<!-- a link that is styled as a button, with routing and a11y intact -->
+<a matButton uiButton variant="outlined" routerLink="/settings">Settings</a>
+
+<ui-icon name="home" />
+<ui-icon name="favorite" filled color="error" size="lg" label="Favourited" />
+```
+
+Browse the rest of the catalogue in the sidebar for the components that exist —
+an undocumented variant may as well not exist, so what you see here is the full
+public surface.

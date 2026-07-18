@@ -1,6 +1,9 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatBadge } from '@angular/material/badge';
+import { MatBadgeHarness } from '@angular/material/badge/testing';
 
 import { Badge, UiBadgePosition, UiBadgeSize, UiBadgeVariant } from './badge';
 
@@ -28,6 +31,7 @@ class TestHost {
 describe('Badge', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   /** The native element the consumer wrote — the directive's own host. */
   const nativeHost = (): HTMLElement => fixture.nativeElement.querySelector('span') as HTMLElement;
@@ -35,15 +39,33 @@ describe('Badge', () => {
   /** The badge Material renders inside the host. */
   const badgeElement = (): HTMLElement | undefined => host.ref().matBadge.getBadgeElement();
 
+  // The `MatBadgeHarness` speaks Material's *public* test surface —
+  // `getText()`, `getSize()`, `getPosition()`, `isOverlapping()`, `isHidden()`,
+  // `isDisabled()` — instead of the `mat-badge-*` class names the old spec keyed
+  // off. Those are Material's internal markup: the harness reads through them so
+  // this spec keeps passing if Material renames one. Everything the harness
+  // cannot see — this library's own `ui-badge--*` variant classes, the
+  // description a11y wiring, `exportAs`, native-attribute forwarding — stays a
+  // DOM assertion below.
+  const badge = (
+    f: ComponentFixture<unknown> = fixture,
+    filter?: Parameters<typeof MatBadgeHarness.with>[0],
+  ): Promise<MatBadgeHarness> =>
+    TestbedHarnessEnvironment.loader(f).getHarness(MatBadgeHarness.with(filter ?? {}));
+
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
   describe('content', () => {
-    it('renders the uiBadge value into the badge Material creates', () => {
-      expect(badgeElement()?.textContent).toBe('4');
+    it('renders the uiBadge value into the badge Material creates', async () => {
+      // The rendered value reads off the harness's `getText()`; the structural
+      // proof that it lives in Material's badge element stays an escape-hatch read
+      // via the instance's `getBadgeElement()`.
+      expect(await (await loader.getHarness(MatBadgeHarness)).getText()).toBe('4');
       expect(badgeElement()?.classList).toContain('mat-badge-content');
     });
 
@@ -65,14 +87,14 @@ describe('Badge', () => {
 
       const f = TestBed.createComponent(CountHost);
       await f.whenStable();
-      const content = (): HTMLElement => f.nativeElement.querySelector('.mat-badge-content');
+      const b = await badge(f);
 
-      expect(content().textContent).toBe('4');
+      expect(await b.getText()).toBe('4');
 
       f.componentInstance.count.set(12);
       await f.whenStable();
 
-      expect(content().textContent).toBe('12');
+      expect(await b.getText()).toBe('12');
     });
 
     // `mat-badge-hidden` is Material's own `hidden || !content`. An empty count
@@ -89,14 +111,14 @@ describe('Badge', () => {
 
       const f = TestBed.createComponent(EmptyHost);
       await f.whenStable();
-      const span = f.nativeElement.querySelector('span') as HTMLElement;
+      const b = await badge(f);
 
-      expect(span.classList).toContain('mat-badge-hidden');
+      expect(await b.isHidden()).toBe(true);
 
       f.componentInstance.count.set('4');
       await f.whenStable();
 
-      expect(span.classList).not.toContain('mat-badge-hidden');
+      expect(await b.isHidden()).toBe(false);
     });
   });
 
@@ -158,41 +180,39 @@ describe('Badge', () => {
   });
 
   describe('size', () => {
-    it('defaults to medium', () => {
+    it('defaults to medium', async () => {
       expect(host.ref().matBadge.size).toBe('medium');
-      expect(nativeHost().classList).toContain('mat-badge-medium');
+      expect(await (await badge()).getSize()).toBe('medium');
     });
 
     // Every size must reach MatBadge verbatim — these are the size names
     // Material itself understands, so a typo is a silently unsized badge rather
-    // than a compile error. The class assertion pins that Material really
-    // restyles for each one, rather than just accepting the value.
-    const sizes: [UiBadgeSize, string][] = [
-      ['small', 'mat-badge-small'],
-      ['medium', 'mat-badge-medium'],
-      ['large', 'mat-badge-large'],
-    ];
+    // than a compile error. `getSize()` pins that Material really restyled for
+    // each one, rather than just accepting the value — the same claim the old
+    // `mat-badge-*` class assertion made.
+    const sizes: UiBadgeSize[] = ['small', 'medium', 'large'];
 
-    for (const [size, expectedClass] of sizes) {
+    for (const size of sizes) {
       it(`passes the ${size} size through to MatBadge`, async () => {
         host.size.set(size);
         await fixture.whenStable();
 
         expect(host.ref().matBadge.size).toBe(size);
-        expect(nativeHost().classList).toContain(expectedClass);
+        expect(await (await badge()).getSize()).toBe(size);
       });
     }
 
     it('drops the previous size class when the size changes', async () => {
       host.size.set('large');
       await fixture.whenStable();
-      expect(nativeHost().classList).toContain('mat-badge-large');
+      expect(await (await badge()).getSize()).toBe('large');
 
       host.size.set('small');
       await fixture.whenStable();
 
-      expect(nativeHost().classList).toContain('mat-badge-small');
-      expect(nativeHost().classList).not.toContain('mat-badge-large');
+      // `getSize()` returns a single size, so reading `small` back is also the
+      // proof that `large` no longer applies.
+      expect(await (await badge()).getSize()).toBe('small');
     });
 
     // Stock M3 renders `small` at `text-size: 0`, so the count would be
@@ -202,8 +222,9 @@ describe('Badge', () => {
       host.size.set('small');
       await fixture.whenStable();
 
-      expect(badgeElement()?.textContent).toBe('4');
-      expect(nativeHost().classList).not.toContain('mat-badge-hidden');
+      const b = await badge();
+      expect(await b.getText()).toBe('4');
+      expect(await b.isHidden()).toBe(false);
     });
   });
 
@@ -232,50 +253,48 @@ describe('Badge', () => {
     }
 
     let f: ComponentFixture<PassThroughHost>;
-    let span: HTMLElement;
+    let b: MatBadgeHarness;
 
     beforeEach(async () => {
       f = TestBed.createComponent(PassThroughHost);
       await f.whenStable();
-      span = f.nativeElement.querySelector('span') as HTMLElement;
+      b = await badge(f);
     });
 
     it('forwards the position, so the badge can move off the default corner', async () => {
-      expect(span.classList).toContain('mat-badge-above');
-      expect(span.classList).toContain('mat-badge-after');
+      expect(await b.getPosition()).toBe('above after');
 
       f.componentInstance.position.set('below before');
       await f.whenStable();
 
-      expect(span.classList).toContain('mat-badge-below');
-      expect(span.classList).toContain('mat-badge-before');
+      expect(await b.getPosition()).toBe('below before');
     });
 
     it('forwards overlap', async () => {
-      expect(span.classList).toContain('mat-badge-overlap');
+      expect(await b.isOverlapping()).toBe(true);
 
       f.componentInstance.overlap.set(false);
       await f.whenStable();
 
-      expect(span.classList).not.toContain('mat-badge-overlap');
+      expect(await b.isOverlapping()).toBe(false);
     });
 
     it('forwards hidden', async () => {
-      expect(span.classList).not.toContain('mat-badge-hidden');
+      expect(await b.isHidden()).toBe(false);
 
       f.componentInstance.badgeHidden.set(true);
       await f.whenStable();
 
-      expect(span.classList).toContain('mat-badge-hidden');
+      expect(await b.isHidden()).toBe(true);
     });
 
     it('forwards disabled', async () => {
-      expect(span.classList).not.toContain('mat-badge-disabled');
+      expect(await b.isDisabled()).toBe(false);
 
       f.componentInstance.badgeDisabled.set(true);
       await f.whenStable();
 
-      expect(span.classList).toContain('mat-badge-disabled');
+      expect(await b.isDisabled()).toBe(true);
     });
   });
 
@@ -374,7 +393,7 @@ describe('Badge', () => {
       expect(button.disabled).toBe(true);
       expect(button.hidden).toBe(true);
       // ...and the badge's own disabled state is untouched by the native one.
-      expect(button.classList).not.toContain('mat-badge-disabled');
+      expect(await (await badge(f)).isDisabled()).toBe(false);
     });
   });
 

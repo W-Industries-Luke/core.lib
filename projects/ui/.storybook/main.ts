@@ -16,13 +16,43 @@ const config: StorybookConfig = {
     },
   },
 
-  // Emit relative asset URLs so the static build works from any mount point —
-  // GitHub Pages serves this project site from /core.lib/, not from /.
-  // This is Storybook's default; pinning it makes the requirement explicit and
-  // survives an upstream default change. Note it must stay relative rather than
-  // a hardcoded '/core.lib/', or local `build-storybook` output and PR previews
-  // would break.
-  viteFinal: async (viteConfig) => ({ ...viteConfig, base: './' }),
+  viteFinal: async (viteConfig) => ({
+    ...viteConfig,
+
+    // Emit relative asset URLs so the static build works from any mount point —
+    // GitHub Pages serves this project site from /core.lib/, not from /.
+    // This is Storybook's default; pinning it makes the requirement explicit and
+    // survives an upstream default change. Note it must stay relative rather than
+    // a hardcoded '/core.lib/', or local `build-storybook` output and PR previews
+    // would break.
+    base: './',
+
+    build: {
+      ...viteConfig.build,
+
+      // Preserve native CSS `light-dark()` in the built preview.
+      //
+      // The whole dark mode mechanism is that every `--mat-sys-*` / `--ui-sys-*`
+      // role is a `light-dark()` pair the toolbar flips by forcing `color-scheme`
+      // on `<html>` at runtime (see `preview.ts`, `_theme.scss`). Vite's CSS
+      // pipeline here is Lightning CSS, which — for any target that predates
+      // `light-dark()` — downlevels `light-dark(a, b)` into a
+      // `var(--lightningcss-light,a) var(--lightningcss-dark,b)` polyfill whose
+      // helper vars are switched ONLY by a `@media (prefers-color-scheme: dark)`
+      // rule. A runtime `color-scheme: dark` never touches that media query, so
+      // the toolbar would flip nothing and dark would render identically to
+      // light — exactly the bug this fixes.
+      //
+      // Lightning CSS derives its targets from `build.cssTarget` (Vite passes it
+      // through `convertTargets`, ignoring `css.lightningcss.targets` at minify
+      // time), which otherwise defaults to a floor old enough to trigger the
+      // downlevel. Pinning it to the browsers with native `light-dark()`
+      // (Baseline widely available since 2024, and the floor `.browserslistrc`
+      // declares for the fleet) keeps the pairs intact so the forced
+      // `color-scheme` re-resolves them.
+      cssTarget: ['chrome123', 'edge123', 'firefox120', 'safari17.5'],
+    },
+  }),
 };
 
 export default config;

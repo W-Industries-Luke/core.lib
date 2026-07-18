@@ -1,6 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatCard, MatCardTitle } from '@angular/material/card';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { MatCard, MatCardAvatar, MatCardSubtitle, MatCardTitle } from '@angular/material/card';
+import { MatCardHarness } from '@angular/material/card/testing';
 
 import { Card, CardActions, CardHeader, UiCardActionsAlign, UiCardAppearance } from './card';
 
@@ -43,6 +49,7 @@ class TestHost {
 describe('Card', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
@@ -50,9 +57,18 @@ describe('Card', () => {
   /** The `<mat-card>` this component renders — the element Material styles. */
   const matCardElement = (): HTMLElement => query('mat-card')!;
 
+  // The `MatCardHarness` speaks Material's *public* test surface —
+  // `getText()`, `getTitleText()`, `getSubtitleText()` — so wherever a test only
+  // needs the rendered *text* of a region it reads it through the harness rather
+  // than off Material's internal `.mat-mdc-card-*` markup. Everything the harness
+  // cannot see — the `mat-mdc-card-outlined` appearance treatment, this library's
+  // own `.ui-card__header` slot, projection *location*, `exportAs` — stays a DOM
+  // or instance assertion below.
+
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -103,16 +119,24 @@ describe('Card', () => {
   });
 
   describe('content projection', () => {
-    it('projects the body into Material’s card content region', () => {
+    it('projects the body into Material’s card content region', async () => {
       const body = query('mat-card-content #body');
       expect(body).not.toBeNull();
-      expect(body!.textContent).toContain('1 Infinite Loop');
+      // The content text reads through the harness's `getText()`; the projection
+      // *location* stays a DOM check, since the harness cannot say which region
+      // the node landed in.
+      expect(await (await loader.getHarness(MatCardHarness)).getText()).toContain('1 Infinite Loop');
     });
 
-    it('projects a header marker into the header slot', () => {
+    it('projects a header marker into the header slot', async () => {
       const header = query('.ui-card__header');
       expect(header).not.toBeNull();
-      expect(header!.querySelector('h2')!.textContent).toContain('Shipping address');
+      // The title text reads through `getTitleText()` — the h2 carries
+      // `matCardTitle` — while the `.ui-card__header` marker is this library's own
+      // slot, invisible to the harness, so it stays a DOM assertion.
+      expect(await (await loader.getHarness(MatCardHarness)).getTitleText()).toContain(
+        'Shipping address',
+      );
     });
 
     // The actions have to be the *direct* children of `<mat-card-actions>`, not
@@ -131,6 +155,62 @@ describe('Card', () => {
       );
 
       expect(regions).toEqual(['div', 'mat-card-content', 'mat-card-actions']);
+    });
+
+    // The header slot is a plain block, so a consumer can mark a *wrapper* that
+    // lays Material's own `matCardAvatar` / `matCardTitle` / `matCardSubtitle` out
+    // however they like — the story of the same name — and the whole thing lands
+    // in the header rather than the body.
+    it('projects a marked wrapper of Material header parts into the header slot', async () => {
+      @Component({
+        imports: [Card, CardHeader, MatCardAvatar, MatCardTitle, MatCardSubtitle],
+        template: `
+          <ui-card>
+            <div uiCardHeader>
+              <img matCardAvatar alt="" src="shiba.jpg" />
+              <h2 matCardTitle>Shiba Inu</h2>
+              <span matCardSubtitle>Dog breed</span>
+            </div>
+            <p id="body">A hunting dog from Japan.</p>
+          </ui-card>
+        `,
+      })
+      class WrapperHost {}
+
+      const f = TestBed.createComponent(WrapperHost);
+      await f.whenStable();
+      const header = f.nativeElement.querySelector('.ui-card__header')!;
+
+      expect(header).not.toBeNull();
+      expect(header.querySelector('[matCardAvatar]')).not.toBeNull();
+      expect(header.querySelector('[matCardTitle]')!.textContent).toContain('Shiba Inu');
+      expect(header.querySelector('[matCardSubtitle]')!.textContent).toContain('Dog breed');
+      // The wrapper's parts stayed out of the body.
+      expect(f.nativeElement.querySelector('.ui-card__body [matCardAvatar]')).toBeNull();
+    });
+
+    // The everyday header is two markers — a title over a subtitle — and both are
+    // direct children marked `uiCardHeader`, so both project into the one slot.
+    it('projects several header markers into the one header slot', async () => {
+      @Component({
+        imports: [Card, CardHeader, MatCardTitle, MatCardSubtitle],
+        template: `
+          <ui-card>
+            <h2 uiCardHeader matCardTitle>Shipping address</h2>
+            <span uiCardHeader matCardSubtitle>Where it goes</span>
+            <p id="body">1 Infinite Loop</p>
+          </ui-card>
+        `,
+      })
+      class TwoMarkerHost {}
+
+      const f = TestBed.createComponent(TwoMarkerHost);
+      await f.whenStable();
+      const header = f.nativeElement.querySelector('.ui-card__header')!;
+
+      expect(header.querySelector('[matCardTitle]')!.textContent).toContain('Shipping address');
+      expect(header.querySelector('[matCardSubtitle]')!.textContent).toContain('Where it goes');
+      expect(f.nativeElement.querySelector('.ui-card__body [matCardTitle]')).toBeNull();
     });
   });
 
@@ -159,7 +239,7 @@ describe('Card', () => {
       await fixture.whenStable();
 
       expect(matCardElement().children.length).toBe(1);
-      expect(query('mat-card-content')!.textContent).toContain('1 Infinite Loop');
+      expect(await (await loader.getHarness(MatCardHarness)).getText()).toContain('1 Infinite Loop');
     });
 
     it('brings a slot back when its content appears later', async () => {
@@ -299,6 +379,24 @@ describe('Card', () => {
       expect(card.getAttribute('role')).toBe('region');
       expect(card.getAttribute('aria-label')).toBe('Shipping address');
       expect(card.dataset['testid']).toBe('addr');
+    });
+  });
+
+  // Material's card padding (16/8) is the same distance as the fleet's `md`/`sm`
+  // spacing steps, so the defaults resolve from the shared scale rather than
+  // pinning literals a retuned scale could drift from. jsdom does not resolve
+  // `var()`, so this is a source-level assertion, in the spirit of `ui-toolbar`'s.
+  describe('padding defaults come from the spacing scale, not literals', () => {
+    const styles = readFileSync(join(process.cwd(), 'projects', 'ui', 'src', 'lib', 'card', 'card.scss'), 'utf8');
+
+    it('resolves the default padding from the theme’s `md`/`sm` steps', () => {
+      expect(styles).toContain('var(--ui-card-padding, var(--ui-sys-spacing-md))');
+      expect(styles).toContain('var(--ui-card-actions-padding, var(--ui-sys-spacing-sm))');
+    });
+
+    it('leaves no hardcoded 16px/8px padding default behind', () => {
+      expect(styles).not.toMatch(/--ui-card-padding,\s*16px/);
+      expect(styles).not.toMatch(/--ui-card-actions-padding,\s*8px/);
     });
   });
 });

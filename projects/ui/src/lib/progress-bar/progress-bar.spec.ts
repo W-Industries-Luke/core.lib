@@ -1,6 +1,9 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatProgressBar } from '@angular/material/progress-bar';
+import { MatProgressBarHarness } from '@angular/material/progress-bar/testing';
 
 import { ProgressBar, UiProgressAnimationEnd, UiProgressBarMode } from './progress-bar';
 
@@ -29,7 +32,18 @@ class TestHost {
 describe('ProgressBar', () => {
   let fixture: ComponentFixture<TestHost>;
   let host: TestHost;
+  let loader: HarnessLoader;
 
+  // The `MatProgressBarHarness` speaks Material's *public* test surface —
+  // `getMode()` and `getValue()` — instead of reading the `mode` attribute and
+  // `aria-valuenow` off Material's rendered markup, as the old spec did. Those
+  // are Material's internal wiring: the harness exists precisely so that when
+  // Material reworks how it exposes its state, this spec keeps passing rather
+  // than breaking on a detail no consumer depends on. Everything the harness
+  // *cannot* see — the transform Material scales the primary bar by, the buffer
+  // bar's flex-basis, the live-region ARIA this component adds, its `--ui-*`
+  // theme hooks and its `animationEnd` forwarding — stays a DOM or instance
+  // assertion below.
   const query = (selector: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(selector);
 
@@ -45,6 +59,7 @@ describe('ProgressBar', () => {
   beforeEach(async () => {
     fixture = TestBed.createComponent(TestHost);
     host = fixture.componentInstance;
+    loader = TestbedHarnessEnvironment.loader(fixture);
     await fixture.whenStable();
   });
 
@@ -58,10 +73,12 @@ describe('ProgressBar', () => {
     // Material's own default is `determinate`, so this is a deliberate
     // divergence rather than a pass-through: a bar bound to no value should read
     // as "working", not sit silently at 0%.
-    it('defaults to indeterminate, unlike MatProgressBar itself', () => {
+    it('defaults to indeterminate, unlike MatProgressBar itself', async () => {
+      const bar = await loader.getHarness(MatProgressBarHarness);
+
       expect(host.ref().mode()).toBe('indeterminate');
       expect(host.ref().matProgressBar().mode).toBe('indeterminate');
-      expect(matElement().getAttribute('mode')).toBe('indeterminate');
+      expect(await bar.getMode()).toBe('indeterminate');
     });
 
     for (const mode of ['determinate', 'indeterminate', 'buffer', 'query'] as const) {
@@ -70,7 +87,7 @@ describe('ProgressBar', () => {
         await fixture.whenStable();
 
         expect(host.ref().matProgressBar().mode).toBe(mode);
-        expect(matElement().getAttribute('mode')).toBe(mode);
+        expect(await (await loader.getHarness(MatProgressBarHarness)).getMode()).toBe(mode);
       });
     }
 
@@ -80,7 +97,7 @@ describe('ProgressBar', () => {
       host.mode.set('indeterminate');
       await fixture.whenStable();
 
-      expect(matElement().getAttribute('mode')).toBe('indeterminate');
+      expect(await (await loader.getHarness(MatProgressBarHarness)).getMode()).toBe('indeterminate');
     });
   });
 
@@ -100,7 +117,11 @@ describe('ProgressBar', () => {
         await fixture.whenStable();
 
         expect(host.ref().matProgressBar().value).toBe(value);
-        expect(matElement().getAttribute('aria-valuenow')).toBe(String(value));
+        // `getValue()` reads the same `aria-valuenow` the old assertion did — what
+        // a screen reader reads out — without naming the attribute. The transform
+        // is what a sighted user gets and the harness has no window onto it, so it
+        // stays a DOM read.
+        expect(await (await loader.getHarness(MatProgressBarHarness)).getValue()).toBe(value);
         expect(primaryBar().style.transform).toBe(`scaleX(${value / 100})`);
       });
     }
@@ -115,30 +136,30 @@ describe('ProgressBar', () => {
         await fixture.whenStable();
 
         expect(host.ref().value()).toBe(60);
-        expect(matElement().getAttribute('aria-valuenow')).toBeNull();
+        expect(await (await loader.getHarness(MatProgressBarHarness)).getValue()).toBeNull();
       });
     }
 
     it('starts reporting the bound value as soon as the mode becomes determinate', async () => {
       host.value.set(60);
       await fixture.whenStable();
-      expect(matElement().getAttribute('aria-valuenow')).toBeNull();
+      expect(await (await loader.getHarness(MatProgressBarHarness)).getValue()).toBeNull();
 
       host.mode.set('determinate');
       await fixture.whenStable();
 
-      expect(matElement().getAttribute('aria-valuenow')).toBe('60');
+      expect(await (await loader.getHarness(MatProgressBarHarness)).getValue()).toBe(60);
     });
 
     it('clamps out-of-range values to 0–100', async () => {
       host.mode.set('determinate');
       host.value.set(140);
       await fixture.whenStable();
-      expect(matElement().getAttribute('aria-valuenow')).toBe('100');
+      expect(await (await loader.getHarness(MatProgressBarHarness)).getValue()).toBe(100);
 
       host.value.set(-20);
       await fixture.whenStable();
-      expect(matElement().getAttribute('aria-valuenow')).toBe('0');
+      expect(await (await loader.getHarness(MatProgressBarHarness)).getValue()).toBe(0);
     });
 
     // `numberAttribute` is what makes the plain attribute form work. Without it
@@ -156,9 +177,8 @@ describe('ProgressBar', () => {
       await f.whenStable();
 
       expect(f.componentInstance.ref().value()).toBe(40);
-      expect(f.nativeElement.querySelector('mat-progress-bar').getAttribute('aria-valuenow')).toBe(
-        '40',
-      );
+      const bar = await TestbedHarnessEnvironment.loader(f).getHarness(MatProgressBarHarness);
+      expect(await bar.getValue()).toBe(40);
     });
   });
 

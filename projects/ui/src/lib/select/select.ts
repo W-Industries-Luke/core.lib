@@ -7,7 +7,6 @@ import {
   contentChild,
   DestroyRef,
   Directive,
-  effect,
   ElementRef,
   forwardRef,
   inject,
@@ -18,6 +17,7 @@ import {
   TemplateRef,
   viewChild,
   type AfterViewInit,
+  type DoCheck,
   type Signal,
 } from '@angular/core';
 import { NG_VALUE_ACCESSOR, type ControlValueAccessor } from '@angular/forms';
@@ -440,7 +440,9 @@ export class SelectTriggerDef<T = unknown> {
     { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => Select), multi: true },
   ],
 })
-export class Select<T = unknown> implements ControlValueAccessor, ErrorStateMatcher, AfterViewInit {
+export class Select<T = unknown>
+  implements ControlValueAccessor, ErrorStateMatcher, AfterViewInit, DoCheck
+{
   /**
    * The field's label — the name of the thing being chosen, e.g. `Country`.
    *
@@ -768,20 +770,37 @@ export class Select<T = unknown> implements ControlValueAccessor, ErrorStateMatc
     // Replaced by `registerOnTouched`, for the same reason as `onChange`.
   };
 
-  constructor() {
-    // `MatSelect` re-checks its error state in `ngDoCheck`, but only for a select
-    // that has an `NgControl` of its own (see `@angular/material/select`). Here
-    // the `NgControl` is on `<ui-select>` — that is what makes `[(ngModel)]` bind
-    // the host rather than the select inside it — so the re-check has to be
-    // driven from this side. `error()` is read first so the effect tracks it even
-    // though `updateErrorState()` reaches the same signal through `isErrorState()`.
-    effect(() => {
-      this.error();
+  /** Whether the view — and therefore {@link matSelect} — has been created. */
+  private viewReady = false;
+
+  /**
+   * Re-checks Material's error state on every change detection pass.
+   *
+   * `MatSelect` does this itself in its own `ngDoCheck`, but only for a select that
+   * has an `NgControl` of its own (see `@angular/material/select`). Here the
+   * `NgControl` is on `<ui-select>` — that is what makes `[(ngModel)]` bind the host
+   * rather than the select inside it — so `MatSelect` never sees one and the
+   * re-check has to be driven from this side.
+   *
+   * It runs here rather than in an `effect()` so that it is *synchronous with*
+   * change detection: `error()` is read in the template, so a change to it already
+   * schedules the pass this hook runs in, and Material's `errorState` — the field's
+   * red outline, `aria-invalid`, and whether `<mat-form-field>` shows the error
+   * subscript at all — is updated in that same pass. An effect's flush is not tied
+   * to the render, so under a host that drives change detection manually and never
+   * flushes effects (Storybook's own renderer among them) the message would render
+   * but the field would stay valid — issue #122.
+   */
+  ngDoCheck(): void {
+    // `matSelect` is a `viewChild.required`, so it must not be read before the view
+    // that holds it exists — the first `ngDoCheck` runs before `ngAfterViewInit`.
+    if (this.viewReady) {
       this.matSelect().updateErrorState();
-    });
+    }
   }
 
   ngAfterViewInit(): void {
+    this.viewReady = true;
     this.forwardAttributes();
 
     // Static attributes are on the host before this runs, but a bound one

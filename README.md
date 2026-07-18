@@ -48,6 +48,127 @@ default, which is the `color-scheme: light dark` the theme ships). It is a
 decorator, so no story can opt out and a component that breaks in dark shows up
 on the story it already has.
 
+## Typography
+
+The theme ships the Material 3 type scale, set by the `typography` entry in
+`src/styles/_theme.scss` (`typography: Roboto` today). `Foundations/Typography`
+in Storybook renders every role — display / headline / title / body / label, each
+in its three sizes — with its `--mat-sys-*` token and the size the browser
+computes from it, so it is a live reference rather than a table to keep in sync.
+
+Use a role by pointing `font` at its token, never by hardcoding a size:
+
+```scss
+h1 {
+  font: var(--mat-sys-headline-large);
+}
+.caption {
+  font: var(--mat-sys-body-small);
+}
+```
+
+### Overriding the scale
+
+The scale is the theme's to own, so change it in one place — the `typography`
+value passed to `mat.theme()` in `_theme.scss` — and every app follows, exactly
+as the palette does. `Roboto` is the shorthand for "use this family everywhere";
+for finer control pass the M3 typography config map instead:
+
+```scss
+@include mat.theme((
+  color: ( /* … */ ),
+  // A brand display face for the big roles, a separate face for body text, and
+  // the weights the scale reaches for. Every key is optional — omit one and M3
+  // keeps its default.
+  typography: (
+    brand-family: 'Poppins, sans-serif',   // display / headline / title
+    plain-family: 'Inter, sans-serif',     // body / label
+    bold-weight: 700,
+    medium-weight: 500,
+    regular-weight: 400,
+  ),
+  density: 0,
+));
+```
+
+That regenerates every `--mat-sys-<role>-*` token from the config, so the whole
+scale — and the `Foundations/Typography` story — moves together. An app that
+needs to nudge a single role rather than the whole scale can override that role's
+token at `:root` (`:root { --mat-sys-headline-large-size: 2.5rem; }`), but reach
+for that sparingly: a per-role override lives outside the theme and so is invisible
+to the fleet's single source of truth.
+
+## Testing
+
+Unit tests run on **vitest** through `@angular/build:unit-test` — headless, no
+browser (`npx ng test ui --watch=false`). Every component ships a `.spec.ts` with
+meaningful tests, not "should create".
+
+### Test Material through its harnesses, not its DOM
+
+A component that wraps a Material one is tested through **Material's own CDK test
+harnesses** (`@angular/cdk/testing`), never by querying Material's internal
+markup. The MDC class names (`mat-mdc-unelevated-button`), the overlay structure a
+`<mat-select>` renders its panel into, the `<input>` buried inside a
+`<mat-checkbox>` — those are Material's implementation details, and a spec that
+asserts on them breaks the day Material renames one, on a detail no consumer
+depends on. A harness is Material's *published* test surface; assert through it and
+the spec survives the upgrade.
+
+`projects/ui/src/lib/button/button.spec.ts` is the reference. The shape:
+
+```ts
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { MatButtonHarness } from '@angular/material/button/testing';
+
+let loader: HarnessLoader;
+
+beforeEach(async () => {
+  fixture = TestBed.createComponent(TestHost);
+  loader = TestbedHarnessEnvironment.loader(fixture);
+  await fixture.whenStable();
+});
+
+it('passes the variant through to MatButton', async () => {
+  host.variant.set('outlined');
+  await fixture.whenStable();
+
+  const button = await loader.getHarness(MatButtonHarness);
+  expect(await button.getAppearance()).toBe('outlined'); // not a `.mat-mdc-*` class
+});
+```
+
+Harness methods are async — `await` them. Find a specific instance with a filter
+(`loader.getHarness(MatButtonHarness.with({ text: 'Save' }))`) rather than indexing
+a `querySelectorAll`. For a component that renders into a **CDK overlay** (dialog,
+snackbar, menu, a select's panel), reach it with
+`TestbedHarnessEnvironment.documentRootLoader(fixture)` — the overlay lives outside
+the fixture's own element.
+
+### What stays a DOM assertion
+
+Harnesses speak Material's surface — appearance, `checked`, `value`, `disabled`,
+open/close, the options in a panel. They have nothing to say about what *this*
+library adds on top, so those assertions stay as DOM or instance reads:
+
+- **Theme marker classes and styling hooks** — `ui-button--accent`, the `--ui-*`
+  custom properties. These are how `_button.scss` re-points Material's tokens; the
+  harness can't see them.
+- **Native-attribute forwarding** — the proof that `aria-*`, `id`, `data-*`,
+  `routerLink`, `form`/`name`/`value` land on the *real* element (and are taken off
+  the wrapper). A harness abstracts the element away, which is the opposite of what
+  that test asserts.
+- **`id` / `<label for>` association** specifics.
+- **`ControlValueAccessor` / `Validator` behaviour** — assert it through the bound
+  `FormControl` (`control.valid`, `.errors`, `.touched`), not the harness.
+- **Escape-hatch instance accessors** — the underlying Material instance a
+  component exposes (`host.ref().matButton`, `matCheckbox()`, a returned
+  `dialogRef`).
+
+So a spec is usually *both*: harness calls for Material's own behaviour, DOM and
+instance reads for the seams this library owns.
+
 ## Accessibility
 
 This library is the a11y floor for every consuming app, so a11y is asserted
@@ -196,12 +317,20 @@ that app's CI. The `${...}` form is expanded by npm at read time — **commit th
 
 ## Contributing
 
+**[`CONTRIBUTING.md`](./CONTRIBUTING.md) is the full guide** — the component
+checklist, the extensibility contract (directive-first, the `::ng-deep` test),
+the theming rules, the harness testing pattern, and how CI gates a merge, each
+derived from what `button/` and the theme actually do. The summary below is the
+short version; read `CONTRIBUTING.md` before building a component.
+
 Every component should:
 
 1. Live in `projects/ui/src/lib/<name>/`.
 2. Be exported from `projects/ui/src/public-api.ts` — otherwise consumers can't
    import it and it's effectively dead code.
-3. Ship a `.spec.ts` with meaningful tests (not just "should create").
+3. Ship a `.spec.ts` with meaningful tests (not just "should create"). If it wraps
+   a Material component, test that component through its CDK harness — see
+   [Testing](#testing).
 4. Ship a `.stories.ts` with one story per meaningful configuration — the
    catalogue is how the app teams discover what exists, so an undocumented
    variant may as well not exist. See `src/lib/ui.stories.ts` for the pattern.

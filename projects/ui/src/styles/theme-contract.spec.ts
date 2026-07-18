@@ -16,6 +16,9 @@ import { join, relative } from 'node:path';
  * never enter. Hence a source-level assertion, in the spirit of `release.spec.ts`:
  * some contracts are cheaper to hold than to observe.
  */
+/** A `--ui-sys-spacing-*` declaration — the one `--ui-sys-*` role that is not a colour. */
+const SPACING_ROLE = /^\s*--ui-sys-spacing-[\w#{}$.-]*:/;
+
 describe('theme contract', () => {
   const src = join(process.cwd(), 'projects', 'ui', 'src');
 
@@ -56,7 +59,7 @@ describe('theme contract', () => {
       expect(theme).toMatch(/color-scheme:\s*light dark/);
     });
 
-    it('gives its own roles the same light/dark pairing Material’s roles have', () => {
+    it('gives its own colour roles the same light/dark pairing Material’s roles have', () => {
       // `--ui-sys-success` / `--ui-sys-warning` are this library's additions to
       // M3, so nothing upstream flips them — they only track the scheme because
       // they are emitted as `light-dark()` like every `--mat-sys-*` role. A tone
@@ -67,6 +70,11 @@ describe('theme contract', () => {
       const roles = theme
         .split('\n')
         .filter((line) => /^\s*--ui-sys-[\w#{}$.-]+:/.test(line))
+        // `--ui-sys-spacing-*` is the exception, and the only kind of exception
+        // there is: it carries a length rather than a colour, and a gap is a gap
+        // in the dark. Pairing it through `light-dark()` would be noise, not
+        // rigour — see the assertion below, which holds it to its own contract.
+        .filter((line) => !SPACING_ROLE.test(line))
         .map((line) => line.trim());
 
       expect(roles.length).toBeGreaterThanOrEqual(4);
@@ -74,8 +82,88 @@ describe('theme contract', () => {
         expect(role).toContain('light-dark(');
       }
     });
+
+    it('pulls the foundational tokens in so `styles/theme` alone emits them', () => {
+      // The spacing/radius/z/breakpoint scales live in `_tokens.scss` (asserted
+      // below), but an app that consumes only `styles/theme` must still get them —
+      // so the theme `@use`s the partial, and this is the line that keeps that
+      // true. Drop it and every `--ui-sys-spacing-*` a component reads goes
+      // undefined in a theme-only app.
+      expect(theme).toMatch(/@use\s+['"]\.\/tokens['"]/);
+    });
+  });
+
+  describe('src/styles/_tokens.scss', () => {
+    const tokens = readFileSync(join(src, 'styles', '_tokens.scss'), 'utf8');
+
+    it('emits a spacing scale for the fleet to lay out against', () => {
+      // M3's 4dp grid is not a token Material emits, so this is the fleet's only
+      // shared answer to "how far apart" — a component reaching for a literal
+      // instead is how the apps drift. The scale is emitted as `--ui-sys-spacing-*`
+      // and the next component to need a gap has to find these steps already
+      // defined.
+      const scale = tokens.split('\n').filter((line) => SPACING_ROLE.test(line));
+
+      expect(scale.length).toBeGreaterThanOrEqual(1);
+      // Steps on M3's own 4dp unit, not hand-picked numbers — sm/md/lg keep the
+      // values components already depend on (8/16/24px).
+      expect(tokens).toMatch(/\$spacing-unit:\s*4px/);
+      expect(tokens).toMatch(/sm:\s*2,[\s\S]*?md:\s*4,[\s\S]*?lg:\s*6,/);
+    });
+
+    it('references M3’s corner scale for radii rather than inventing pixels', () => {
+      // Radius is the one family M3 already tokenises, so duplicating it with
+      // literals of our own is exactly the drift the theme prevents: every entry in
+      // the `$radius` map must point at a `--mat-sys-corner-*` role, so a shape
+      // change in the theme flows through. A bare `12px` here would be a radius the
+      // theme cannot retune. The map is emitted as `--ui-sys-radius-*` via
+      // interpolation, so this checks the source of those aliases.
+      const radii = mapEntries(tokens, 'radius');
+
+      expect(radii.length).toBeGreaterThanOrEqual(3);
+      for (const [, value] of radii) {
+        expect(value).toMatch(/^--mat-sys-corner-/);
+      }
+    });
+
+    it('defines an ascending z-index ladder and breakpoint scale', () => {
+      // A named order is only useful if the numbers actually climb: two layers
+      // that both read "on top" but resolve equal is the bug the ladder exists to
+      // remove. Same for breakpoints — `md` below `sm` would break every
+      // `min-width` query built on them.
+      const values = (name: string): number[] =>
+        mapEntries(tokens, name).map(([, value]) => parseInt(value, 10));
+
+      const zLayers = values('z-layers');
+      const breakpoints = values('breakpoints');
+
+      expect(zLayers.length).toBeGreaterThanOrEqual(3);
+      expect(breakpoints.length).toBeGreaterThanOrEqual(3);
+      for (const ladder of [zLayers, breakpoints]) {
+        expect(ladder).toEqual([...ladder].sort((a, b) => a - b));
+        expect(new Set(ladder).size).toBe(ladder.length);
+      }
+    });
   });
 });
+
+/**
+ * The `name: value` entries of a top-level SCSS map, e.g. `$spacing: ( sm: 2, … )`.
+ * Source-level, so it reads the map as written rather than as compiled — which is
+ * the point of these assertions: the values are emitted through interpolation, so
+ * the map is where a wrong one is introduced.
+ */
+function mapEntries(scss: string, name: string): [string, string][] {
+  const block = new RegExp(`\\$${name}:\\s*\\(([\\s\\S]*?)\\)`).exec(scss)?.[1] ?? '';
+  return block
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [key, ...rest] = entry.split(':');
+      return [key!.trim(), rest.join(':').trim()];
+    });
+}
 
 /** Every `.scss` under `dir`, recursively. */
 function scssFilesUnder(dir: string): string[] {

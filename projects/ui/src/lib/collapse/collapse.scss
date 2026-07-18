@@ -1,0 +1,84 @@
+// Size-animation for `ui-collapse` — and nothing else. There is not a colour,
+// font or border in this file on purpose: a collapse is a mechanism, not a
+// surface, so whatever composes it (a panel, a drawer, a "show more" block)
+// brings its own chrome from the shared theme.
+//
+// ## Why a CSS grid rather than an animated `height`
+//
+// Animating `height` needs a concrete pixel value at both ends, so it means
+// measuring the content in JS (`scrollHeight`), pinning it, then unpinning to
+// `auto` — a dance that fights any content that reflows mid-animation. A one-cell
+// grid whose track animates `1fr → 0fr` sidesteps all of it: the browser resolves
+// `1fr` to the content's own size every frame, so the region fits whatever is
+// projected, needs no measurement and no hardcoded height, and reflows for free.
+// `min-height/width: 0` on the content is load-bearing — a grid item's default
+// `min-*: auto` floors the track at the content size and the animation never
+// moves — and `overflow: hidden` clips the content while the track is smaller
+// than it.
+
+:host {
+  display: block;
+
+  // The motion knobs, resolved once. Duration and easing default to the fleet's
+  // M3 motion tokens (`--ui-sys-motion-*` in `../../styles/_tokens.scss`), so a
+  // collapse moves on the same curve as everything else; a consumer retunes one
+  // collapse with `--ui-collapse-duration` / `--ui-collapse-easing`, and the
+  // `duration` input writes the former inline so it wins.
+  --_ui-collapse-duration: var(--ui-collapse-duration, var(--ui-sys-motion-duration-medium2));
+  --_ui-collapse-easing: var(--ui-collapse-easing, var(--ui-sys-motion-easing-emphasized));
+}
+
+.ui-collapse__region {
+  display: grid;
+  grid-template-rows: 1fr;
+  grid-template-columns: 1fr;
+
+  // `visibility` transitions instantly on the way open (delay 0s) but only after
+  // the slide on the way shut (delay = duration, in the collapsed rules below),
+  // so the content stays painted the whole time it is sliding closed and becomes
+  // truly hidden once it is gone. `inert` (bound in the template) hides it from
+  // focus and assistive tech the instant the state flips.
+  visibility: visible;
+  transition:
+    grid-template-rows var(--_ui-collapse-duration) var(--_ui-collapse-easing),
+    visibility 0s;
+}
+
+:host(.ui-collapse--horizontal) .ui-collapse__region {
+  transition:
+    grid-template-columns var(--_ui-collapse-duration) var(--_ui-collapse-easing),
+    visibility 0s;
+}
+
+// Collapsed — vertical: the row track goes to zero, visibility flips after it.
+:host(.ui-collapse:not(.ui-collapse--expanded):not(.ui-collapse--horizontal)) .ui-collapse__region {
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--_ui-collapse-duration) var(--_ui-collapse-easing),
+    visibility 0s var(--_ui-collapse-duration);
+}
+
+// Collapsed — horizontal: the column track goes to zero instead.
+:host(.ui-collapse--horizontal:not(.ui-collapse--expanded)) .ui-collapse__region {
+  grid-template-columns: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-columns var(--_ui-collapse-duration) var(--_ui-collapse-easing),
+    visibility 0s var(--_ui-collapse-duration);
+}
+
+.ui-collapse__content {
+  overflow: hidden;
+  min-height: 0;
+  min-width: 0;
+}
+
+// Honour the user's motion preference: no slide, just an instant state change.
+// Zeroing the duration also zeroes the visibility delay (it reads the same
+// property), so collapsing stays correct — just immediate.
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    --_ui-collapse-duration: 0s;
+  }
+}
