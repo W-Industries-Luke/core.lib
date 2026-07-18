@@ -1,5 +1,5 @@
 import { MatButton } from '@angular/material/button';
-import { expect } from 'storybook/test';
+import { expect, userEvent, waitFor } from 'storybook/test';
 import { argsToTemplate, moduleMetadata, type Meta, type StoryObj } from '@storybook/angular-vite';
 
 import { Button } from '../button/button';
@@ -227,27 +227,22 @@ export const InAnAccordion: Story = {
     template: frame(`<ui-accordion>${ORDER_PANELS}</ui-accordion>`),
   }),
   play: async ({ canvasElement }) => {
-    const hosts = Array.from(canvasElement.querySelectorAll('ui-expansion-panel'));
-    const rules = Array.from(document.styleSheets)
-      .flatMap((sheet) => {
-        try {
-          return Array.from(sheet.cssRules);
-        } catch {
-          return [];
-        }
-      })
-      .map((rule) => rule.cssText)
-      .filter((text) => text.includes('first-of-type') || text.includes('__panel'));
-    const first = hosts[0].querySelector('.mat-expansion-panel')!;
-    const restore = rules.find((r) => r.includes('first-of-type') && r.includes('__panel'))!;
-    const selector = restore.slice(0, restore.indexOf('{')).trim();
-    expect({
-      panelClasses: first.className,
-      matchesRestore: first.matches(selector),
-      selector,
-      computed: getComputedStyle(first).borderTopLeftRadius,
-      rules,
-    }).toEqual('DEBUG');
+    const headers = Array.from(
+      canvasElement.querySelectorAll<HTMLElement>('.mat-expansion-panel-header'),
+    );
+    expect(headers).toHaveLength(3);
+
+    // Opening the first panel expands it.
+    await userEvent.click(headers[0]);
+    await waitFor(() => expect(headers[0].getAttribute('aria-expanded')).toBe('true'));
+
+    // Opening a second one closes the first — a default accordion shows one
+    // panel at a time.
+    await userEvent.click(headers[1]);
+    await waitFor(() => {
+      expect(headers[1].getAttribute('aria-expanded')).toBe('true');
+      expect(headers[0].getAttribute('aria-expanded')).toBe('false');
+    });
   },
 };
 

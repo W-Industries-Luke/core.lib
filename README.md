@@ -13,6 +13,7 @@ npm ci
 npx ng build ui                    # build the library -> dist/ui
 npx ng test ui --watch=false       # run unit tests (vitest, headless)
 npm run test:a11y                  # run every story through axe (needs chromium, see below)
+npm run test:stories               # smoke every story in the BUILT Storybook (see below)
 npm run storybook                  # component catalogue on :6006
 npm run build-storybook            # static catalogue -> storybook-static/
 npx ng generate component my-thing --project=ui   # scaffold a component
@@ -231,6 +232,42 @@ What `ci.yml` does cover is the source-level half of this: `theme-contract.spec.
 fails the build on a literal colour in any stylesheet, which is the one way to
 break dark mode. It is not a substitute for the runs above — it cannot see
 contrast — but it holds the invariant they check for.
+
+## Built-Storybook smoke gate
+
+`npm run test:a11y` renders stories in a bare vitest browser that never loads
+`.storybook/preview-head.html` and never asserts on appearance — so a class of
+"it built, it just looks wrong" bugs shipped to the published catalogue while
+`ng build` + `ng test` stayed green (bare `<mat-icon>` painting its ligature as
+text, form-field errors not rendering, dark identical to light).
+
+`npm run test:stories` closes that gap. It builds the Storybook, serves
+`storybook-static/` over localhost, and drives **the real built artifact** through
+headless Chromium (Playwright), enumerating **every** story from `index.json`. For
+each it asserts:
+
+```bash
+npm run test:stories   # builds the Storybook, then smokes every story
+```
+
+1. **No render/console errors** — no uncaught exception, no Storybook
+   `storyErrored`/`playFunctionThrewException`, no `console.error` during load.
+   (This is also what catches a story whose regression-guarding `play()` fails,
+   e.g. the form-field `error` message not rendering.)
+2. **Icons are glyphs, not text** — every `<mat-icon>` resolves the Material
+   Symbols font and that font is actually loaded, so its ligature paints a glyph
+   rather than the literal word.
+3. **Dark differs from light** — forcing `globals=scheme:dark` re-resolves
+   `--mat-sys-surface` to a different colour than light.
+
+A story that cannot be loaded is a **failure, not a skip**, and every failure
+names the offending story. a11y is not re-implemented here — `test:a11y` /
+`:dark` already cover it. The script (`scripts/smoke-stories.mjs`) needs Chromium
+(`npx playwright install --with-deps chromium`) and the same font CDN the preview
+already uses; it builds once and reuses one server across all stories.
+
+This runs as the third `verify` step in `.claude-task.json`, so every task must
+pass it before its PR — an independent gate while the merge-CI one is bypassed.
 
 ## Releasing
 
