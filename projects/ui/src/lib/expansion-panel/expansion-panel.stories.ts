@@ -249,6 +249,15 @@ export const InAnAccordion: Story = {
 /**
  * `multi` lets the panels open independently, for a set a user needs to compare
  * across rather than read one at a time.
+ *
+ * With every panel closed this is also the cleanest specimen of the stack's corner
+ * contract, so it is the one asserted below: only the two ends of the stack keep
+ * their outer corners, and every interior join is square. That is not free — each
+ * panel wraps Material's own, so Material's sibling `:first-of-type` rounding no
+ * longer reaches the true ends and the library re-anchors it to the
+ * `<ui-expansion-panel>` host. When those re-anchored rules were out-specified the
+ * whole stack shipped square (#144), which the browser cannot catch in jsdom — so
+ * this guard reads the resolved radii in Chromium, where the theme actually paints.
  */
 export const AccordionMulti: Story = {
   name: 'Accordion: multi',
@@ -256,6 +265,37 @@ export const AccordionMulti: Story = {
   render: () => ({
     template: frame(`<ui-accordion multi>${ORDER_PANELS}</ui-accordion>`),
   }),
+  play: async ({ canvasElement }) => {
+    const panels = Array.from(
+      canvasElement.querySelectorAll<HTMLElement>('.mat-expansion-panel'),
+    );
+    expect(panels).toHaveLength(3);
+
+    // Logical corners resolve to physical ones under this LTR story: start-start is
+    // the top outer corner, end-start the bottom. Reading the left of each pair is
+    // enough — the two corners of an edge share a value.
+    const corners = (panel: HTMLElement) => {
+      const style = getComputedStyle(panel);
+      return {
+        top: parseFloat(style.borderTopLeftRadius),
+        bottom: parseFloat(style.borderBottomLeftRadius),
+      };
+    };
+
+    await waitFor(() => {
+      const [first, middle, last] = panels.map(corners);
+      // The first panel rounds where the stack starts and squares where it joins the
+      // next; the last mirrors it; the middle is square on both edges. A non-zero
+      // radius is `corner-medium` resolving from the theme — the exact value is the
+      // theme's to move, so this asserts rounded-vs-square rather than a literal.
+      expect(first.top).toBeGreaterThan(0);
+      expect(first.bottom).toBe(0);
+      expect(middle.top).toBe(0);
+      expect(middle.bottom).toBe(0);
+      expect(last.top).toBe(0);
+      expect(last.bottom).toBeGreaterThan(0);
+    });
+  },
 };
 
 /**

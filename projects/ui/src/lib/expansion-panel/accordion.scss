@@ -8,8 +8,11 @@
 //
 // The corners of the panels at the ends of the stack *are* the accordion's
 // business, but they cannot be set from here: the panels are projected content, so
-// this encapsulated stylesheet cannot reach them. That lives in
-// `../../styles/_expansion-panel.scss` with the rest of the theme.
+// this encapsulated stylesheet cannot reach them. Nor can the theme in
+// `../../styles/`: rounding them means outranking Material's own encapsulated
+// `:first-of-type` / `:last-of-type` rules, which a global stylesheet cannot do. So
+// that rounding lives in the panel's own `expansion-panel.scss`, re-anchored to the
+// `<ui-expansion-panel>` host — see the note at the bottom of that file.
 
 :host {
   display: block;
