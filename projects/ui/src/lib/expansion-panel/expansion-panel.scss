@@ -106,12 +106,21 @@ $shape: var(--ui-expansion-panel-shape, var(--mat-sys-corner-medium));
 
 // ...then give the two ends of the stack their outer corners back.
 //
-// Three things are load-bearing about these selectors, all of them specificity:
+// These have to outrank the square rule above, and by more than the source lets on.
+// That rule is scoped with `:host-context(.mat-accordion)`, and Angular's emulated
+// encapsulation does not compile `:host-context()` to a single selector: it expands
+// it into an `:is()` of every way the context class could sit relative to the host,
+// and one of those arms repeats `.mat-accordion` (`…mat-accordion.mat-accordion…`).
+// `:is()` takes the weight of its heaviest arm, so once shimmed the square rule lands
+// at *six* class-level components — not the three it reads as here. (Confirmed by
+// inspecting the built Storybook; it is the reason the end-caps first shipped square.)
 //
-//   - `.ui-expansion-panel__panel` is carried only to add a class's worth of weight.
-//     These have to outrank the rule above — which is this file's own, and already
-//     had to outrank Material's — and matching the panel by two classes rather than
-//     one is what buys that. They tie with it and win on source order.
+// So the panel is matched by *three* classes below — `.ui-expansion-panel__panel`
+// carried twice, purely for weight — which ties that six and wins on source order,
+// being declared after it. Verified in the accordion stories: the end-caps round and
+// the interior joins stay square.
+//
+// Two more things are load-bearing:
 //   - the position is `:host(:first-of-type)` rather than `:host-context(.mat-accordion):first-of-type`,
 //     because Angular does not compile a pseudo-class hung off `:host-context()` into
 //     anything that matches.
@@ -121,12 +130,12 @@ $shape: var(--ui-expansion-panel-shape, var(--mat-sys-corner-medium));
 //
 // Logical properties rather than `border-top-left-radius`, so the corners follow the
 // writing direction the way the rest of the theme does.
-:host(:first-of-type) .ui-expansion-panel__panel.mat-expansion-panel {
+:host(:first-of-type) .ui-expansion-panel__panel.ui-expansion-panel__panel.mat-expansion-panel {
   border-start-start-radius: $shape;
   border-start-end-radius: $shape;
 }
 
-:host(:last-of-type) .ui-expansion-panel__panel.mat-expansion-panel {
+:host(:last-of-type) .ui-expansion-panel__panel.ui-expansion-panel__panel.mat-expansion-panel {
   border-end-start-radius: $shape;
   border-end-end-radius: $shape;
 }
