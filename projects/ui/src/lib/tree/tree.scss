@@ -1,0 +1,52 @@
+// Box metrics and the styling hooks for `ui-tree`.
+//
+// There is not a literal colour in this file on purpose: `<mat-tree>` already
+// resolves its surface and its text from the `--mat-sys-*` tokens that
+// `../../styles/_theme.scss` emits, so a palette change there re-colours every
+// tree with no help from here. The overrides below only re-point those tokens at
+// *hooks* whose defaults are the very tokens Material would have used, so the
+// default tree ships no colour decision of its own.
+
+@use '@angular/material' as mat;
+
+:host {
+  // Material's tree is `display: block` already; the host is a block so the tree
+  // fills the width it is given.
+  display: block;
+}
+
+:host {
+  // The public hooks (rule 6), each defaulting to the token Material itself
+  // resolves to under the shared M3 theme — so an untouched `ui-tree` is a stock
+  // Material tree, and a consumer who sets one is re-pointing a role rather than
+  // picking a colour.
+  //
+  // These go through `mat.tree-overrides()` rather than a rule on Material's
+  // internals: the tokens are Material's own API, so the structure, the density
+  // and the type stay Material's. Custom properties inherit through the
+  // encapsulation boundary, so a hook set on `ui-tree` reaches the elements inside
+  // Material's template with no `::ng-deep`.
+  @include mat.tree-overrides(
+    (
+      container-background-color: var(--ui-tree-background, var(--mat-sys-surface)),
+      node-text-color: var(--ui-tree-text-color, var(--mat-sys-on-surface)),
+    )
+  );
+}
+
+// The disclosure toggle and the leaf spacer are the same width, so a leaf's label
+// lines up with a branch's. `--mat-icon-button-*` is the theme's density token for
+// the icon button, so the toggle is exactly the size the rest of the fleet's icon
+// buttons are.
+.ui-tree__toggle,
+.ui-tree__toggle-spacer {
+  flex: 0 0 auto;
+}
+
+// A leaf has no toggle to occupy the space, so the spacer stands in for one —
+// sized to Material's own icon-button box (its density token, so a leaf's label
+// lines up with a branch's at whatever density the theme sets).
+.ui-tree__toggle-spacer {
+  width: var(--mat-icon-button-state-layer-size, 40px);
+  height: var(--mat-icon-button-state-layer-size, 40px);
+}

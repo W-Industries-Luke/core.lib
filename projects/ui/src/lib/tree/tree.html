@@ -1,0 +1,76 @@
+<!--
+  Material's tree is the whole widget: the `role="tree"` container, its
+  `role="treeitem"` rows, the disclosure toggle with its keyboard and its
+  `aria-expanded`, the `aria-level`/`aria-setsize` wiring, and every colour and
+  font are `<mat-tree>`'s and `<mat-tree-node>`'s, drawn from the M3 system tokens
+  the shared theme emits. Nothing here re-implements any of it — this file only
+  builds the flat nodes out of `data` and `childrenAccessor`, which is the
+  expansion plumbing the component exists to delete.
+
+  `childrenAccessor` is the flat-tree walk: Material reads each node's children
+  through it, flattens the hierarchy for rendering, and derives level and
+  expansion from the walk.
+-->
+@if (isEmpty()) {
+  @if (emptySlot(); as empty) {
+    <ng-container [ngTemplateOutlet]="empty.template" />
+  } @else {
+    <ui-empty-state [title]="emptyMessage()" />
+  }
+} @else {
+  <mat-tree
+    [dataSource]="dataSource()"
+    [childrenAccessor]="matChildrenAccessor"
+    [trackBy]="trackBy()"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-labelledby]="ariaLabelledby()"
+  >
+    <!--
+      One node def for the whole tree: `[isExpandable]` decides per node whether
+      it gets a toggle, so a leaf and a branch are one code path rather than two
+      `matTreeNodeDef` `when` predicates. `matTreeNodePadding` indents the row by
+      its depth — the level is Material's, derived from the `childrenAccessor`
+      walk — and the toggle, when shown, is `matTreeNodeToggle`'s own.
+    -->
+    <mat-tree-node
+      *matTreeNodeDef="let node"
+      #treeNode="matTreeNode"
+      matTreeNodePadding
+      [matTreeNodePaddingIndent]="indent()"
+      [isExpandable]="expandable()(node)"
+      class="ui-tree__node"
+    >
+      @if (treeNode.isExpandable) {
+        <button
+          matIconButton
+          matTreeNodeToggle
+          class="ui-tree__toggle"
+          [attr.aria-label]="'Toggle ' + label()(node)"
+        >
+          <ui-icon [name]="treeNode.isExpanded ? 'expand_more' : 'chevron_right'" />
+        </button>
+      } @else {
+        <!--
+          A spacer where a leaf's toggle would be, so a leaf's label lines up with
+          its siblings' rather than sitting under their toggle.
+        -->
+        <span class="ui-tree__toggle-spacer"></span>
+      }
+
+      @if (nodeSlot(); as slot) {
+        <ng-container
+          [ngTemplateOutlet]="slot.template"
+          [ngTemplateOutletContext]="{
+            $implicit: node,
+            node,
+            level: treeNode.level,
+            expandable: treeNode.isExpandable,
+            expanded: treeNode.isExpanded,
+          }"
+        />
+      } @else {
+        <span class="ui-tree__label">{{ label()(node) }}</span>
+      }
+    </mat-tree-node>
+  </mat-tree>
+}
