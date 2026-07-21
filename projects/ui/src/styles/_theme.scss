@@ -39,23 +39,251 @@
 @use './bottom-sheet';
 
 // ---------------------------------------------------------------------------
-// Palette
+// Palette — the brand seed
 // ---------------------------------------------------------------------------
-// Swap these for the brand palettes. Angular Material ships prebuilt M3
-// palettes (mat.$azure-palette, $blue-palette, $cyan-palette, $green-palette,
-// $magenta-palette, $orange-palette, $red-palette, $rose-palette, $spring-green-palette,
-// $violet-palette, $yellow-palette), or generate a custom one from a brand
-// colour with:  ng generate @angular/material:theme-color
-$primary: mat.$azure-palette;
-$tertiary: mat.$blue-palette;
+// The whole fleet's colour flows from ONE seed. `$_palettes` below is the six M3
+// tonal palettes generated from the brand seed **#7C4DFF** (a violet): the
+// `primary` ramp plus the `secondary` / `tertiary` / `neutral` / `neutral-variant`
+// / `error` ramps the M3 algorithm *derives* from it — never hand-picked. It was
+// produced by
+//
+//   ng generate @angular/material:theme-color --primary-color #7C4DFF --include-high-contrast
+//
+// whose runtime twin is `styles/theme-generator.ts`, previewed live in the
+// `Foundations/Theme Generator` story (so a designer can see what any seed
+// implies before it is committed here).
+//
+// It is inlined in this file rather than in a generated `_theme-colors.scss`
+// partial on purpose: `_theme.scss` is the one stylesheet the theme contract
+// (`theme-contract.spec.ts`) permits to name a colour, so the seed and every tone
+// it implies live in exactly one place. Re-seed the whole fleet by regenerating
+// this block from a new hex — nothing else in the library changes.
+//
+// NOTE: #7C4DFF is a deliberate PLACEHOLDER brand colour, not the final brand
+// (see issue #54). The point of the M3 seed approach is precisely that swapping
+// this one source hex re-themes every component in the catalogue at once.
+$_palettes: (
+  primary: (
+    0: #000000,
+    10: #20005f,
+    20: #370096,
+    25: #4300b2,
+    30: #4f00d0,
+    35: #5b1fde,
+    40: #6833ea,
+    50: #8155ff,
+    60: #9a7bff,
+    70: #b39cff,
+    80: #cdbdff,
+    90: #e8deff,
+    95: #f5eeff,
+    98: #fdf7ff,
+    99: #fffbff,
+    100: #ffffff,
+  ),
+  secondary: (
+    0: #000000,
+    10: #20025c,
+    20: #352071,
+    25: #402c7d,
+    30: #4c3989,
+    35: #584596,
+    40: #6451a3,
+    50: #7d6abe,
+    60: #9784da,
+    70: #b29ef6,
+    80: #cdbdff,
+    90: #e8deff,
+    95: #f5eeff,
+    98: #fdf7ff,
+    99: #fffbff,
+    100: #ffffff,
+  ),
+  tertiary: (
+    0: #000000,
+    10: #390033,
+    20: #5d0054,
+    25: #700065,
+    30: #840077,
+    35: #98008a,
+    40: #a91499,
+    50: #c838b4,
+    60: #e755d0,
+    70: #ff79e6,
+    80: #fface9,
+    90: #ffd7f1,
+    95: #ffecf6,
+    98: #fff7f9,
+    99: #fffbff,
+    100: #ffffff,
+  ),
+  neutral: (
+    0: #000000,
+    10: #1d1a24,
+    20: #322f3a,
+    25: #3d3a45,
+    30: #484551,
+    35: #54515c,
+    40: #605c69,
+    50: #797582,
+    60: #938e9c,
+    70: #aea9b7,
+    80: #cac4d2,
+    90: #e6e0ee,
+    95: #f5eefd,
+    98: #fdf7ff,
+    99: #fffbff,
+    100: #ffffff,
+    4: #0f0d16,
+    6: #14121c,
+    12: #211e28,
+    17: #2b2833,
+    22: #36333e,
+    24: #3b3743,
+    87: #ded7e6,
+    92: #ece5f4,
+    94: #f2ebfa,
+    96: #f8f1ff,
+  ),
+  neutral-variant: (
+    0: #000000,
+    10: #1d1929,
+    20: #322e3e,
+    25: #3d394a,
+    30: #494455,
+    35: #555062,
+    40: #615c6e,
+    50: #7a7487,
+    60: #948ea1,
+    70: #afa8bd,
+    80: #cac3d8,
+    90: #e7dff5,
+    95: #f5eeff,
+    98: #fdf7ff,
+    99: #fffbff,
+    100: #ffffff,
+  ),
+  error: (
+    0: #000000,
+    10: #410002,
+    20: #690005,
+    25: #7e0007,
+    30: #93000a,
+    35: #a80710,
+    40: #ba1a1a,
+    50: #de3730,
+    60: #ff5449,
+    70: #ff897d,
+    80: #ffb4ab,
+    90: #ffdad6,
+    95: #ffedea,
+    98: #fff8f7,
+    99: #fffbff,
+    100: #ffffff,
+  ),
+);
+
+// The non-primary ramps every generated palette shares — merged into both the
+// primary and tertiary palettes below exactly as the schematic does, so
+// `mat.theme()` reads secondary/neutral/error off `primary` and only the hue off
+// `tertiary`. This mirrors the previous `primary: azure / tertiary: blue` split,
+// but now both sides descend from the one violet seed.
+$_rest: (
+  secondary: map.get($_palettes, secondary),
+  neutral: map.get($_palettes, neutral),
+  neutral-variant: map.get($_palettes, neutral-variant),
+  error: map.get($_palettes, error),
+);
+
+$primary: map.merge(map.get($_palettes, primary), $_rest);
+$tertiary: map.merge(map.get($_palettes, tertiary), $_rest);
+
+// ---------------------------------------------------------------------------
+// High-contrast overrides
+// ---------------------------------------------------------------------------
+// The `--include-high-contrast` half of the same generation: a bumped set of
+// role values for users who ask their OS for more contrast. `color-scheme` emits
+// each as a `light-dark()` pair so a single application flips with the scheme,
+// matching how the base theme is built — see the `prefers-contrast: more` block
+// at the bottom of the file, which is the only place this is applied.
+@function _high-contrast-value($light, $dark, $theme-type) {
+  @if ($theme-type == light) {
+    @return $light;
+  }
+  @if ($theme-type == dark) {
+    @return $dark;
+  }
+  @if ($theme-type == color-scheme) {
+    @return light-dark(#{$light}, #{$dark});
+  }
+
+  @error 'Unknown theme-type #{$theme-type}. Expected light, dark, or color-scheme';
+}
+
+@mixin _high-contrast-overrides($theme-type) {
+  @include mat.theme-overrides(
+    (
+      primary: _high-contrast-value(#32008a, #f4edff, $theme-type),
+      on-primary: _high-contrast-value(#ffffff, #000000, $theme-type),
+      primary-container: _high-contrast-value(#5203d5, #c9b9ff, $theme-type),
+      on-primary-container: _high-contrast-value(#ffffff, #0e0034, $theme-type),
+      inverse-primary: _high-contrast-value(#cdbdff, #5000d3, $theme-type),
+      primary-fixed: _high-contrast-value(#5203d5, #e8deff, $theme-type),
+      primary-fixed-dim: _high-contrast-value(#39009b, #cdbdff, $theme-type),
+      on-primary-fixed: _high-contrast-value(#ffffff, #000000, $theme-type),
+      on-primary-fixed-variant: _high-contrast-value(#ffffff, #140044, $theme-type),
+      secondary: _high-contrast-value(#311b6d, #f4edff, $theme-type),
+      on-secondary: _high-contrast-value(#ffffff, #000000, $theme-type),
+      secondary-container: _high-contrast-value(#4e3b8c, #c9b9ff, $theme-type),
+      on-secondary-container: _high-contrast-value(#ffffff, #0e0034, $theme-type),
+      secondary-fixed: _high-contrast-value(#4e3b8c, #e8deff, $theme-type),
+      secondary-fixed-dim: _high-contrast-value(#372374, #cdbdff, $theme-type),
+      on-secondary-fixed: _high-contrast-value(#ffffff, #000000, $theme-type),
+      on-secondary-fixed-variant: _high-contrast-value(#ffffff, #140044, $theme-type),
+      tertiary: _high-contrast-value(#56004d, #ffeaf5, $theme-type),
+      on-tertiary: _high-contrast-value(#ffffff, #000000, $theme-type),
+      tertiary-container: _high-contrast-value(#88007b, #ffa6e9, $theme-type),
+      on-tertiary-container: _high-contrast-value(#ffffff, #1d001a, $theme-type),
+      tertiary-fixed: _high-contrast-value(#88007b, #ffd7f1, $theme-type),
+      tertiary-fixed-dim: _high-contrast-value(#610058, #fface9, $theme-type),
+      on-tertiary-fixed: _high-contrast-value(#ffffff, #000000, $theme-type),
+      on-tertiary-fixed-variant: _high-contrast-value(#ffffff, #280023, $theme-type),
+      background: _high-contrast-value(#fdf7ff, #14121c, $theme-type),
+      on-background: _high-contrast-value(#1d1a24, #e6e0ee, $theme-type),
+      surface: _high-contrast-value(#fdf7ff, #14121c, $theme-type),
+      surface-dim: _high-contrast-value(#bcb6c4, #14121c, $theme-type),
+      surface-bright: _high-contrast-value(#fdf7ff, #524e5a, $theme-type),
+      surface-container-low: _high-contrast-value(#f5eefd, #211e28, $theme-type),
+      surface-container-lowest: _high-contrast-value(#ffffff, #000000, $theme-type),
+      surface-container: _high-contrast-value(#e6e0ee, #322f3a, $theme-type),
+      surface-container-high: _high-contrast-value(#d8d2e0, #3d3a45, $theme-type),
+      surface-container-highest: _high-contrast-value(#cac4d2, #484551, $theme-type),
+      on-surface: _high-contrast-value(#000000, #ffffff, $theme-type),
+      shadow: _high-contrast-value(#000000, #000000, $theme-type),
+      scrim: _high-contrast-value(#000000, #000000, $theme-type),
+      surface-tint: _high-contrast-value(#6833ea, #cdbdff, $theme-type),
+      inverse-surface: _high-contrast-value(#322f3a, #e6e0ee, $theme-type),
+      inverse-on-surface: _high-contrast-value(#ffffff, #000000, $theme-type),
+      outline: _high-contrast-value(#2e2a3a, #f4edff, $theme-type),
+      outline-variant: _high-contrast-value(#4b4758, #c6bfd4, $theme-type),
+      error: _high-contrast-value(#600004, #ffece9, $theme-type),
+      on-error: _high-contrast-value(#ffffff, #000000, $theme-type),
+      error-container: _high-contrast-value(#98000a, #ffaea4, $theme-type),
+      on-error-container: _high-contrast-value(#ffffff, #220001, $theme-type),
+      surface-variant: _high-contrast-value(#e7dff5, #494455, $theme-type),
+      on-surface-variant: _high-contrast-value(#000000, #ffffff, $theme-type),
+    )
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Status palettes
 // ---------------------------------------------------------------------------
 // M3's colour system stops at primary/secondary/tertiary/error, so there is no
 // `success` or `warning` role to point a status badge at — and `tertiary` is
-// whatever the brand happens to be (blue, above), which is not a colour anyone
-// reads as "succeeded". These two palettes fill that gap.
+// whatever the brand happens to be (the violet's analogous magenta, above),
+// which is not a colour anyone reads as "succeeded". These two palettes fill
+// that gap.
 //
 // They are Angular Material's own prebuilt M3 palettes rather than hand-picked
 // hexes, so they are tonally consistent with the palettes above and are swapped
@@ -84,9 +312,10 @@ $warning: mat.$orange-palette;
 ///
 /// An M3 palette map carries the bold ramp at its top level and a `secondary`
 /// sub-map holding the same hue at M3's reduced secondary chroma. Angular builds
-/// `--mat-sys-secondary-container` out of exactly that sub-map — azure's
-/// `secondary` tone 90 *is* the `#dae2f9` the theme emits — so a container taken
-/// from there is the one M3 already ships, not a new idea.
+/// `--mat-sys-secondary-container` out of exactly that sub-map — the primary
+/// palette's `secondary` tone 90 *is* the `--mat-sys-secondary-container` the
+/// theme emits — so a container taken from there is the one M3 already ships, not
+/// a new idea.
 ///
 /// The bold ramp cannot do this job, because Angular's prebuilt palettes are
 /// chroma-maxed and sRGB lets green keep its chroma all the way up the ramp:
@@ -143,4 +372,11 @@ html {
   // matching `--mat-sys-*` role would go.
   @include _status-role(success, $success);
   @include _status-role(warning, $warning);
+
+  // When the OS asks for more contrast, bump the generated roles to the
+  // high-contrast set. `color-scheme` keeps each a `light-dark()` pair, so a
+  // single application still tracks light/dark — no second media query needed.
+  @media (prefers-contrast: more) {
+    @include _high-contrast-overrides(color-scheme);
+  }
 }
