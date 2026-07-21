@@ -38,6 +38,7 @@ export * from './lib/menu/menu-trigger';
 export * from './lib/paginator/paginator';
 export * from './lib/progress-bar/progress-bar';
 export * from './lib/radio-group/radio-group';
+export * from './lib/ripple/ripple';
 export * from './lib/select/select';
 export * from './lib/sidenav/sidenav';
 export * from './lib/slider/slider';

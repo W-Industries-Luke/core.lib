@@ -28,6 +28,7 @@
 // uiAlertTitle>`, `<button uiTooltip="…">`, `<ui-menu [items]="…">`, `inject(Snackbar).success(…)`,
 // `inject(Dialog).confirm(…)` and `inject(BottomSheet).open(…)` themed.
 @use './button';
+@use './ripple';
 @use './icon-button';
 @use './fab';
 @use './badge';
