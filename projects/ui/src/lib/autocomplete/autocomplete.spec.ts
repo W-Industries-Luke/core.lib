@@ -94,9 +94,29 @@ describe('Autocomplete', () => {
       MatAutocompleteHarness.with(filter ?? {}),
     );
 
+  /** Waits `ms` of real time. The suite is zoneless, so there is no `tick()`. */
+  const delay = (ms = 0): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /**
+   * Resolves once the autocomplete overlay is stably open. The CDK overlay attaches
+   * asynchronously, so `whenStable()` after focusing or typing does not guarantee the
+   * panel is up yet — reading or selecting options before it is races the overlay and
+   * throws "Autocomplete panel is closed". Polling `isOpen()` settles that race.
+   */
+  const openAutocomplete = async (
+    f: ComponentFixture<unknown> = fixture,
+  ): Promise<MatAutocompleteHarness> => {
+    const harness = await autocomplete(f);
+    for (let i = 0; i < 100 && !(await harness.isOpen()); i += 1) {
+      await delay(5);
+      await f.whenStable();
+    }
+    return harness;
+  };
+
   /** The labels Material renders in the open panel, in order. */
   const optionLabels = async (f: ComponentFixture<unknown> = fixture): Promise<string[]> =>
-    Promise.all((await (await autocomplete(f)).getOptions()).map((o) => o.getText()));
+    Promise.all((await (await openAutocomplete(f)).getOptions()).map((o) => o.getText()));
 
   /** The `mat-option` elements, kept for the few reads the harness abstracts away. */
   const panelOptions = (): HTMLElement[] =>
@@ -129,7 +149,7 @@ describe('Autocomplete', () => {
     label: string | RegExp,
     f: ComponentFixture<unknown> = fixture,
   ): Promise<void> => {
-    await (await autocomplete(f)).selectOption({ text: label });
+    await (await openAutocomplete(f)).selectOption({ text: label });
   };
 
   beforeEach(async () => {
@@ -199,7 +219,7 @@ describe('Autocomplete', () => {
     // which is what separates it from a disabled field.
     it('disables the option marked disabled, and only it', async () => {
       await open();
-      const [uk, , , spain] = await (await autocomplete()).getOptions();
+      const [uk, , , spain] = await (await openAutocomplete()).getOptions();
 
       expect(await spain.isDisabled()).toBe(true);
       expect(await uk.isDisabled()).toBe(false);
@@ -290,7 +310,7 @@ describe('Autocomplete', () => {
     it('filters a disabled option in like any other, and it stays disabled', async () => {
       await type('spain');
 
-      const options = await (await autocomplete()).getOptions();
+      const options = await (await openAutocomplete()).getOptions();
       expect(await Promise.all(options.map((o) => o.getText()))).toEqual(['Spain']);
       expect(await options[0].isDisabled()).toBe(true);
     });
@@ -563,7 +583,7 @@ describe('Autocomplete', () => {
       await fixture.whenStable();
       await type('zzz');
 
-      const [empty] = await (await autocomplete()).getOptions();
+      const [empty] = await (await openAutocomplete()).getOptions();
       expect(await empty.isDisabled()).toBe(true);
 
       await empty.click();
