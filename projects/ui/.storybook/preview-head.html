@@ -14,17 +14,54 @@
   rel="stylesheet"
 />
 <!--
-  The axis ranges ask for the *variable* Material Symbols font, and they are
-  load-bearing rather than decoration: `ui-icon`'s `filled` input moves the
-  `FILL` axis, and its `--ui-icon-weight` / `--ui-icon-grade` /
-  `--ui-icon-optical-size` hooks move `wght` / `GRAD` / `opsz`. The axis-less
-  `…/icon?family=Material+Symbols+Outlined` form loads a static font where all
-  four silently do nothing, so the stories would show `filled` as a no-op.
+  Material Symbols is SELF-HOSTED rather than pulled from the Google Fonts CDN.
 
-  This is the same declaration a consuming app needs in its index.html — see the
-  Icons section of the library README. Storybook's head is not shipped to anyone.
+  The `test:stories` smoke gate asserts every `<mat-icon>` resolves this font and
+  actually loaded (the #121 signature). Serving the webfont from
+  `fonts.gstatic.com` made that assertion depend on the CDN — the documented
+  flake source for the gate. The `.woff2` now lives in `.storybook/static/fonts/`
+  and is copied to the build root by `staticDirs` in `main.ts`, so the gate is
+  offline w.r.t. the icon font: no network request decides a green run.
+
+  It is the *variable* font (the same axes the CDN's
+  `…@20..48,100..700,0..1,-50..200` URL asked for), and that is load-bearing
+  rather than decoration: `ui-icon`'s `filled` input moves the `FILL` axis, and
+  its `--ui-icon-weight` / `--ui-icon-grade` / `--ui-icon-optical-size` hooks
+  move `wght` / `GRAD` / `opsz`. A static single-cut font would make all four
+  silent no-ops. `font-weight: 100 700` exposes the `wght` range; the other axes
+  are driven per-element via `font-variation-settings` in `icon.scss`.
+
+  The `.material-symbols-outlined` class (Material's `fontSet`, see
+  `provide-icons.ts`) maps that class to the family and enables the `liga`
+  ligatures the CDN stylesheet used to supply — Material sets the class, the CSS
+  supplies the font-family.
+
+  A consuming *app* still loads the font from a CDN `<link>` as it loads Roboto —
+  see the Icons section of the README. Self-hosting here is a gate concern;
+  Storybook's head is not shipped to anyone.
 -->
-<link
-  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-  rel="stylesheet"
-/>
+<style>
+  @font-face {
+    font-family: 'Material Symbols Outlined';
+    font-style: normal;
+    font-weight: 100 700;
+    font-display: block;
+    src: url('./fonts/material-symbols-outlined.woff2') format('woff2');
+  }
+
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+  }
+</style>

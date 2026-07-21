@@ -13,8 +13,8 @@
 //     `light-dark()` tokens were downlevelled and stopped flipping (#123).
 //
 // This pass loads the REAL built artifact — the same files GitHub Pages serves —
-// enumerates EVERY story from `index.json`, and for each asserts the three
-// things the above bugs would have tripped:
+// enumerates EVERY story AND docs page from `index.json`, and for each asserts
+// the three things the above bugs would have tripped:
 //
 //   1. No render/console errors      — no uncaught exception, no Storybook
 //      `storyErrored`/`storyThrewException`, no `console.error` during load.
@@ -30,9 +30,12 @@
 //
 // It drives Chromium through Playwright (already a dev dependency; the vitest
 // browser provider uses it too). It serves the static build over localhost —
-// not `file://` — so relative asset URLs, `index.json` and the CDN font `<link>`
-// all resolve exactly as they do in production. The only network it needs is the
-// Material Symbols / Roboto CDN the preview head already declares.
+// not `file://` — so relative asset URLs, `index.json` and the self-hosted icon
+// `.woff2` all resolve exactly as they do in production. The icon font is served
+// from the build itself (see `.storybook/preview-head.html`), so a green run
+// needs no `fonts.gstatic.com` request — that CDN was the documented flake
+// source. Roboto is still a CDN `<link>`, but nothing here asserts on it, so its
+// absence never reddens the gate.
 //
 // Run `npm run build-storybook` first — this reads the build output, it does not
 // produce it. `npm run test:stories` chains the two.
@@ -88,6 +91,12 @@ function installRenderProbe() {
     channel.on('storyRendered', () => {
       window.__smoke.rendered = true;
     });
+    // A `viewMode=docs` page signals completion with `docsRendered`, not
+    // `storyRendered` — without this a healthy docs page would time out as
+    // "never signalled rendered".
+    channel.on('docsRendered', () => {
+      window.__smoke.rendered = true;
+    });
     channel.on('storyErrored', (p) => fail(`storyErrored: ${(p && p.error && p.error.message) || p}`));
     channel.on('storyThrewException', (e) => fail(`exception: ${(e && e.message) || e}`));
     channel.on('playFunctionThrewException', (e) => fail(`play() threw: ${(e && e.message) || e}`));
@@ -135,8 +144,11 @@ function readSurface() {
   return { surface, bodyBg: getComputedStyle(document.body).backgroundColor };
 }
 
-function storyUrl(base, id, scheme) {
-  return `${base}/iframe.html?id=${encodeURIComponent(id)}&viewMode=story&globals=scheme:${scheme}`;
+/** The preview URL for an index entry. A `docs` entry loads as `viewMode=docs`
+ *  (the standalone docs page); everything else loads as a single `story`. */
+function entryUrl(base, entry, scheme) {
+  const viewMode = entry.type === 'docs' ? 'docs' : 'story';
+  return `${base}/iframe.html?id=${encodeURIComponent(entry.id)}&viewMode=${viewMode}&globals=scheme:${scheme}`;
 }
 
 function startServer() {
@@ -178,16 +190,17 @@ function startServer() {
   });
 }
 
-/** Loads one story and returns its problems (empty array = healthy). */
-async function checkStory(page, base, story) {
+/** Loads one entry (story or docs page) and returns its problems (empty array =
+ *  healthy). */
+async function checkStory(page, base, entry) {
   const problems = [];
   const consoleErrors = [];
-  // Route this page's console/error stream into the story currently in flight.
-  // A page only ever runs one story at a time, so a plain closure array is safe.
+  // Route this page's console/error stream into the entry currently in flight.
+  // A page only ever runs one entry at a time, so a plain closure array is safe.
   page.__consoleErrors = consoleErrors;
 
   try {
-    await page.goto(storyUrl(base, story.id, 'light'), { waitUntil: 'load', timeout: STORY_TIMEOUT });
+    await page.goto(entryUrl(base, entry, 'light'), { waitUntil: 'load', timeout: STORY_TIMEOUT });
   } catch (err) {
     return [`did not load (${err.message.split('\n')[0]})`];
   }
@@ -207,9 +220,23 @@ async function checkStory(page, base, story) {
     problems.push(`render error: ${err}`);
   }
 
-  // Fonts are the whole point of the icon check — wait for the CDN webfont to
-  // settle before asserting a glyph resolved.
-  await page.evaluate(() => document.fonts.ready);
+  // Fonts are the whole point of the icon check — make the icon webfont fully
+  // load (or error) before asserting a glyph resolved. A docs page can open CDK
+  // overlays after it signals rendered (Menu's stories open their menus via
+  // afterNextRender), adding `<mat-icon>`s that kick off the font fetch later
+  // than a bare `fonts.ready` await would catch — a valid, self-hosted font that
+  // simply has not finished loading yet. Explicitly loading it removes that race
+  // without weakening #121: `fonts.load()` rejects (and the glyph never loads)
+  // for an unreachable `@font-face` src, so a genuinely broken font path still
+  // surfaces below as `loaded=false`.
+  await page.evaluate(async (fontName) => {
+    try {
+      await document.fonts.load(`24px "${fontName}"`);
+    } catch {
+      /* a broken @font-face src is reported as loaded=false by findTextIcons */
+    }
+    await document.fonts.ready;
+  }, ICON_FONT);
 
   const textIcons = await page.evaluate(findTextIcons, ICON_FONT);
   for (const icon of textIcons) {
@@ -230,7 +257,7 @@ async function checkStory(page, base, story) {
  *  light. Run once on a representative story — the theme is global, so one
  *  honest surface is enough, and a failure here is a fleet-wide regression. */
 async function checkDarkDiffersFromLight(page, base, story) {
-  await page.goto(storyUrl(base, story.id, 'light'), { waitUntil: 'load', timeout: STORY_TIMEOUT });
+  await page.goto(entryUrl(base, story, 'light'), { waitUntil: 'load', timeout: STORY_TIMEOUT });
   await page.waitForFunction(
     () => window.__smoke && (window.__smoke.rendered || window.__smoke.errors.length > 0),
     { timeout: STORY_TIMEOUT },
@@ -238,7 +265,7 @@ async function checkDarkDiffersFromLight(page, base, story) {
   await page.evaluate(() => document.fonts.ready);
   const light = await page.evaluate(readSurface);
 
-  await page.goto(storyUrl(base, story.id, 'dark'), { waitUntil: 'load', timeout: STORY_TIMEOUT });
+  await page.goto(entryUrl(base, story, 'dark'), { waitUntil: 'load', timeout: STORY_TIMEOUT });
   await page.waitForFunction(
     () => window.__smoke && (window.__smoke.rendered || window.__smoke.errors.length > 0),
     { timeout: STORY_TIMEOUT },
@@ -263,15 +290,23 @@ async function main() {
   }
 
   const index = JSON.parse(readFileSync(INDEX, 'utf8'));
-  const stories = Object.values(index.entries).filter((e) => e.type === 'story');
-  if (stories.length === 0) {
-    console.error('✗ Built index.json contains no stories — nothing to smoke-test. Did the build fail?');
+  // Every renderable entry: `story` pages AND `docs` pages (autodocs + `.mdx`).
+  // Docs pages were the blind spot — a docs page can throw or console.error on
+  // its own (broken MDX, a component that renders fine in isolation but not in
+  // the autodocs argtypes table) while every `story` entry stays green.
+  const entries = Object.values(index.entries).filter((e) => e.type === 'story' || e.type === 'docs');
+  // The dark-vs-light probe reads the theme surface, so it runs on a real
+  // `story` — a docs page is a document, not a single themed preview.
+  const stories = entries.filter((e) => e.type === 'story');
+  if (entries.length === 0) {
+    console.error('✗ Built index.json contains no stories or docs — nothing to smoke-test. Did the build fail?');
     process.exit(1);
   }
 
   const { server, port } = await startServer();
   const base = `http://127.0.0.1:${port}`;
-  console.log(`Smoke-testing ${stories.length} stories from ${ROOT} …\n`);
+  const docsCount = entries.length - stories.length;
+  console.log(`Smoke-testing ${entries.length} entries (${stories.length} stories, ${docsCount} docs) from ${ROOT} …\n`);
 
   const browser = await chromium.launch({ headless: true });
   const failures = [];
@@ -280,9 +315,9 @@ async function main() {
     await context.addInitScript(installRenderProbe);
 
     // A pool of pages, each pulling from a shared cursor. Every page routes its
-    // own console/pageerror stream into whatever story it is currently running.
+    // own console/pageerror stream into whatever entry it is currently running.
     const pages = await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, stories.length) }, async () => {
+      Array.from({ length: Math.min(CONCURRENCY, entries.length) }, async () => {
         const page = await context.newPage();
         page.on('console', (msg) => {
           if (msg.type() === 'error' && page.__consoleErrors) page.__consoleErrors.push(msg.text());
@@ -300,17 +335,17 @@ async function main() {
       pages.map(async (page) => {
         for (;;) {
           const i = cursor++;
-          if (i >= stories.length) break;
-          const story = stories[i];
-          const problems = await checkStory(page, base, story);
+          if (i >= entries.length) break;
+          const entry = entries[i];
+          const problems = await checkStory(page, base, entry);
           done++;
           if (problems.length) {
-            failures.push({ id: story.id, title: story.title, name: story.name, problems });
+            failures.push({ id: entry.id, title: entry.title, name: entry.name, type: entry.type, problems });
             process.stdout.write('✗');
           } else {
             process.stdout.write('.');
           }
-          if (done % 80 === 0) process.stdout.write(` ${done}/${stories.length}\n`);
+          if (done % 80 === 0) process.stdout.write(` ${done}/${entries.length}\n`);
         }
       }),
     );
@@ -327,18 +362,22 @@ async function main() {
   }
 
   if (failures.length) {
-    console.error(`✗ ${failures.length} stor${failures.length === 1 ? 'y' : 'ies'} failed the smoke gate:\n`);
+    console.error(`✗ ${failures.length} ${failures.length === 1 ? 'entry' : 'entries'} failed the smoke gate:\n`);
     for (const f of failures) {
-      console.error(`  ${f.title} › ${f.name}  [${f.id}]`);
+      const kind = f.type === 'docs' ? ' (docs)' : '';
+      console.error(`  ${f.title} › ${f.name}${kind}  [${f.id}]`);
       for (const p of f.problems) console.error(`    - ${p}`);
     }
     console.error(
-      `\n${failures.length} of ${stories.length} stories failed. These render defects would ship to the published Storybook.`,
+      `\n${failures.length} of ${entries.length} entries failed. These render defects would ship to the published Storybook.`,
     );
     process.exit(1);
   }
 
-  console.log(`✓ All ${stories.length} stories rendered cleanly: no console/render errors, icons are glyphs, dark ≠ light.`);
+  console.log(
+    `✓ All ${entries.length} entries (${stories.length} stories, ${docsCount} docs) rendered cleanly: ` +
+      `no console/render errors, icons are glyphs, dark ≠ light.`,
+  );
 }
 
 main().catch((err) => {

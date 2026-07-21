@@ -3,6 +3,15 @@ import type { StorybookConfig } from '@storybook/angular-vite';
 const config: StorybookConfig = {
   stories: ['../src/**/*.mdx', '../src/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
   addons: ['@storybook/addon-vitest', '@storybook/addon-a11y', '@storybook/addon-docs'],
+
+  // Self-hosted assets copied verbatim into the build root (and served by the
+  // dev server). This is where the Material Symbols variable `.woff2` lives, so
+  // the icon font — the load-bearing assertion of the `test:stories` smoke gate
+  // — resolves from the same origin as the build instead of `fonts.gstatic.com`,
+  // the documented flake source for that gate. `preview-head.html` points its
+  // `@font-face` at `./fonts/material-symbols-outlined.woff2`, which this places
+  // at the build root. Paths are relative to this config directory.
+  staticDirs: [{ from: './static', to: '/' }],
   framework: {
     name: '@storybook/angular-vite',
     options: {
