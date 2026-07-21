@@ -1,0 +1,48 @@
+// Colour roles for `uiIconButton`.
+//
+// `uiIconButton` is a directive on the native `<button matIconButton>`, and a
+// directive cannot carry a `styleUrl` — so, like `_button.scss`, this lives with
+// the theme and is emitted by `_theme.scss`. `color` is resolved here rather
+// than on `MatIconButton`, because MatIconButton's own `color` input is an
+// M2-only API that does nothing under an M3 theme.
+//
+// Everything below reads the `--mat-sys-*` custom properties that `mat.theme()`
+// emits from `_theme.scss`, so there are no literal colours: swapping a palette
+// there re-colours every icon button, in light and dark alike.
+//
+// There is no `primary` block: Material's default icon-button colour is the
+// neutral `on-surface-variant` role — the standard icon-button look — so the
+// default `uiIconButton` ships zero extra CSS, and only `accent`/`warn` tint it.
+
+@use '@angular/material' as mat;
+
+// The ripple is the palette colour at the theme's own pressed opacity — the same
+// construction Material uses internally, and the same as `_button.scss`.
+@function _state-layer($color, $opacity) {
+  @return color-mix(in srgb, #{$color} calc(var(#{$opacity}) * 100%), transparent);
+}
+
+/// Re-points an icon button's colour tokens at one M3 palette role.
+/// @param {String} $main The palette's base role, e.g. `tertiary`.
+@mixin _palette-role($main) {
+  $main: --mat-sys-#{$main};
+  $pressed: --mat-sys-pressed-state-layer-opacity;
+
+  @include mat.icon-button-overrides(
+    (
+      icon-color: var($main),
+      state-layer-color: var($main),
+      ripple-color: _state-layer(var($main), $pressed),
+    )
+  );
+}
+
+.ui-icon-button--accent {
+  // The theme exposes its accent as M3's `tertiary` palette (see `$tertiary` in
+  // `_theme.scss`); `accent` is the M2-era name consumers still use.
+  @include _palette-role(tertiary);
+}
+
+.ui-icon-button--warn {
+  @include _palette-role(error);
+}
