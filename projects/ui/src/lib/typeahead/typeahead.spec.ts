@@ -80,8 +80,25 @@ describe('Typeahead', () => {
   const autocomplete = (f: ComponentFixture<unknown> = fixture): Promise<MatAutocompleteHarness> =>
     (f === fixture ? loader : TestbedHarnessEnvironment.loader(f)).getHarness(MatAutocompleteHarness);
 
+  /**
+   * Resolves once the autocomplete overlay is stably open. The CDK overlay attaches
+   * asynchronously, so `whenStable()` after a search does not guarantee the panel is
+   * up yet — reading or selecting options before it is races the overlay and throws
+   * "Autocomplete panel is closed". Polling `isOpen()` settles that race deterministically.
+   */
+  const openAutocomplete = async (
+    f: ComponentFixture<unknown> = fixture,
+  ): Promise<MatAutocompleteHarness> => {
+    const harness = await autocomplete(f);
+    for (let i = 0; i < 100 && !(await harness.isOpen()); i += 1) {
+      await delay(5);
+      await f.whenStable();
+    }
+    return harness;
+  };
+
   const optionLabels = async (f: ComponentFixture<unknown> = fixture): Promise<string[]> =>
-    Promise.all((await (await autocomplete(f)).getOptions()).map((o) => o.getText()));
+    Promise.all((await (await openAutocomplete(f)).getOptions()).map((o) => o.getText()));
 
   /** The option labels as rendered in the overlay — read without the harness's open check. */
   const renderedOptions = (): string[] =>
@@ -324,7 +341,7 @@ describe('Typeahead', () => {
       host.search.set(() => of([]));
       await search('zzz');
 
-      const [only] = await (await autocomplete()).getOptions();
+      const [only] = await (await openAutocomplete()).getOptions();
       expect(await only.isDisabled()).toBe(true);
     });
   });
@@ -365,7 +382,7 @@ describe('Typeahead', () => {
 
     it('emits the whole result and writes its value', async () => {
       await search('ada');
-      await (await autocomplete()).selectOption({ text: 'Ada Lovelace' });
+      await (await openAutocomplete()).selectOption({ text: 'Ada Lovelace' });
       await fixture.whenStable();
 
       expect(host.chosen()).toEqual({ value: 'ada', label: 'Ada Lovelace' });
@@ -374,7 +391,7 @@ describe('Typeahead', () => {
 
     it('shows the chosen result’s label in the box, not its raw value', async () => {
       await search('grace');
-      await (await autocomplete()).selectOption({ text: 'Grace Hopper' });
+      await (await openAutocomplete()).selectOption({ text: 'Grace Hopper' });
       await fixture.whenStable();
 
       expect(inputElement().value).toBe('Grace Hopper');
@@ -401,7 +418,7 @@ describe('Typeahead', () => {
       const f = TestBed.createComponent(ObjectHost);
       await f.whenStable();
       await search('sev', f);
-      await (await autocomplete(f)).selectOption({ text: 'Seven' });
+      await (await openAutocomplete(f)).selectOption({ text: 'Seven' });
       await f.whenStable();
 
       expect(f.componentInstance.value()).toEqual({ id: 7 });
@@ -424,7 +441,7 @@ describe('Typeahead', () => {
       const f = TestBed.createComponent(ModelHost);
       await f.whenStable();
       await search('alan', f);
-      await (await autocomplete(f)).selectOption({ text: 'Alan Turing' });
+      await (await openAutocomplete(f)).selectOption({ text: 'Alan Turing' });
       await f.whenStable();
 
       expect(f.componentInstance.user()).toBe('alan');
