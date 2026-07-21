@@ -1,0 +1,51 @@
+// Colour roles for `uiRipple`.
+//
+// `uiRipple` is a directive on a native surface, and a directive cannot carry a
+// `styleUrl` — so, like `_button.scss`, this lives with the theme and is emitted
+// by `_theme.scss`.
+//
+// `color` is resolved here rather than on `MatRipple`, because MatRipple's own
+// `matRippleColor` input takes a *literal* CSS colour and paints it straight
+// onto the ripple element — the hardcoded colour this library exists to prevent.
+// Instead we re-point `--mat-ripple-color`, the token Material's own ripple
+// element reads its `background-color` from
+// (`background-color: var(--mat-ripple-color, …)`), at an M3 system role.
+//
+// Everything below reads the `--mat-sys-*` custom properties that `mat.theme()`
+// emits from `_theme.scss`, so there are no literal colours: swapping a palette
+// there re-colours every ripple, in light and dark alike.
+
+// State layers and ripples are the palette colour at the theme's own pressed
+// opacity — the same construction `_button.scss` uses for its ripple tokens.
+@function _state-layer($color, $opacity) {
+  @return color-mix(in srgb, #{$color} calc(var(#{$opacity}) * 100%), transparent);
+}
+
+/// Re-points a `uiRipple` host's ripple colour at one M3 palette role.
+/// `--ui-ripple-color` is the consumer hook: set it on the host from an ordinary
+/// CSS rule to override the role without `::ng-deep`.
+/// @param {String} $role The palette role, e.g. `primary`.
+@mixin _role($role) {
+  --mat-ripple-color: var(
+    --ui-ripple-color,
+    #{_state-layer(var(--mat-sys-#{$role}), --mat-sys-pressed-state-layer-opacity)}
+  );
+}
+
+// `primary` is the default and — unlike `uiButton`'s — is not free: stock M3
+// paints a plain ripple from the neutral `on-surface` role, so the base class
+// sets the primary tint. `--accent`/`--warn` come later in source order, so they
+// win on equal specificity when the host carries both classes.
+.ui-ripple {
+  @include _role(primary);
+}
+
+.ui-ripple--accent {
+  // The theme exposes its accent as M3's `tertiary` palette (see `$tertiary` in
+  // `_theme.scss`); `accent` is the M2-era name consumers still use.
+  @include _role(tertiary);
+}
+
+.ui-ripple--warn {
+  @include _role(error);
+}
