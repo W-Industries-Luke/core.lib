@@ -10,6 +10,8 @@ export * from './lib/badge/badge';
 export * from './lib/bottom-sheet/bottom-sheet';
 export * from './lib/breakpoints/breakpoints';
 export * from './lib/button/button';
+export * from './lib/button/fab';
+export * from './lib/button/icon-button';
 export * from './lib/button-toggle/button-toggle';
 export * from './lib/card/card';
 export * from './lib/checkbox/checkbox';

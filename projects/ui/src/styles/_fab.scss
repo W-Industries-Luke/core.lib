@@ -1,0 +1,63 @@
+// Colour roles for `uiFab`.
+//
+// `uiFab` is a directive on the native `<button matFab>` / `<button matMiniFab>`,
+// and a directive cannot carry a `styleUrl` — so, like `_button.scss`, this
+// lives with the theme and is emitted by `_theme.scss`. `color` is resolved here
+// rather than on the Material FAB, because its own `color` input is an M2-only
+// API that does nothing under an M3 theme.
+//
+// A FAB is a low-emphasis *container* surface, so — like the button's `tonal`
+// appearance — each role resolves to its palette's `container` / `on-container`
+// pair rather than the bold `main` / `on-main` pair a filled button uses. Both
+// the regular and the `small` (mini) FAB token sets are re-pointed, so one class
+// covers `matFab`, `matMiniFab` and extended alike.
+//
+// Everything below reads the `--mat-sys-*` custom properties that `mat.theme()`
+// emits from `_theme.scss`, so there are no literal colours: swapping a palette
+// there re-colours every FAB, in light and dark alike.
+//
+// There is no `primary` block: Material's default FAB colour is already the
+// `primary-container` pair, so the default `uiFab` ships zero extra CSS, and only
+// `accent`/`warn` re-point it.
+
+@use '@angular/material' as mat;
+
+// The ripple is the palette colour at the theme's own pressed opacity — the same
+// construction Material uses internally, and the same as `_button.scss`.
+@function _state-layer($color, $opacity) {
+  @return color-mix(in srgb, #{$color} calc(var(#{$opacity}) * 100%), transparent);
+}
+
+/// Re-points a FAB's colour tokens at one M3 palette's container pair.
+/// @param {String} $container The palette's container role, e.g. `tertiary-container`.
+/// @param {String} $on-container The legible-on-$container role.
+@mixin _palette-role($container, $on-container) {
+  $container: --mat-sys-#{$container};
+  $on-container: --mat-sys-#{$on-container};
+  $pressed: --mat-sys-pressed-state-layer-opacity;
+
+  @include mat.fab-overrides(
+    (
+      // Regular and extended FAB.
+      container-color: var($container),
+      foreground-color: var($on-container),
+      state-layer-color: var($on-container),
+      ripple-color: _state-layer(var($on-container), $pressed),
+      // Mini FAB — the same pair, so `matMiniFab uiFab` matches.
+      small-container-color: var($container),
+      small-foreground-color: var($on-container),
+      small-state-layer-color: var($on-container),
+      small-ripple-color: _state-layer(var($on-container), $pressed)
+    )
+  );
+}
+
+.ui-fab--accent {
+  // The theme exposes its accent as M3's `tertiary` palette (see `$tertiary` in
+  // `_theme.scss`); `accent` is the M2-era name consumers still use.
+  @include _palette-role(tertiary-container, on-tertiary-container);
+}
+
+.ui-fab--warn {
+  @include _palette-role(error-container, on-error-container);
+}
