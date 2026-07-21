@@ -24,3 +24,22 @@ jobs:
       # below the threshold. The text-summary reporter prints the numbers here.
       - name: Test library (with coverage threshold)
         run: npx ng test ui --watch=false
+
+  # The built-Storybook smoke gate (#80): build the real Storybook and drive
+  # every story through Chromium, failing on console/render errors, non-glyph
+  # icons and dark==light. It runs `play()` functions — which `ng build`/`ng test`
+  # never do — so it catches "it compiled, it just renders wrong" defects the
+  # build job cannot. Its own separate job so a failure reads as a distinct check.
+  smoke-stories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Built-Storybook smoke gate
+        run: npm run test:stories
