@@ -135,6 +135,16 @@
   // Only ever between a title and its message: with no title the column has a
   // single child and the gap never applies.
   gap: 2px;
+
+  // Vertically centre the content against the leading icon and dismiss button.
+  // A single line of `body-medium` (20px) is shorter than the 24px icon, so
+  // flex-start would leave it sitting a couple of pixels high of both glyphs;
+  // `align-self: center` drops it onto their optical centre line. This only
+  // moves the *content* — the host stays `align-items: flex-start`, so a message
+  // that wraps past the icon grows the column and its first line still lines up
+  // with the icon and the dismiss button rather than drifting to the middle of
+  // the paragraph.
+  align-self: center;
 }
 
 // ---------------------------------------------------------------------------

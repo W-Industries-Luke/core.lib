@@ -449,6 +449,52 @@ export const IconButtonTrigger: Story = {
 };
 
 /**
+ * The payoff for `items` being data rather than projected `(click)` handlers: a
+ * choice at any depth arrives on the one `itemSelected`, carrying the whole item
+ * so a toast or an undo has the label to hand (take `$event.value` for the value
+ * alone). Open the menu and pick an item to watch the readout — a branch never
+ * emits, and neither does a disabled item.
+ */
+export const Selection: Story = {
+  // The whole loop asserted in a real browser: open the panel, click an item, and
+  // the chosen item both reaches `itemSelected` (the readout updates) and closes
+  // the menu — Material's own dismissal. A smoke render alone would pass with the
+  // output never wired, so this pins that a click actually emits.
+  play: async ({ canvasElement }) => {
+    const doc = canvasElement.ownerDocument;
+
+    (canvasElement.querySelector('button') as HTMLButtonElement).click();
+
+    const item = await waitFor(() => {
+      const items = doc.querySelectorAll<HTMLElement>('.mat-mdc-menu-item');
+      expect(items.length).toBe(ITEMS.length);
+      const duplicate = [...items].find((el) => el.textContent?.includes('Duplicate'));
+      expect(duplicate).toBeTruthy();
+      return duplicate!;
+    });
+
+    item.click();
+
+    await waitFor(() => {
+      expect(canvasElement.textContent).toContain('chosen: Duplicate');
+      expect(doc.querySelector('.mat-mdc-menu-panel')).toBeNull();
+    });
+  },
+  render: () => ({
+    props: { items: ITEMS, chosen: '' },
+    template: `
+      <button matButton uiButton variant="outlined" [uiMenuTriggerFor]="menu">Actions</button>
+      <ui-menu #menu [items]="items" aria-label="Record actions"
+               (itemSelected)="chosen = $event.label" />
+
+      <p style="font: var(--mat-sys-body-small); margin: 1rem 0 0;">
+        chosen: <strong>{{ chosen || '—' }}</strong>
+      </p>
+    `,
+  }),
+};
+
+/**
  * `xPosition` and `yPosition` are Material's own, forwarded. Note `overlapTrigger`
  * defaults to `false` here where Material's own default is `true`: a menu that
  * covers the button you just pointed at hides it.

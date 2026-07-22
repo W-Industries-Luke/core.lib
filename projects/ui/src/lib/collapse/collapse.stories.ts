@@ -175,3 +175,63 @@ export const Disabled: Story = {
 export const ReducedMotion: Story = {
   args: { duration: 2000 },
 };
+
+/**
+ * A collapse that starts closed: `expanded="false"` traps the content until the
+ * trigger opens it, for the "show more" case where the body is hidden by default.
+ */
+export const Collapsed: Story = {
+  args: { expanded: false },
+};
+
+/**
+ * The trigger does not have to live inside the collapse. Point one at a collapse
+ * elsewhere on the page with `[uiCollapseTrigger]="ref"`, where `ref` is the
+ * collapse’s `#panel="uiCollapse"` template variable — so the toggle and the
+ * region can sit anywhere relative to each other, and `aria-controls` still wires
+ * them together.
+ */
+export const ExternalTrigger: Story = {
+  render: (args) => ({
+    props: args,
+    template: `
+      <div style="max-width: 24rem;">
+        <button matButton uiButton [uiCollapseTrigger]="panel" variant="tonal"
+                style="margin-bottom: 0.5rem;">
+          Toggle the panel below
+        </button>
+        <ui-collapse #panel="uiCollapse" ${argsToTemplate(args)}>${BODY}</ui-collapse>
+      </div>
+    `,
+  }),
+};
+
+/**
+ * `[(expanded)]` two-way binds the open state (`model()`), and `expandedChange`
+ * fires on every change — the trigger’s, and the imperative `open()`/`close()`/
+ * `toggle()` calls a consumer makes through `exportAs: 'uiCollapse'`. Nothing
+ * here reaches inside the component: the buttons are just `panel.open()` and
+ * `panel.close()`, and the readout is the consumer’s own bound signal.
+ */
+export const TwoWayExpanded: Story = {
+  name: 'State: [(expanded)] and exportAs',
+  parameters: { controls: { disable: true } },
+  render: () => ({
+    props: { open: true },
+    template: `
+      <div style="max-width: 24rem;">
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <button matButton uiButton [uiCollapseTrigger]="panel" variant="tonal">Toggle</button>
+          <button matButton uiButton variant="text" (click)="panel.open()">Open</button>
+          <button matButton uiButton variant="text" (click)="panel.close()">Close</button>
+        </div>
+
+        <ui-collapse #panel="uiCollapse" [(expanded)]="open">${BODY}</ui-collapse>
+
+        <p style="font: var(--mat-sys-body-small); margin: 0.5rem 0 0;">
+          expanded: <strong>{{ open }}</strong>
+        </p>
+      </div>
+    `,
+  }),
+};
