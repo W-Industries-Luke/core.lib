@@ -1,0 +1,15 @@
+// The one construction a state layer / ripple colour is built from, shared by
+// every component that themes a Material interaction surface.
+//
+// A state layer is the palette colour laid over the element at one of the
+// theme's own interaction opacities (`--mat-sys-*-state-layer-opacity`) — the
+// same `color-mix` Material uses internally. `uiButton`, `uiFab` and
+// `uiIconButton` each re-point their palette roles but build the ripple colour
+// identically, so the function lives here and they `@use` it; the per-component
+// `_palette-role` mixins stay put, because their token *sets* genuinely differ.
+//
+// It reads a `--mat-sys-*` opacity var by name and mixes toward `transparent`,
+// so it names no literal colour and inherits whatever the theme emits.
+@function state-layer($color, $opacity) {
+  @return color-mix(in srgb, #{$color} calc(var(#{$opacity}) * 100%), transparent);
+}

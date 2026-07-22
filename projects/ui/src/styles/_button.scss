@@ -16,12 +16,10 @@
 // there re-colours every button, in light and dark alike.
 
 @use '@angular/material' as mat;
-
 // State layers and ripples are the palette colour at the theme's own
-// interaction opacities — the same construction Material uses internally.
-@function _state-layer($color, $opacity) {
-  @return color-mix(in srgb, #{$color} calc(var(#{$opacity}) * 100%), transparent);
-}
+// interaction opacities — the same construction `_fab.scss` and
+// `_icon-button.scss` use, shared from `_state-layer.scss`.
+@use 'state-layer' as *;
 
 /// Re-points every appearance's colour tokens at one M3 palette role.
 /// @param {String} $main The palette's base role, e.g. `tertiary`.
@@ -41,26 +39,26 @@
       filled-container-color: var($main),
       filled-label-text-color: var($on-main),
       filled-state-layer-color: var($on-main),
-      filled-ripple-color: _state-layer(var($on-main), $pressed),
+      filled-ripple-color: state-layer(var($on-main), $pressed),
       // Outlined: the outline stays the theme's neutral `outline` role, per M3 —
       // only the label and interaction states take the palette colour.
       outlined-label-text-color: var($main),
       outlined-state-layer-color: var($main),
-      outlined-ripple-color: _state-layer(var($main), $pressed),
+      outlined-ripple-color: state-layer(var($main), $pressed),
       // Text.
       text-label-text-color: var($main),
       text-state-layer-color: var($main),
-      text-ripple-color: _state-layer(var($main), $pressed),
+      text-ripple-color: state-layer(var($main), $pressed),
       // Elevated — Material names these tokens `protected-*`. The container stays
       // the theme's `surface` role, per M3; the label takes the palette colour.
       protected-label-text-color: var($main),
       protected-state-layer-color: var($main),
-      protected-ripple-color: _state-layer(var($main), $pressed),
+      protected-ripple-color: state-layer(var($main), $pressed),
       // Tonal: the low-emphasis container/on-container pair of the same palette.
       tonal-container-color: var($container),
       tonal-label-text-color: var($on-container),
       tonal-state-layer-color: var($on-container),
-      tonal-ripple-color: _state-layer(var($on-container), $pressed)
+      tonal-ripple-color: state-layer(var($on-container), $pressed)
     )
   );
 }
