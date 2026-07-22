@@ -50,6 +50,16 @@
 
     The `mat-form-field` wires `aria-labelledby` onto both inputs through
     `MatDateRangeInput`, so no competing `aria-label` is added here.
+
+    `aria-disabled` on the group when disabled is what `ui-datepicker` gets for
+    free and this control does not: a lone `<input>` field labels itself with the
+    floating label's `for`, so its `disabled` attribute reaches the label — but a
+    *range* is a `role="group"` labelled through `aria-labelledby`, and a group is
+    not a form control that a `disabled` attribute would settle on. Without this
+    the group reads as enabled while its two inputs are disabled, so the disabled
+    floating label is graded for colour contrast that a disabled control is exempt
+    from — the one story `test:a11y` flagged. `|| null` drops the attribute rather
+    than writing `aria-disabled="false"`, which is Material's own convention.
   -->
   <mat-date-range-input
     [formGroup]="range"
@@ -59,6 +69,7 @@
     [dateFilter]="dateFilter() ?? undefined"
     [separator]="separator()"
     [required]="required()"
+    [attr.aria-disabled]="isDisabled() || null"
   >
     <input matStartDate formControlName="start" [placeholder]="startPlaceholder()" />
     <input matEndDate formControlName="end" [placeholder]="endPlaceholder()" />
