@@ -4,7 +4,7 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 # Getting Started
 
-How an app team adopts **`@w-industries/ui`** — the shared Angular Material
+How an app team adopts **`@w-industries-luke/ui`** — the shared Angular Material
 component library and M3 theme for the `*.web` fleet.
 
 Every step below is verified against what the built package in `dist/ui`
@@ -20,10 +20,10 @@ here so it is discoverable from the catalogue itself.
 ## 1. Install
 
 The package lives in **GitHub Packages**, so npm has to be told where the
-`@w-industries` scope resolves. Add to the app's `.npmrc`:
+`@w-industries-luke` scope resolves. Add to the app's `.npmrc`:
 
 ```ini
-@w-industries:registry=https://npm.pkg.github.com
+@w-industries-luke:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
 ```
 
@@ -32,7 +32,7 @@ that app's CI. The `${...}` form is expanded by npm at read time — **commit th
 `.npmrc`, never the token itself.** Then:
 
 ```bash
-npm i @w-industries/ui
+npm i @w-industries-luke/ui
 ```
 
 Angular, CDK and Material are **peer** dependencies — the app supplies them.
@@ -44,7 +44,7 @@ needs Angular 22).
 Apply the theme **once**, at the app's style entry point (`styles.scss`):
 
 ```scss
-@use '@w-industries/ui/styles/theme';
+@use '@w-industries-luke/ui/styles/theme';
 ```
 
 That single `@use` is the whole theme — it emits every Material `--mat-sys-*`
@@ -121,7 +121,7 @@ class and add it to a component's `imports`:
 
 ```ts
 import { Component } from '@angular/core';
-import { Button } from '@w-industries/ui';
+import { Button } from '@w-industries-luke/ui';
 
 @Component({
   selector: 'app-example',

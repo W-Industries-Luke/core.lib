@@ -36,9 +36,9 @@ function missingMatFab(): never {
  * directly.
  *
  * ```html
- * <button matFab uiFab color="accent" aria-label="Compose"><mat-icon>edit</mat-icon></button>
- * <button matMiniFab uiFab aria-label="Add"><mat-icon>add</mat-icon></button>
- * <button matFab extended uiFab><mat-icon>navigation</mat-icon> Navigate</button>
+ * <button matFab uiFab color="accent" aria-label="Compose"><ui-icon name="edit" /></button>
+ * <button matMiniFab uiFab aria-label="Add"><ui-icon name="add" /></button>
+ * <button matFab extended uiFab><ui-icon name="navigation" /> Navigate</button>
  * ```
  *
  * ### Why `matFab` / `matMiniFab` has to be there too
