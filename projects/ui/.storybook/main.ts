@@ -16,12 +16,21 @@ const config: StorybookConfig = {
     name: '@storybook/angular-vite',
     options: {
       // compodoc parses the library's TypeScript into documentation.json, which
-      // preview.ts hands to the docs addon. That is what makes autodocs render
-      // real input/output tables and JSDoc rather than bare arg names.
-      // The builder regenerates it on every build, so it is a build artifact
-      // (gitignored) rather than something to commit.
-      compodoc: true,
-      compodocArgs: ['-e', 'json', '-d', 'projects/ui'],
+      // preview.ts hands to the docs addon — that is what makes autodocs render
+      // real input/output tables and JSDoc rather than bare arg names. It is a
+      // build artifact (gitignored), not something to commit.
+      //
+      // The `npm run docs:json` script owns generating it, and every entrypoint
+      // that needs it (`storybook`, `build-storybook`, `test:a11y`) runs that
+      // script first. So the framework's own auto-compodoc is turned OFF here:
+      // the standalone Vitest run drives compodoc through
+      // `@storybook/angular-vite`'s plugin, which resolves paths against the repo
+      // root but spawns compodoc in `projects/ui` — a mismatch that only bites a
+      // non-root Angular project, so its auto-run failed there and dropped the
+      // very `documentation.json` the stories import. One explicit generator (a
+      // fixed tsconfig, one cwd) sidesteps that and stops the noisy, redundant
+      // second run the plugin would otherwise attempt on top of `docs:json`.
+      compodoc: false,
     },
   },
 
