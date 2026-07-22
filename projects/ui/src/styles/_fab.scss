@@ -21,12 +21,9 @@
 // `accent`/`warn` re-point it.
 
 @use '@angular/material' as mat;
-
 // The ripple is the palette colour at the theme's own pressed opacity — the same
-// construction Material uses internally, and the same as `_button.scss`.
-@function _state-layer($color, $opacity) {
-  @return color-mix(in srgb, #{$color} calc(var(#{$opacity}) * 100%), transparent);
-}
+// construction `_button.scss` uses, shared from `_state-layer.scss`.
+@use 'state-layer' as *;
 
 /// Re-points a FAB's colour tokens at one M3 palette's container pair.
 /// @param {String} $container The palette's container role, e.g. `tertiary-container`.
@@ -42,12 +39,12 @@
       container-color: var($container),
       foreground-color: var($on-container),
       state-layer-color: var($on-container),
-      ripple-color: _state-layer(var($on-container), $pressed),
+      ripple-color: state-layer(var($on-container), $pressed),
       // Mini FAB — the same pair, so `matMiniFab uiFab` matches.
       small-container-color: var($container),
       small-foreground-color: var($on-container),
       small-state-layer-color: var($on-container),
-      small-ripple-color: _state-layer(var($on-container), $pressed)
+      small-ripple-color: state-layer(var($on-container), $pressed)
     )
   );
 }

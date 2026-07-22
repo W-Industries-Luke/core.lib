@@ -15,12 +15,9 @@
 // default `uiIconButton` ships zero extra CSS, and only `accent`/`warn` tint it.
 
 @use '@angular/material' as mat;
-
 // The ripple is the palette colour at the theme's own pressed opacity — the same
-// construction Material uses internally, and the same as `_button.scss`.
-@function _state-layer($color, $opacity) {
-  @return color-mix(in srgb, #{$color} calc(var(#{$opacity}) * 100%), transparent);
-}
+// construction `_button.scss` uses, shared from `_state-layer.scss`.
+@use 'state-layer' as *;
 
 /// Re-points an icon button's colour tokens at one M3 palette role.
 /// @param {String} $main The palette's base role, e.g. `tertiary`.
@@ -32,7 +29,7 @@
     (
       icon-color: var($main),
       state-layer-color: var($main),
-      ripple-color: _state-layer(var($main), $pressed),
+      ripple-color: state-layer(var($main), $pressed),
     )
   );
 }
