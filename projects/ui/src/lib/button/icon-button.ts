@@ -36,7 +36,7 @@ function missingMatIconButton(): never {
  *
  * ```html
  * <button matIconButton uiIconButton color="warn" aria-label="Delete">
- *   <mat-icon>delete</mat-icon>
+ *   <ui-icon name="delete" />
  * </button>
  * ```
  *
