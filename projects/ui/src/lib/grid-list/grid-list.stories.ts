@@ -247,14 +247,21 @@ export const TileHeaderFooter: Story = {
     template: `
       <ui-grid-list [tiles]="tiles" cols="3" rowHeight="4:3" gutterSize="12px" style="max-width: 40rem;">
         <ng-template uiGridListTile let-cell>
-          <!-- The bold palette role, not its light container: Material's footer is a
-               white-on-dark-scrim caption meant to sit over a photo, so the tile behind
-               it has to be dark enough for that white text to clear contrast. -->
+          <!-- The bold palette role fills the tile, standing in for the photo a real
+               grid uses. -->
           <span
             style="position: absolute; inset: 0;"
             [style.background]="'var(--mat-sys-' + cell.role + ')'"
           ></span>
-          <mat-grid-tile-footer>
+          <!-- Material's footer is a white caption, so it needs a dark scrim to clear
+               contrast: the bold role is dark enough in the light theme but lifts to a
+               mid tone in the dark one (white on it grades ~4.25, under 4.5). A scrim
+               mixed from the scrim role (not the tile colour) makes the caption legible
+               over any tile in either scheme — the same color-mix scrim the sidenav
+               story uses — rather than depending on the tile happening to be dark. -->
+          <mat-grid-tile-footer
+            style="background: color-mix(in srgb, var(--mat-sys-scrim) 60%, transparent);"
+          >
             <h3 matLine>{{ cell.label }}</h3>
             <span matLine>Aotearoa</span>
           </mat-grid-tile-footer>

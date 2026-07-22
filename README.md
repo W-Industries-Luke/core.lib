@@ -214,18 +214,27 @@ hoisted `node_modules` has to be allowlisted.
 
 ### The CI step
 
-**Not yet wired into `ci.yml`.** The agent that added this check is not permitted
-to edit `.github/workflows`, so a human needs to append this to the `build-test`
-job — until it lands the check is local-only and a11y regressions can still reach
-`main`:
+**Wired into `ci.yml` as the `a11y` job** (#163). It is its own job — like the
+smoke-stories gate — so an a11y failure reads as a distinct check, and because it
+needs a headless Chromium the `build-test` job does not. Every PR now renders
+every story through axe in both schemes before it can merge:
 
 ```yaml
-- name: Install Chromium for a11y checks
-  run: npx playwright install --with-deps chromium
-- name: Accessibility checks
-  run: npm run test:a11y
-- name: Accessibility checks (dark)
-  run: npm run test:a11y:dark
+a11y:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-node@v7
+      with:
+        node-version: "22"
+        cache: "npm"
+    - run: npm ci
+    - name: Install Playwright Chromium
+      run: npx playwright install --with-deps chromium
+    - name: Accessibility checks
+      run: npm run test:a11y
+    - name: Accessibility checks (dark)
+      run: npm run test:a11y:dark
 ```
 
 What `ci.yml` does cover is the source-level half of this: `theme-contract.spec.ts`
@@ -366,8 +375,8 @@ Every component should:
    variant may as well not exist. See `src/lib/ui.stories.ts` for the pattern.
 5. Be standalone (Angular 21 default), with `ui` as the selector prefix.
 6. Keep `npx ng build ui`, `npx ng test ui --watch=false` and `npm run test:a11y`
-   green — CI enforces the first two today, and the third once the a11y step
-   above is added to `ci.yml`.
+   green — CI enforces all three (build-test, and the `a11y` job for the a11y
+   runs, light and dark).
 
 ## Automation
 

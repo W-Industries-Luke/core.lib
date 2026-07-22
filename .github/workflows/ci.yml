@@ -43,3 +43,25 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Built-Storybook smoke gate
         run: npm run test:stories
+
+  # The a11y gate: render every story in headless Chromium and run axe
+  # (@storybook/addon-a11y) against it, in both the published light scheme and a
+  # forced dark one, failing on any violation. Its own job — like smoke-stories —
+  # so an a11y failure reads as a distinct check, and because it needs a Chromium
+  # `build-test` does not. This is the CI half of the README's a11y section; it
+  # lands now that `test:a11y` is green on `main` (#163).
+  a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Accessibility checks
+        run: npm run test:a11y
+      - name: Accessibility checks (dark)
+        run: npm run test:a11y:dark
