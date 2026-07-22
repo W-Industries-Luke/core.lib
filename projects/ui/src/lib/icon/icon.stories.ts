@@ -6,12 +6,29 @@ const SIZES: UiIconSizeName[] = ['sm', 'md', 'lg'];
 const COLORS: UiIconColor[] = ['inherit', 'primary', 'error'];
 
 /**
- * A representative spread of Material Symbols names: a navigation glyph, a
- * commerce one, a destructive one, a state one and a status one. They are here
- * to show that `name` is the whole set at <https://fonts.google.com/icons>
- * rather than a list this library curates.
+ * A representative spread of Material Symbols names — navigation, commerce,
+ * communication, media, files, status and destructive glyphs — here only to show
+ * that `name` is the whole set at <https://fonts.google.com/icons> rather than a
+ * list this library curates. Pick any name from that catalogue; these are a taste.
  */
-const NAMES = ['home', 'shopping_cart', 'delete', 'favorite', 'check_circle', 'settings'];
+const NAMES = [
+  'home',
+  'search',
+  'settings',
+  'shopping_cart',
+  'favorite',
+  'notifications',
+  'mail',
+  'calendar_today',
+  'account_circle',
+  'cloud_upload',
+  'download',
+  'edit',
+  'content_copy',
+  'delete',
+  'check_circle',
+  'warning',
+];
 
 /** The px each named step resolves to — for the captions below. */
 const SIZE_PX: Record<UiIconSizeName, number> = { sm: 18, md: 24, lg: 36 };

@@ -330,6 +330,68 @@ export const ErrorAppearances: Story = {
   }),
 };
 
+/**
+ * `error` is a plain string this library shows for as long as it is set — it is
+ * not tied to any client-side validation, so a message that has nothing to do
+ * with the field’s value is just as valid. Here it is a server’s answer, held
+ * statically on `[error]`: the field is a well-formed address, and still in the
+ * error state, because the *server* rejected it.
+ *
+ * This is the shape to reach for when the error comes from somewhere the browser
+ * cannot know — a taken username, a declined card, a rule enforced on the API.
+ */
+export const StaticError: Story = {
+  name: 'Error: static [error]',
+  parameters: { controls: { disable: true } },
+  render: () => ({
+    template: frame(`
+      <ui-input
+        label="Email"
+        type="email"
+        value="ada@example.com"
+        error="This email is already registered."
+        hint="We only use this to sign you in."
+      />`),
+  }),
+};
+
+/**
+ * The usual timing for a template-driven form: `error` is bound to the control’s
+ * own `touched` state, so the message waits until the user has left the field
+ * rather than shouting at an empty one on first paint. `#model="ngModel"` reaches
+ * the control, and `ui-input` being a `ControlValueAccessor` is what lets
+ * `[(ngModel)]` and `required` bind the host directly (rule 5).
+ *
+ * Focus the field and blur it while empty, then type `ada@` and blur again.
+ */
+export const ErrorOnTouched: Story = {
+  name: 'Error: shown once touched',
+  parameters: { controls: { disable: true } },
+  render: () => ({
+    props: { email: '' },
+    template: frame(`
+      <ui-input
+        #model="ngModel"
+        label="Email"
+        type="email"
+        required
+        [(ngModel)]="email"
+        hint="We only use this to sign you in."
+        [error]="
+          model.touched && model.hasError('required')
+            ? 'Enter your email address.'
+            : model.touched && email && !email.includes('@')
+              ? 'Enter an email address like name@example.com.'
+              : ''
+        "
+      />
+
+      <p style="font: var(--mat-sys-body-small); margin: 0;">
+        touched: <strong>{{ model.touched }}</strong>
+      </p>`),
+  }),
+};
+
 // --- State -----------------------------------------------------------------
 
 /** A disabled field: not editable, not focusable, not submitted. */
